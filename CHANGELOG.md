@@ -32,6 +32,9 @@ versions follow [SemVer](https://semver.org/). The current version is in `Cairn/
 - A folder browser on the destination (breadcrumb, subfolders, **New folder**), inside the SMB share once connected,
   or from the mounted volumes and the home for a local folder. Existing Cairn backups in the folder are flagged, with
   **Restore this backup** in the wizard.
+- Destination page: **Edit** (connection, password stored in the Keychain, verified again before saving) and
+  **Delete destination** in the **…** menu, keeping the backups on the destination (default) or deleting them after a
+  simulation that lists what will be erased.
 
 ### Changed
 - The home page is a hub: a global status with its causes, a read-only **Check everything** button (tracked folders,
@@ -41,6 +44,10 @@ versions follow [SemVer](https://semver.org/). The current version is in `Cairn/
   outdated "Last backup" card are gone.
 - Codex-style window: translucent frame, Cairn logo centered in the top bar, Codex colors, and
   [Lucide](https://lucide.dev) icons (ISC license, bundled with the app).
+- "Versions" becomes "Backup history" and loads by itself when the page opens, if the destination is reachable.
+- Buttons on a destination page are disabled when their action cannot succeed, with the reason in a tooltip;
+  **Verify** and **Verify everything** move into the Integrity card.
+- Cards in the same row have the same height; button groups in the Codex style (gray pill, no container).
 - Releases are automatic, with semantic-release: after a successful build on `main`, the version is computed from the
   Conventional Commits since the last tag (breaking change → major, `feat` → minor, `fix`/`perf` → patch), then CI
   commits the bump, tags it and publishes the GitHub release with the app archive. No more manual bump or tag.
