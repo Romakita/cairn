@@ -5,10 +5,6 @@ versions follow [SemVer](https://semver.org/). The current version is in `Cairn/
 
 ## [Unreleased]
 
-### Fixed
-- A backup no longer fails with "Could not copy the state_5.sqlite database": SQLite databases that an AI tool closed
-  in WAL mode without keeping their `-shm` file (Codex) are now copied read-only without a lock, then checked. A
-  database that still cannot be copied only produces a warning instead of stopping the whole backup.
 ### Added
 - Destination page: **Edit** (connection, password stored in the Keychain, verified again before saving) and
   **Delete destination** in the **…** menu, keeping the backups on the destination (default) or deleting them after a
@@ -19,6 +15,11 @@ versions follow [SemVer](https://semver.org/). The current version is in `Cairn/
 - Buttons on a destination page are disabled when their action cannot succeed, with the reason in a tooltip;
   **Check** and **Check all** move into the Integrity card.
 - Cards in the same row have the same height; button groups in the Codex style (gray pill, no container).
+
+### Fixed
+- A backup no longer fails with "Could not copy the state_5.sqlite database": SQLite databases that an AI tool closed
+  in WAL mode without keeping their `-shm` file (Codex) are now copied read-only without a lock, then checked. A
+  database that still cannot be copied only produces a warning instead of stopping the whole backup.
 
 ## [0.3.0] - 2026-11-08
 
