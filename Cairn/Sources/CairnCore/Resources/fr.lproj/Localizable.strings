@@ -477,7 +477,7 @@
 "ai.credentials.confirm" = "Inclure les identifiants dans une sauvegarde non chiffrée ?";
 "ai.credentials.include" = "Inclure quand même";
 "ai.excluded" = "Jamais copiés : %@…";
-"cli.restore.help" = "Usage : cairn restore [--from DOSSIER | --destination ID] [--version V] [--parts tools,home,ai,folders]\n                     [--target NOM=CHEMIN] [--replace-databases] [--apply] [--yes] [--check]\n\nRestaure une version Cairn ou une sauvegarde faite par scripts/backup.sh. SIMULATION par défaut : rien n'est écrit sans --apply.\nLes fichiers remplacés sont gardés avec le suffixe .pre-restore. --check vérifie seulement les outils de l'inventaire.";
+"cli.restore.help" = "Usage : cairn restore [--from DOSSIER | --destination ID] [--version V] [--parts tools,home,ai,folders]\n                     [--target NOM=CHEMIN] [--tool ID] [--replace-databases] [--apply] [--yes] [--check]\n\nRestaure une version Cairn ou une sauvegarde faite par scripts/backup.sh. SIMULATION par défaut : rien n'est écrit sans --apply.\nLes fichiers remplacés sont gardés avec le suffixe .pre-restore. --check vérifie seulement les outils de l'inventaire.";
 "cli.restore.no_version" = "Aucune version trouvée sur cette destination.";
 "cli.restore.unknown_format" = "Ni une version Cairn ni une sauvegarde backup.sh : %@";
 "cli.restore.source" = "Sauvegarde %1$@ du %2$@ — %3$@ (%4$@)";
@@ -593,3 +593,5 @@
 "onboarding.destination.disable_encryption.confirm" = "Désactiver le chiffrement";
 
 "cli.version" = "cairn %@";
+"ai.restore.rename_failed" = "Claude Code : le dossier de projet « %1$@ » est resté en place, il n'a pas pu être renommé (%2$@).";
+"cli.restore.unknown_tool" = "Pas d'outil IA « %1$@ » dans cette sauvegarde (disponibles : %2$@).";

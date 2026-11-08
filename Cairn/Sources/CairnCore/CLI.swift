@@ -431,6 +431,7 @@ public enum CLI {
         var from: String?, destID: String?, version: String?
         var parts: Set<String>?
         var targets: [String: String] = [:]
+        var tools: [String] = []
         var apply = false, yes = false, check = false, replaceDB = false, json = false
         var i = 0
         func value() -> String? { i += 1; return i < args.count ? args[i] : nil }
@@ -444,6 +445,7 @@ public enum CLI {
             case "--target":
                 guard let v = value(), let eq = v.firstIndex(of: "=") else { return .usage }
                 targets[String(v[..<eq])] = (String(v[v.index(after: eq)...]) as NSString).expandingTildeInPath
+            case "--tool": guard let v = value() else { return .usage }; tools.append(v)
             case "--replace-databases": replaceDB = true
             case "--apply": apply = true
             case "--yes", "-y": yes = true
@@ -521,7 +523,11 @@ public enum CLI {
         let want = { (p: String) in parts?.contains(p) ?? true }
         plan.tools = want("tools")
         plan.home = want("home") && source.home != nil
-        plan.ai = want("ai") ? source.aiTools : []
+        // --tool ID (répétable) : seulement ces outils IA ; un outil absent de la sauvegarde est une erreur d'usage.
+        if let missing = tools.first(where: { !source.aiTools.contains($0) }) {
+            err(L10n.tr("cli.restore.unknown_tool", missing, source.aiTools.joined(separator: ", "))); return .usage
+        }
+        plan.ai = want("ai") ? (tools.isEmpty ? source.aiTools : source.aiTools.filter(tools.contains)) : []
         plan.replaceDatabases = replaceDB
         if want("folders") {
             for f in source.folders { plan.folders[f.name] = targets[f.name] ?? f.originalPath }

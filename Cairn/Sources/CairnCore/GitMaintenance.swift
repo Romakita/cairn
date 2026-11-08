@@ -184,6 +184,17 @@ public enum GitMaintenance {
         return nil
     }
 
+    /// Nom court de la branche principale : `refs/remotes/origin/main` et `refs/heads/main` donnent tous deux `main`.
+    /// La branche locale de ce nom est protégée, même extraite dans un worktree lié.
+    public static func isMainBranch(_ name: String, main: String?) -> Bool {
+        guard let main else { return false }
+        let short: String
+        if main.hasPrefix("refs/heads/") { short = String(main.dropFirst("refs/heads/".count)) }
+        else if main.hasPrefix("refs/remotes/") { short = main.split(separator: "/").dropFirst(3).joined(separator: "/") }
+        else { short = main }
+        return name == short
+    }
+
     /// Fusionnée (ancêtre), squashée (même patch-id qu'un commit de la branche principale) ou non fusionnée.
     public static func mergeStatus(_ git: Git, ref: String, main: String?) -> GoneBranch.Status {
         guard let main else { return .unmerged }
@@ -253,7 +264,7 @@ public enum GitMaintenance {
             var last: Date?
             // Une branche fusionnée ou squashée dans la principale n'a pas de travail « non poussé » à perdre.
             let branchStatus: GoneBranch.Status? = {
-                guard let b = w.branch, "refs/heads/\(b)" != main else { return nil }
+                guard let b = w.branch, !isMainBranch(b, main: main) else { return nil }
                 return mergeStatus(git, ref: "refs/heads/\(b)", main: main)
             }()
             let integrated = branchStatus.map { $0 != .unmerged } ?? false
@@ -304,7 +315,7 @@ public enum GitMaintenance {
             let f = l.split(separator: "\u{1f}", omittingEmptySubsequences: false).map(String.init)
             guard f.count >= 5, f[1].contains("gone") else { continue }
             let name = f[0]
-            if name == current || "refs/heads/\(name)" == main { continue } // jamais la branche courante ni la principale
+            if name == current || isMainBranch(name, main: main) { continue } // jamais la branche courante ni la principale
             branches.append(GoneBranch(repo: repo, name: name, status: mergeStatus(git, ref: "refs/heads/\(name)", main: main),
                                        sha: f[2], date: f[3], subject: f[4...].joined(separator: " "),
                                        checkedOutInWorktree: checkedOut[name]))
@@ -314,6 +325,7 @@ public enum GitMaintenance {
         let known = Set(branches.map(\.name))
         for w in wts {
             guard let name = w.branch, let st = w.branchStatus, st != .unmerged, !known.contains(name), name != current,
+                  !isMainBranch(name, main: main),
                   let l = git.line(["for-each-ref", "refs/heads/\(name)", "--format=\(fmt)"]) else { continue }
             let f = l.split(separator: "\u{1f}", omittingEmptySubsequences: false).map(String.init)
             guard f.count >= 5 else { continue }

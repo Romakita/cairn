@@ -306,4 +306,69 @@ let restoreWarningTests: [TestCase] = [
             try expect(!fm.fileExists(atPath: newHome.appendingPathComponent(".codex/profile.json").path), "meta non fusionné")
         }
     },
+    TestCase("missing_databases_are_restored_existing_ones_only_on_request") {
+        try withTempDir { dir in
+            // Version Cairn de Codex avec deux bases : une absente du Mac, une déjà présente (avec son WAL).
+            let tool = dir.appendingPathComponent("ai/codex")
+            try put("snap-a", tool.appendingPathComponent("meta/sqlite/conversations/state_5.sqlite"))
+            try put("snap-b", tool.appendingPathComponent("meta/sqlite/conversations/thread_history_1.sqlite"))
+            let home = dir.appendingPathComponent("home")
+            let codex = home.appendingPathComponent(".codex")
+            try put("local-b", codex.appendingPathComponent("thread_history_1.sqlite"))
+            try put("wal-b", codex.appendingPathComponent("thread_history_1.sqlite-wal"))
+            let p = AIProfiles.bundled.first { $0.id == "codex" }!
+            let r1 = try AIRestore.restore(toolDir: tool, profile: p, home: home.path, replaceDatabases: false)
+            try expectEqual(r1.databases, 1)
+            try expectEqual(try String(contentsOf: codex.appendingPathComponent("state_5.sqlite"), encoding: .utf8), "snap-a",
+                            "base absente : restaurée sans confirmation")
+            try expectEqual(try String(contentsOf: codex.appendingPathComponent("thread_history_1.sqlite"), encoding: .utf8), "local-b",
+                            "base présente : gardée sans confirmation")
+            let r2 = try AIRestore.restore(toolDir: tool, profile: p, home: home.path, replaceDatabases: true)
+            try expectEqual(r2.databases, 2)
+            try expectEqual(try String(contentsOf: codex.appendingPathComponent("thread_history_1.sqlite"), encoding: .utf8), "snap-b")
+            try expectEqual(try String(contentsOf: codex.appendingPathComponent("thread_history_1.sqlite.pre-restore"), encoding: .utf8), "local-b")
+            try expectEqual(try String(contentsOf: codex.appendingPathComponent("thread_history_1.sqlite.pre-restore-wal"), encoding: .utf8), "wal-b",
+                            "le WAL de l'ancienne base est gardé avec elle")
+        }
+    },
+    TestCase("project_folder_kept_when_merge_fails") {
+        try withTempDir { dir in
+            let projects = dir.appendingPathComponent("projects")
+            // Ancien dossier : « x » est un dossier ; dans le dossier cible existant, « x » est un fichier → la fusion échoue.
+            try put("conv", projects.appendingPathComponent("-Users-old-ws/x/conv.jsonl"))
+            try put("file", projects.appendingPathComponent("-Users-new-ws/x"))
+            var report = AIRestore.Report()
+            AIRestore.rewriteClaudeProjects(projects: projects, prefixes: [("/Users/old", "/Users/new")], report: &report)
+            try expect(FileManager.default.fileExists(atPath: projects.appendingPathComponent("-Users-old-ws/x/conv.jsonl").path),
+                       "rien n'est supprimé si la fusion échoue")
+            try expectEqual(report.notRewritten.count, 1)
+            try expect(report.renamedProjects.isEmpty)
+        }
+    },
+    TestCase("longest_prefix_wins_for_project_folders") {
+        try withTempDir { dir in
+            let projects = dir.appendingPathComponent("projects")
+            try put("c", projects.appendingPathComponent("-Users-old-ws-app/c.jsonl"))
+            try put("c", projects.appendingPathComponent("-Users-old-notes/c.jsonl"))
+            var report = AIRestore.Report()
+            AIRestore.rewriteClaudeProjects(projects: projects, prefixes: [("/Users/old", "/Users/new"), ("/Users/old/ws", "/Volumes/ws")],
+                                            report: &report)
+            try expectEqual(report.renamedProjects.sorted(), ["-Users-new-notes", "-Volumes-ws-app"])
+        }
+    },
+    TestCase("cli_restore_tool_option") {
+        try withTempDir { dir in
+            let bk = try legacyBackup(dir)
+            var out = ""
+            let ok = CLI.run(["cairn", "restore", "--from", bk.path, "--parts", "ai", "--tool", "codex", "--json"],
+                             out: { out += $0 }, err: { _ in })
+            try expectEqual(ok, .ok, out)
+            let json = try JSONSerialization.jsonObject(with: Data(out.utf8)) as? [String: Any]
+            let steps = json?["steps"] as? [[String: Any]] ?? []
+            try expectEqual(steps.first { $0["step"] as? String == "ai" }?["detail"] as? String, "codex", "\(steps)")
+            var err = ""
+            try expectEqual(CLI.run(["cairn", "restore", "--from", bk.path, "--tool", "aider"], out: { _ in }, err: { err += $0 }), .usage)
+            try expect(err.contains("aider"), err)
+        }
+    },
 ]

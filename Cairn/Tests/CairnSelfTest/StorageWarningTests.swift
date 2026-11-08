@@ -179,4 +179,30 @@ let storageWarningTests: [TestCase] = [
         try expect(Health.analysisIsStale(now.addingTimeInterval(-8 * 86_400), now: now))
         try expect(!Health.analysisIsStale(now.addingTimeInterval(-6 * 86_400), now: now))
     },
+    TestCase("main_branch_in_linked_worktree_is_never_proposed") {
+        try expect(GitMaintenance.isMainBranch("main", main: "refs/remotes/origin/main"))
+        try expect(GitMaintenance.isMainBranch("release/x", main: "refs/remotes/upstream/release/x"))
+        try expect(GitMaintenance.isMainBranch("master", main: "refs/heads/master"))
+        try expect(!GitMaintenance.isMainBranch("main-old", main: "refs/remotes/origin/main"))
+        try withTempDir { dir in
+            let origin = dir.appendingPathComponent("origin.git"), repo = dir.appendingPathComponent("repo")
+            try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+            try run(dir, "init", "-q", "--bare", origin.path)
+            try run(repo, "init", "-q")
+            try commit(repo, "a.txt", "base")
+            try run(repo, "remote", "add", "origin", origin.path)
+            try run(repo, "push", "-q", "-u", "origin", "main")
+            try run(repo, "remote", "set-head", "origin", "main")
+            // Le dépôt principal passe sur une autre branche ; main est extraite dans un worktree lié.
+            try run(repo, "checkout", "-q", "-b", "dev")
+            let wt = dir.appendingPathComponent("repo-main")
+            try run(repo, "worktree", "add", "-q", wt.path, "main")
+            let r = GitMaintenance.analyze(repo: repo.path, options: GitOptions())
+            try expectEqual(r.mainRef, "refs/remotes/origin/main")
+            try expect(!r.branches.contains { $0.name == "main" }, "main jamais proposée : \(r.branches.map(\.name))")
+            let w = r.worktrees.first { $0.branch == "main" }
+            try expect(w != nil && w?.branchStatus == nil, "pas de statut de fusion pour la principale")
+            try expect(GitMaintenance.branchesFollowing(worktrees: Set(r.worktrees.map(\.path)), in: r.branches).isEmpty)
+        }
+    },
 ]

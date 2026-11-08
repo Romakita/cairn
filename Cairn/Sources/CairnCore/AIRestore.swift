@@ -43,16 +43,29 @@ public enum AIRestore {
         }
     }
 
-    /// Remplace une base locale par son snapshot (l'ancienne en `.pre-restore`, -wal et -shm retirés).
+    /// Restaure une base : copiée si elle manque, remplacée seulement si `replace`. Renvoie vrai si écrite.
+    static func restoreDatabase(_ snapshot: URL, at dest: URL, replace: Bool) throws -> Bool {
+        guard replace || !FileManager.default.fileExists(atPath: dest.path) else { return false }
+        try replaceDatabase(snapshot, at: dest)
+        return true
+    }
+
+    /// Remplace une base locale par son snapshot (l'ancienne en `.pre-restore`, avec ses -wal et -shm).
     static func replaceDatabase(_ snapshot: URL, at dest: URL) throws {
         let fm = FileManager.default
         try fm.createDirectory(at: dest.deletingLastPathComponent(), withIntermediateDirectories: true)
-        if fm.fileExists(atPath: dest.path) {
+        let existed = fm.fileExists(atPath: dest.path)
+        if existed {
             let pre = URL(fileURLWithPath: dest.path + ".pre-restore")
             try? fm.removeItem(at: pre)
             try fm.moveItem(at: dest, to: pre)
         }
-        for suffix in ["-wal", "-shm"] { try? fm.removeItem(atPath: dest.path + suffix) }
+        // Le journal WAL de l'ancienne base part avec elle (transactions pas encore écrites dans la base).
+        for suffix in ["-wal", "-shm"] where fm.fileExists(atPath: dest.path + suffix) {
+            let pre = dest.path + ".pre-restore" + suffix
+            try? fm.removeItem(atPath: pre)
+            if existed { try? fm.moveItem(atPath: dest.path + suffix, toPath: pre) } else { try? fm.removeItem(atPath: dest.path + suffix) }
+        }
         try fm.copyItem(at: snapshot, to: dest)
     }
 
@@ -64,20 +77,27 @@ public enum AIRestore {
     /// Renomme les dossiers de `~/.claude/projects` selon la table « ancien préfixe → nouveau préfixe ».
     public static func rewriteClaudeProjects(projects: URL, prefixes: [(String, String)], report: inout Report) {
         let fm = FileManager.default
+        // Le préfixe le plus long d'abord : un dossier suivi sous l'ancien home garde sa propre cible.
+        let ordered = prefixes.filter { $0.0 != $0.1 }.sorted { $0.0.count > $1.0.count }
         for name in ((try? fm.contentsOfDirectory(atPath: projects.path)) ?? []).sorted() {
-            for (old, new) in prefixes where old != new {
+            for (old, new) in ordered {
                 let o = claudeProjectName(old), n = claudeProjectName(new)
                 guard name == o || name.hasPrefix(o + "-") else { continue }
                 let renamed = n + name.dropFirst(o.count)
                 let from = projects.appendingPathComponent(name), to = projects.appendingPathComponent(renamed)
-                if fm.fileExists(atPath: to.path) {
-                    var r = Report()
-                    try? merge(from, into: to, report: &r)
-                    try? fm.removeItem(at: from)
-                } else {
-                    try? fm.moveItem(at: from, to: to)
+                do {
+                    if fm.fileExists(atPath: to.path) {
+                        var r = Report()
+                        try merge(from, into: to, report: &r)
+                        // Supprimé seulement après une fusion complète : rien n'est perdu si elle échoue en route.
+                        try fm.removeItem(at: from)
+                    } else {
+                        try fm.moveItem(at: from, to: to)
+                    }
+                    report.renamedProjects.append(renamed)
+                } catch {
+                    report.notRewritten.append(L10n.tr("ai.restore.rename_failed", name, String(describing: error)))
                 }
-                report.renamedProjects.append(renamed)
                 break
             }
         }
@@ -110,7 +130,8 @@ public enum AIRestore {
             let dir = toolDir.appendingPathComponent(cat)
             if FileManager.default.fileExists(atPath: dir.path) { try merge(dir, into: root, report: &report) }
         }
-        if replaceDatabases {
+        do {
+            // Base absente localement : toujours restaurée. Base présente : remplacée seulement sur confirmation.
             let sqlite = toolDir.appendingPathComponent("meta/sqlite")
             for cat in (try? FileManager.default.contentsOfDirectory(atPath: sqlite.path)) ?? [] {
                 let catDir = sqlite.appendingPathComponent(cat)
@@ -119,8 +140,7 @@ public enum AIRestore {
                     var isDir: ObjCBool = false
                     let s = catDir.appendingPathComponent(rel)
                     guard FileManager.default.fileExists(atPath: s.path, isDirectory: &isDir), !isDir.boolValue else { continue }
-                    try replaceDatabase(s, at: root.appendingPathComponent(rel))
-                    report.databases += 1
+                    if try restoreDatabase(s, at: root.appendingPathComponent(rel), replace: replaceDatabases) { report.databases += 1 }
                 }
             }
         }
@@ -155,7 +175,8 @@ public enum AIRestore {
             let src = backup.appendingPathComponent("home/.codex")
             if fm.fileExists(atPath: src.path) { try merge(src, into: homeURL.appendingPathComponent(".codex"), report: &report) }
         }
-        if replaceDatabases {
+        do {
+            // Base absente localement : toujours restaurée. Base présente : remplacée seulement sur confirmation.
             let sqlite = backup.appendingPathComponent("ai/sqlite")
             if let e = fm.enumerator(atPath: sqlite.path) {
                 while let rel = e.nextObject() as? String {
@@ -163,8 +184,7 @@ public enum AIRestore {
                     var isDir: ObjCBool = false
                     let s = sqlite.appendingPathComponent(rel)
                     guard tools.contains(tool), fm.fileExists(atPath: s.path, isDirectory: &isDir), !isDir.boolValue else { continue }
-                    try replaceDatabase(s, at: homeURL.appendingPathComponent(rel))
-                    report.databases += 1
+                    if try restoreDatabase(s, at: homeURL.appendingPathComponent(rel), replace: replaceDatabases) { report.databases += 1 }
                 }
             }
         }

@@ -477,7 +477,7 @@
 "ai.credentials.confirm" = "Include credentials in an unencrypted backup?";
 "ai.credentials.include" = "Include anyway";
 "ai.excluded" = "Never copied: %@…";
-"cli.restore.help" = "Usage: cairn restore [--from DIR | --destination ID] [--version V] [--parts tools,home,ai,folders]\n                     [--target NAME=PATH] [--replace-databases] [--apply] [--yes] [--check]\n\nRestores a Cairn version or a backup made by scripts/backup.sh. SIMULATION by default: nothing is written without --apply.\nReplaced files are kept with the .pre-restore suffix. --check only verifies the tools of the inventory.";
+"cli.restore.help" = "Usage: cairn restore [--from DIR | --destination ID] [--version V] [--parts tools,home,ai,folders]\n                     [--target NAME=PATH] [--tool ID] [--replace-databases] [--apply] [--yes] [--check]\n\nRestores a Cairn version or a backup made by scripts/backup.sh. SIMULATION by default: nothing is written without --apply.\nReplaced files are kept with the .pre-restore suffix. --check only verifies the tools of the inventory.";
 "cli.restore.no_version" = "No version found on this destination.";
 "cli.restore.unknown_format" = "Not a Cairn version nor a backup.sh backup: %@";
 "cli.restore.source" = "Backup %1$@ of %2$@ — %3$@ (%4$@)";
@@ -593,3 +593,5 @@
 "onboarding.destination.disable_encryption.confirm" = "Disable encryption";
 
 "cli.version" = "cairn %@";
+"ai.restore.rename_failed" = "Claude Code: the project folder “%1$@” was left in place, it could not be renamed (%2$@).";
+"cli.restore.unknown_tool" = "No AI tool “%1$@” in this backup (available: %2$@).";

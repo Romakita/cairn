@@ -65,6 +65,18 @@ Avertissements de `/opsx:verify` (environ 45 points, 4 lots en parallèle puis f
   `--link-dest`), snapshot SQLite retenté si l'outil ferme sa base, simulation de restauration sans créer la cible,
   design et spec alignés.
 
+Deuxième `/opsx:verify` (4 points bloquants corrigés, 166 tests) :
+
+- [x] La branche principale locale n'est jamais proposée, même extraite dans un worktree lié (`origin/HEAD`).
+- [x] Une base SQLite absente du Mac est toujours restaurée ; une base présente n'est remplacée que sur confirmation, et
+  garde son WAL dans le `.pre-restore`.
+- [x] Un dossier de projet Claude n'est supprimé qu'après une fusion réussie (sinon il reste et c'est signalé) ; le
+  préfixe le plus long l'emporte.
+- [x] `cairn restore --tool ID` (répétable) choisit les outils IA.
+- Restent des avertissements (textes anglais des étapes de restauration, messages traduits dans certains `--json`,
+  notifications de sauvegarde et d'alerte qui se partagent le délégué, `.pre-restore` écrasé à la 2e restauration,
+  outil IA ouvert qu'on ne peut pas passer, choix de l'image avec plusieurs Mac sur le NAS).
+
 Reste à faire à la main (impossible ici : NAS, veille réelle, compte vierge) :
 
 - [ ] 7.4 : sauvegarde chiffrée sur le NAS Synology ; NAS éteint (sauvegarde en attente, autres destinations
