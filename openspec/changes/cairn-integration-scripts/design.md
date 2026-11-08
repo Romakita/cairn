@@ -108,7 +108,9 @@ excluded = ["cowsay"]
 - **Versions** : une version en cours s'écrit dans `.incomplete-<horodatage>`. Elle est renommée seulement en cas de succès, puis le lien `latest` est mis à jour.
 - **Reprise** : une seule version incomplète existe à la fois. Au lancement suivant, rsync repart dans ce même dossier : les fichiers déjà copiés sont reconnus par leur taille et leur date, sans hash, et un gros fichier à moitié copié reprend avec `--partial-dir=.cairn-partial`. Si la version incomplète date de plus de 7 jours, elle est jetée et la sauvegarde repart de la dernière version terminée.
 - **Rétention par paliers** : après chaque réussite, on calcule les versions à garder. Le mode `tiered` garde toutes les versions de moins de `days` jours, puis la plus récente de chaque semaine ISO sur `weeks` semaines. Le mode `count` garde les `count` versions les plus récentes. Les versions planifiées et manuelles comptent pareil. Les réglages n'exposent que trois choix (Recommandé, Nombre fixe, Personnalisé), et le TOML garde la même structure.
-- **Fichiers inchangés** : `--link-dest=<version précédente>` les transforme en liens physiques, donc ils ne prennent pas de place en plus.
+- **Fichiers inchangés** : `--link-dest` les transforme en liens physiques, donc ils ne prennent pas de place en plus. La base est choisie partie par partie : la version la plus récente qui contient cette partie.
+- **Versions partielles** : une sauvegarde limitée (`--only`, outils IA seuls) écrit `"partial": true` dans son manifest. Elle ne devient pas `latest`, ne compte pas dans la rétention (elle est supprimée dès qu'une version complète plus récente existe) et n'est pas proposée par défaut à la restauration.
+- **Simulation** : elle n'écrit rien sur la destination (ni image, ni dossier, ni `versions/`). Une destination encore vide est simulée contre un dossier temporaire vide.
 - **Exclusions** : générées par le cœur à partir de la même table que l'analyse, reprise de `backup.sh`. Pour `lib/`, `build/` et les autres noms génériques dans un dépôt, on appelle `git check-ignore`, comme le script.
 - *Alternatives écartées* :
   - réécrire la copie en Swift : il faudrait réimplémenter les métadonnées, les liens physiques et la reprise, ce que rsync fait déjà ;
@@ -148,7 +150,7 @@ excluded = ["cowsay"]
     - exclus : `cache/`, `logs_*.sqlite`, `.tmp/`, `tmp/`, `..codex-global-state.json.*`.
 - **Organisation dans la sauvegarde** : `ai/<outil>/<catégorie>/…`, chemins relatifs à la racine de l'outil, avec un `ai/<outil>/profile.json` qui enregistre la version du profil et le home d'origine.
 - **Snapshots** : les bases sont copiées avec l'API `sqlite3_backup_*` de `libsqlite3`, liée au système, et non plus avec le CLI `sqlite3`. Les fichiers `-wal` et `-shm` sont exclus. Les catégories cochées deviennent une liste de fichiers passée à rsync (`--files-from`), après les snapshots.
-- **Restauration par fusion** : rsync avec `--update --backup --suffix=.pre-restore`, conversation par conversation. La version la plus récente gagne et l'autre est conservée. Les bases SQLite restaurées remplacent la base locale seulement si l'utilisateur le confirme, l'ancienne étant conservée en `.pre-restore`.
+- **Restauration par fusion** : fichier par fichier, écrite en Swift (`AIRestore.merge`) avec la même règle que `rsync --update --backup --suffix=.pre-restore`, pour compter ce qui est ajouté, remplacé ou gardé. L'outil doit être quitté avant (Cairn attend sa fermeture, sinon il est passé). La version la plus récente gagne et l'autre est conservée. Les bases SQLite restaurées remplacent la base locale seulement si l'utilisateur le confirme, l'ancienne étant conservée en `.pre-restore`.
 - **Chemins** : Claude Code nomme ses dossiers de projets en remplaçant `/` et `.` par `-`. À la restauration, une table « ancien préfixe → nouveau préfixe » (home d'origine et cibles des dossiers suivis) renomme ces dossiers. Les chemins internes aux bases Codex ne sont pas réécrits, et c'est signalé.
 - *Alternative écartée* : laisser les dossiers des outils IA dans la sélection du home. Pas de catégories, plus de 1,4 Go de paquets copiés pour rien, et pas de fusion à la restauration.
 
@@ -160,7 +162,7 @@ excluded = ["cowsay"]
 
 ### 8. Maintenance git : portage direct du script, avec les worktrees
 - Mêmes commandes git : `for-each-ref` avec `upstream:track`, `merge-base --is-ancestor`, `patch-id --stable` pour les squash merges, `rev-list --disk-usage` pour l'estimation, `gc` et `reflog expire`.
-- Au plus 4 dépôts traités en parallèle.
+- Au plus 4 dépôts traités en parallèle, chacun dans un processus auxiliaire (`Cairn git-worker`) surveillé par `GitWorkerPool` : plafond de mémoire et de durée par worker (`proc_pid_rusage`), worker tué et dépôt signalé en échec au-delà. Les données passent de git à git par tuyau (`Git.pipe`), jamais chargées entières en mémoire.
 - Variables d'environnement `GIT_TERMINAL_PROMPT=0` et ssh `BatchMode`, pour qu'aucun `fetch` ne bloque.
 - **Worktrees** :
   - inventaire par `git worktree list --porcelain`, qui donne le chemin, le HEAD, la branche et l'état `prunable` ;
@@ -171,7 +173,8 @@ excluded = ["cowsay"]
 - **Dans l'analyse** : un dossier qui contient un fichier `.git` (et non un dossier) pointant vers `<dépôt>/.git/worktrees/<nom>` est marqué comme worktree et rattaché à son dépôt dans la liste des projets.
 
 ### 9. Restauration : rsync `--backup`, étapes administrateur dans Terminal
-- La copie utilise `rsync -a --backup --suffix=.pre-restore`.
+- La copie utilise `rsync -a --backup --suffix=.pre-restore`. Pour une sauvegarde héritée, les dossiers des outils IA sont exclus de la copie du home : ils passent par la fusion.
+- **Mac neuf** : le Trousseau est vide. Les mots de passe du NAS et de l'image sont demandés (app et `cairn restore`) et ne servent qu'à la session ; l'image d'une autre machine est reprise, et l'app permet de se connecter à un NAS sans configuration.
 - Une sauvegarde héritée est reconnue à la présence de `manifest/system.txt` et de `home/`, puis adaptée au même modèle interne que le format Cairn.
 - L'installation des Command Line Tools ou de Homebrew s'ouvre dans Terminal (`osascript` avec `do script`). Cairn attend ensuite la présence de `brew` ou de `xcode-select -p`, en vérifiant toutes les 5 secondes, sans jamais manipuler de mot de passe administrateur.
 - L'app tourne sans les CLT, puisque le runtime Swift fait partie de macOS : elle peut donc être le premier outil lancé sur un Mac neuf.
@@ -235,7 +238,7 @@ On lance `cairn backup --dry-run` et `backup.sh --dry-run` sur les mêmes source
 - **Espace récupérable** : il vient du résumé de la dernière analyse, enregistré dans `state/analysis-summary.json`, et de la taille de `.Trashes`.
 
 ### 17. Journaux
-Les journaux sont dans `~/.cairn/logs/<type>-<horodatage>.log`. Un nettoyage au démarrage, puis une fois par jour, supprime ceux qui dépassent `logs.retention_days`, sauf ceux cités dans le manifest d'une version encore gardée.
+Les journaux sont dans `~/.cairn/logs/<type>-<horodatage>.log`. Un nettoyage au démarrage, puis une fois par jour, supprime ceux qui dépassent `logs.retention_days`, sauf ceux cités dans le manifest d'une version encore gardée. Chaque manifest nomme son journal (`log`), et `runs.json` garde par destination la liste des journaux des versions présentes (`keptLogs`), lue par la purge même quand la destination est injoignable.
 
 ## Risks / Trade-offs
 
