@@ -91,7 +91,7 @@
 "col.location" = "Location";
 "col.in" = "In";
 "cli.help" = "Cairn — storage analysis, backups and git maintenance for your Mac.\n\nUsage: cairn <command> [options]\n\nCommands:\n  analyze [folder…]   Analyze disk usage of folders\n  config <cmd>        Show or validate the configuration (path, show, validate)\n  help                Show this help\n\nOptions:\n  --config <file>       Use another configuration file\n  --lang <en-US|fr-FR>  Language for this run\n  -h, --help            Show help";
-"cli.analyze.help" = "Usage: cairn analyze [folder…] [--json]\n\nAnalyzes disk usage of the given folders (default: /Volumes/workspaces).\n\nOptions:\n  --json   Machine-readable output";
+"cli.analyze.help" = "Usage: cairn analyze [folder…] [--json]\n\nAnalyzes disk usage of the given folders (default: the tracked folders of config.toml).\n\nOptions:\n  --json   Machine-readable output";
 "cli.unknown_command" = "Unknown command: %@";
 "cli.unknown_option" = "Unknown option: %@";
 "cli.invalid_lang" = "Invalid language: %@ (expected en-US or fr-FR)";
@@ -288,3 +288,16 @@
 "onboarding.need_folder" = "Select at least one folder.";
 "onboarding.need_path" = "Choose a destination folder.";
 "onboarding.keychain_error" = "Could not store the password in the Keychain: %@";
+"cli.report.big_objects" = "Big objects:";
+"cli.report.kind_file" = "file  ";
+"cli.report.kind_folder" = "folder";
+"cli.report.total" = "Total: %@";
+"tab.big_objects" = "Big objects";
+"col.kind" = "Kind";
+"kind.file" = "File";
+"kind.folder" = "Folder";
+"col.worktrees" = "Worktrees";
+"projects.count" = "%lld projects";
+"projects.worktrees" = "%1$lld worktree(s) · %2$@";
+"big_objects.summary" = "%1$lld files over %2$@ and %3$lld folders over %4$@";
+"sidebar.total" = "Total";

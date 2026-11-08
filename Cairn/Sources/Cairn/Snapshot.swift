@@ -19,7 +19,10 @@ enum Snapshot {
                 L10n.current = lang // après le chargement de config.toml, qui fixe sa propre langue
                 model.showOnboarding = false
                 model.rootPath = sample
-                model.result = scan
+                model.analyses = [sample: FolderAnalysis(
+                    result: scan, bigObjects: BigObjects.find(in: scan.root, bigFiles: scan.bigFiles, folderThreshold: 1_000_000_000),
+                    projects: Projects.find(in: scan.root))]
+                model.applyCurrentFolder()
                 model.volume = volume
                 let suffix = "\(lang.lproj)-\(dark ? "dark" : "light")"
                 let size = CGSize(width: 1280, height: 800)
@@ -27,6 +30,12 @@ enum Snapshot {
                     model.section = section
                     render(RootView().environmentObject(model), size: size, dark: dark, to: "\(outDir)/\(name)-\(suffix).png")
                 }
+                model.section = .analysis
+                for tab in [AnalysisTab.projects, .bigFiles, .cleanable] {
+                    model.analysisTab = tab
+                    render(RootView().environmentObject(model), size: size, dark: dark, to: "\(outDir)/analysis-\(tab.rawValue)-\(suffix).png")
+                }
+                model.analysisTab = .explorer
                 for step in [0, 2, 4] {
                     render(OnboardingView(step: step).environmentObject(model).frame(width: size.width, height: size.height)
                             .background(Palette.content),

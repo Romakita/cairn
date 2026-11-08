@@ -7,6 +7,11 @@ final class AppModel: ObservableObject {
     @AppStorage("rootPath") var rootPath: String = "/Volumes/workspaces"
 
     @Published var result: ScanResult?
+    /// Analyse de chaque dossier suivi (clé : chemin).
+    @Published var analyses: [String: FolderAnalysis] = [:]
+    @Published var unavailableFolders: [String] = []
+    @Published var bigObjects: [BigObject] = []
+    @Published var projects: [Project] = []
     @Published var volume: VolumeInfo?
     @Published var isScanning = false
     @Published var scannedFiles = 0
@@ -102,16 +107,23 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// Analyse tous les dossiers suivis disponibles (les liens physiques communs ne sont comptés qu'une fois).
     func scan() {
         cancel()
-        let root = rootPath
-        let ctx = ScanContext()
+        var folders = trackedFolders.filter(\.isAvailable).map(\.expandedPath)
+        if folders.isEmpty && FileManager.default.fileExists(atPath: rootPath) { folders = [rootPath] }
+        unavailableFolders = trackedFolders.filter { !$0.isAvailable }.map(\.expandedPath)
+        guard !folders.isEmpty else { return }
+        if !folders.contains(rootPath) { rootPath = folders[0] }
+        let analysis = config?.analysis ?? CairnConfig.Analysis()
+        let ctx = ScanContext(bigFileThreshold: Int64(analysis.bigFileThresholdMB) * 1_000_000)
+        let folderThreshold = Int64(analysis.bigFolderThresholdGB * 1_000_000_000)
         self.ctx = ctx
         isScanning = true
         scannedFiles = 0
         scannedBytes = 0
-        currentPath = root
-        volume = Scanner.volumeInfo(for: root)
+        currentPath = folders[0]
+        volume = Scanner.volumeInfo(for: rootPath)
 
         timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
@@ -124,19 +136,56 @@ final class AppModel: ObservableObject {
         }
 
         Task.detached(priority: .userInitiated) {
-            let r = Scanner.scan(root: root, ctx: ctx)
+            let start = Date()
+            let scans = Scanner.scanFolders(folders, ctx: ctx)
+            var out: [String: FolderAnalysis] = [:]
+            for scan in scans {
+                guard let r = scan.result else { continue }
+                out[scan.folder] = FolderAnalysis(
+                    result: r,
+                    bigObjects: BigObjects.find(in: r.root, bigFiles: r.bigFiles, folderThreshold: folderThreshold),
+                    projects: Projects.find(in: r.root))
+            }
+            let analyses = out
+            let errors = scans.compactMap(\.result).reduce(0) { $0 + $1.errors }
+            let duration = Date().timeIntervalSince(start)
             await MainActor.run {
                 guard self.ctx === ctx else { return }
                 self.timer?.invalidate()
                 self.isScanning = false
                 if ctx.cancelled { return }
-                self.result = r
-                self.path = []
-                self.revision += 1
-                self.lastMessage = T("scan.done", Fmt.duration(r.duration))
-                    + (r.errors > 0 ? T("scan.errors", r.errors) : "")
+                self.analyses = analyses
+                self.applyCurrentFolder()
+                self.lastMessage = T("scan.done", Fmt.duration(duration)) + (errors > 0 ? T("scan.errors", errors) : "")
             }
         }
+    }
+
+    /// Affiche l'analyse du dossier courant.
+    func applyCurrentFolder() {
+        let a = analyses[rootPath]
+        result = a?.result
+        bigObjects = a?.bigObjects ?? []
+        projects = a?.projects ?? []
+        volume = Scanner.volumeInfo(for: rootPath)
+        path = []
+        revision += 1
+    }
+
+    /// Change de dossier affiché (sans nouvelle analyse s'il est déjà analysé).
+    func select(folder: String) {
+        guard folder != rootPath || result == nil else { return }
+        rootPath = folder
+        if analyses[folder] != nil { applyCurrentFolder() } else { scan() }
+    }
+
+    /// Taille totale des dossiers analysés.
+    var totalAnalyzed: Int64 { analyses.values.reduce(0) { $0 + $1.result.root.size } }
+
+    func node(at path: String) -> Node? {
+        var found: Node?
+        root?.walk { if found == nil && $0.path == path { found = $0 } }
+        return found
     }
 
     func cancel() {
@@ -213,6 +262,16 @@ final class AppModel: ObservableObject {
                 self.result?.bigFiles.removeAll { f in removedPaths.contains { f.path == $0 || f.path.hasPrefix($0 + "/") } }
                 self.path = self.path.filter { n in !removedPaths.contains { n.path == $0 || n.path.hasPrefix($0 + "/") } }
                 self.volume = Scanner.volumeInfo(for: self.rootPath)
+                if let r = self.result, var a = self.analyses[self.rootPath] {
+                    let analysis = self.config?.analysis ?? CairnConfig.Analysis()
+                    a.bigObjects = BigObjects.find(in: r.root, bigFiles: r.bigFiles,
+                                                   folderThreshold: Int64(analysis.bigFolderThresholdGB * 1_000_000_000))
+                    a.projects = Projects.find(in: r.root)
+                    a.result = r
+                    self.analyses[self.rootPath] = a
+                    self.bigObjects = a.bigObjects
+                    self.projects = a.projects
+                }
                 self.isDeleting = false
                 self.revision += 1
                 var msg = permanently
@@ -223,4 +282,11 @@ final class AppModel: ObservableObject {
             }
         }
     }
+}
+
+/// Analyse d'un dossier : arbre, gros objets et projets.
+struct FolderAnalysis {
+    var result: ScanResult
+    var bigObjects: [BigObject]
+    var projects: [Project]
 }

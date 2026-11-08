@@ -31,10 +31,10 @@ Toute tâche qui ajoute un texte visible (interface, notification, aide, message
 
 ## 4. Analyse multi-dossiers (`storage-analysis`)
 
-- [ ] 4.1 Étendre le scanner à la liste des dossiers suivis (un nœud racine par dossier, dossiers indisponibles signalés) et à la table régénérable partagée avec la sauvegarde ; vérifier par des tests sur une arborescence créée pour l'occasion, et par l'écart de moins de 1 % avec `du -sk` sur `/Volumes/workspaces`
-- [ ] 4.2 Ajouter la détection des projets (dépôts git et marqueurs de projet) avec la répartition sources / `.git` / régénérable et les worktrees rattachés à leur dépôt (fichier `.git` qui pointe vers `.git/worktrees/`), ainsi que les gros objets : gros fichiers (seuil de 50 Mo) et gros dossiers (seuil de 1 Go hors gros fichiers, au niveau le plus précis), seuils lus dans la configuration ; vérifier par des tests sur un dépôt avec `node_modules`, un dépôt avec deux worktrees, les trois cas de gros objets de la spec et un seuil modifié
-- [ ] 4.3 Réintégrer les vues existantes (Explorateur, Nettoyable, Projets, Gros objets) dans la nouvelle mise en page, avec arrêt de l'analyse en moins de 2 s et nettoyage confirmé (corbeille par défaut) ; vérifier à la main l'annulation d'une confirmation et la mise à jour des totaux après une mise à la corbeille
-- [ ] 4.4 Ajouter `cairn analyze [dossiers…] [--json]` à la place de `--report` ; vérifier que la sortie `--json` est du JSON valide (`python3 -m json.tool`) et que les totaux correspondent à `du`
+- [x] 4.1 Étendre le scanner à la liste des dossiers suivis (un nœud racine par dossier, dossiers indisponibles signalés) et à la table régénérable partagée avec la sauvegarde ; vérifier par des tests sur une arborescence créée pour l'occasion, et par l'écart de moins de 1 % avec `du -sk` sur `/Volumes/workspaces`
+- [x] 4.2 Ajouter la détection des projets (dépôts git et marqueurs de projet) avec la répartition sources / `.git` / régénérable et les worktrees rattachés à leur dépôt (fichier `.git` qui pointe vers `.git/worktrees/`), ainsi que les gros objets : gros fichiers (seuil de 50 Mo) et gros dossiers (seuil de 1 Go hors gros fichiers, au niveau le plus précis), seuils lus dans la configuration ; vérifier par des tests sur un dépôt avec `node_modules`, un dépôt avec deux worktrees, les trois cas de gros objets de la spec et un seuil modifié
+- [x] 4.3 Réintégrer les vues existantes (Explorateur, Nettoyable, Projets, Gros objets) dans la nouvelle mise en page, avec arrêt de l'analyse en moins de 2 s et nettoyage confirmé (corbeille par défaut) ; vérifier à la main l'annulation d'une confirmation et la mise à jour des totaux après une mise à la corbeille
+- [x] 4.4 Ajouter `cairn analyze [dossiers…] [--json]` à la place de `--report` ; vérifier que la sortie `--json` est du JSON valide (`python3 -m json.tool`) et que les totaux correspondent à `du`
 
 ## 5. Inventaire des outils (`tool-inventory`)
 

@@ -91,7 +91,7 @@
 "col.location" = "Emplacement";
 "col.in" = "Dans";
 "cli.help" = "Cairn — analyse du stockage, sauvegardes et maintenance git de votre Mac.\n\nUsage : cairn <commande> [options]\n\nCommandes :\n  analyze [dossier…]  Analyser l'occupation des dossiers\n  config <cmd>        Afficher ou vérifier la configuration (path, show, validate)\n  help                Afficher cette aide\n\nOptions :\n  --config <fichier>    Utiliser un autre fichier de configuration\n  --lang <en-US|fr-FR>  Langue de cette exécution\n  -h, --help            Afficher l'aide";
-"cli.analyze.help" = "Usage : cairn analyze [dossier…] [--json]\n\nAnalyse l'occupation des dossiers donnés (par défaut : /Volumes/workspaces).\n\nOptions :\n  --json   Sortie lisible par une machine";
+"cli.analyze.help" = "Usage : cairn analyze [dossier…] [--json]\n\nAnalyse l'occupation des dossiers donnés (par défaut : les dossiers suivis de config.toml).\n\nOptions :\n  --json   Sortie lisible par une machine";
 "cli.unknown_command" = "Commande inconnue : %@";
 "cli.unknown_option" = "Option inconnue : %@";
 "cli.invalid_lang" = "Langue invalide : %@ (attendu : en-US ou fr-FR)";
@@ -288,3 +288,16 @@
 "onboarding.need_folder" = "Sélectionnez au moins un dossier.";
 "onboarding.need_path" = "Choisissez un dossier de destination.";
 "onboarding.keychain_error" = "Impossible d'enregistrer le mot de passe dans le Trousseau : %@";
+"cli.report.big_objects" = "Gros objets :";
+"cli.report.kind_file" = "fichier";
+"cli.report.kind_folder" = "dossier";
+"cli.report.total" = "Total : %@";
+"tab.big_objects" = "Gros objets";
+"col.kind" = "Type";
+"kind.file" = "Fichier";
+"kind.folder" = "Dossier";
+"col.worktrees" = "Worktrees";
+"projects.count" = "%lld projets";
+"projects.worktrees" = "%1$lld worktree(s) · %2$@";
+"big_objects.summary" = "%1$lld fichiers de plus de %2$@ et %3$lld dossiers de plus de %4$@";
+"sidebar.total" = "Total";

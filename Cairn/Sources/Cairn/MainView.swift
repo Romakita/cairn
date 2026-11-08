@@ -188,15 +188,18 @@ struct SidebarView: View {
     @ViewBuilder var foldersSection: some View {
         SidebarHeader(title: T("sidebar.folders"))
         ForEach(model.trackedFolders, id: \.path) { f in
-            let scanned = model.root?.path == f.expandedPath
+            let size = model.analyses[f.expandedPath]?.result.root.size
             SidebarRow(icon: f.isAvailable ? "folder" : "externaldrive.badge.xmark",
                        title: (f.path as NSString).lastPathComponent,
-                       meta: f.isAvailable ? (scanned ? model.root.map { Fmt.bytes($0.size) } : nil) : T("folder.unavailable"),
-                       selected: scanned && model.section == .analysis) {
+                       meta: f.isAvailable ? size.map(Fmt.bytes) : T("folder.unavailable"),
+                       selected: model.rootPath == f.expandedPath && model.section == .analysis) {
                 guard f.isAvailable else { return }
                 model.section = .analysis
-                if model.rootPath != f.expandedPath { model.rootPath = f.expandedPath; model.scan() }
+                model.select(folder: f.expandedPath)
             }
+        }
+        if model.analyses.count > 1 {
+            SidebarRow(icon: "sum", title: T("sidebar.total"), meta: Fmt.bytes(model.totalAnalyzed))
         }
     }
 
@@ -399,7 +402,7 @@ struct AnalysisSection: View {
     var body: some View {
         VStack(spacing: 0) {
             PillPicker(options: [(AnalysisTab.explorer, T("tab.explorer")), (.cleanable, T("tab.cleanable")),
-                                 (.projects, T("tab.projects")), (.bigFiles, T("tab.big_files"))],
+                                 (.projects, T("tab.projects")), (.bigFiles, T("tab.big_objects"))],
                        selection: $model.analysisTab)
                 .frame(height: 64)
                 .disabled(model.root == nil || model.isScanning)

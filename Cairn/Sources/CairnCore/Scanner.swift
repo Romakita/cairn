@@ -16,7 +16,10 @@ public final class ScanContext: @unchecked Sendable {
     private var seen = Set<InodeKey>()
     private var _cancelled = false
 
-    public init() {}
+    /// Seuil des « gros fichiers » (octets).
+    public let bigFileThreshold: Int64
+
+    public init(bigFileThreshold: Int64 = Scanner.bigFileThreshold) { self.bigFileThreshold = bigFileThreshold }
     public var cancelled: Bool { lock.withLock { _cancelled } }
     public func cancel() { lock.withLock { _cancelled = true } }
 
@@ -41,7 +44,7 @@ public final class ScanContext: @unchecked Sendable {
 
 public enum Scanner {
     /// Fichiers listés dans « Gros fichiers ».
-    public static let bigFileThreshold: Int64 = 50 * 1024 * 1024
+    public static let bigFileThreshold: Int64 = 50_000_000
     /// Fichiers affichés individuellement dans l'explorateur.
     public static let listedFileThreshold: Int64 = 10 * 1024 * 1024
 
@@ -110,7 +113,7 @@ public enum Scanner {
                     }
                 } else {
                     let size = fileSize(st, ctx: ctx)
-                    addFile(name: name, path: path, size: size, to: node, category: .source, listed: true, big: &bigFiles)
+                    addFile(name: name, path: path, size: size, to: node, category: .source, listed: true, threshold: ctx.bigFileThreshold, big: &bigFiles)
                     ctx.report(files: 1, bytes: size, errors: 0, current: nil)
                 }
             }
@@ -146,7 +149,7 @@ public enum Scanner {
     }
 
     private static func addFile(name: String, path: String, size: Int64, to node: Node, category: Category,
-                                listed: Bool, big: inout [BigFile]) {
+                                listed: Bool, threshold: Int64, big: inout [BigFile]) {
         if listed && size >= listedFileThreshold {
             let f = Node(name: name, path: path, isDirectory: false, category: category)
             f.size = size
@@ -158,7 +161,7 @@ public enum Scanner {
             node.ownBytes += size
             node.ownFileCount += 1
         }
-        if size >= bigFileThreshold { big.append(BigFile(path: path, size: size, category: category)) }
+        if size >= threshold { big.append(BigFile(path: path, size: size, category: category)) }
     }
 
     /// Parcours d'un sous-arbre avec fts(3). Les dossiers classés (node_modules, .git…) sont comptés en bloc.
@@ -234,14 +237,14 @@ public enum Scanner {
                 let size = fileSize(st, ctx: ctx)
                 pendingFiles += 1
                 pendingBytes += size
-                if collapsedLevel < 0 && size < listedFileThreshold {
+                if collapsedLevel < 0 && size < min(listedFileThreshold, ctx.bigFileThreshold) {
                     top.ownBytes += size
                     top.ownFileCount += 1
                 } else {
                     let path = String(cString: e.fts_path)
                     addFile(name: (path as NSString).lastPathComponent, path: path, size: size, to: top,
                             category: collapsedLevel >= 0 ? collapsedCategory : .source,
-                            listed: collapsedLevel < 0, big: &big)
+                            listed: collapsedLevel < 0, threshold: ctx.bigFileThreshold, big: &big)
                 }
                 if pendingFiles >= 5000 {
                     if ctx.cancelled { return (nil, []) }

@@ -117,32 +117,34 @@ struct FilterChip: View {
     }
 }
 
-// MARK: - Dépôts git
+// MARK: - Projets
 
-struct RepoRow: Identifiable {
-    let node: Node
+struct ProjectRow: Identifiable {
+    let project: Project
     let relPath: String
-    var id: String { node.path }
-    var size: Int64 { node.size }
-    var source: Int64 { node.bytes(.source) }
-    var git: Int64 { node.bytes(.git) }
-    var regen: Int64 { node.regenerableBytes }
+    var id: String { project.path }
+    var size: Int64 { project.totalSize }
+    var source: Int64 { project.source }
+    var git: Int64 { project.git }
+    var regen: Int64 { project.regenerable }
+    var worktrees: Int64 { project.worktreeBytes }
 }
 
 struct ReposView: View {
     @EnvironmentObject var model: AppModel
     let root: Node
-    @ViewState private var sortOrder = [KeyPathComparator(\RepoRow.size, order: .reverse)]
+    @ViewState private var sortOrder = [KeyPathComparator(\ProjectRow.size, order: .reverse)]
     @ViewState private var selection: String?
     @ViewState private var search = ""
 
     var body: some View {
-        let rows = model.gitRepos().map { RepoRow(node: $0, relPath: $0.relativePath(to: root)) }
+        let rows = model.projects.map { ProjectRow(project: $0, relPath: Self.relative($0.path, root.path)) }
             .filter { search.isEmpty || $0.relPath.localizedCaseInsensitiveContains(search) }
             .sorted(using: sortOrder)
+        let maxSize = rows.map(\.size).max() ?? 1
         VStack(spacing: 0) {
             HStack {
-                Text(T("list.repos", rows.count)).foregroundStyle(.secondary)
+                Text(T("projects.count", rows.count)).foregroundStyle(.secondary)
                 Spacer()
                 TextField(T("list.filter"), text: $search).textFieldStyle(.roundedBorder).frame(width: 220)
             }
@@ -150,20 +152,34 @@ struct ReposView: View {
             Divider()
             Table(rows, selection: $selection, sortOrder: $sortOrder) {
                 TableColumn(T("col.repo"), value: \.relPath) { r in
-                    Text(r.relPath).lineLimit(1).truncationMode(.head).help(r.node.path)
+                    HStack(spacing: 6) {
+                        Image(systemName: r.project.isGitRepo ? "arrow.triangle.branch" : "folder")
+                            .foregroundStyle(Palette.secondary)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(r.project.name).lineLimit(1)
+                            Text((r.relPath as NSString).deletingLastPathComponent).font(.caption2)
+                                .foregroundStyle(.secondary).lineLimit(1).truncationMode(.head)
+                        }
+                        .help(r.project.path)
+                    }
                 }
                 TableColumn(T("col.breakdown")) { r in
-                    BreakdownBar(node: r.node, scale: rows.map(\.size).max() ?? 1)
+                    ProjectBar(row: r, scale: maxSize).frame(height: 10)
                 }
                 .width(min: 120, ideal: 160)
                 TableColumn(T("col.sources"), value: \.source) { r in sizeCell(r.source) }.width(min: 70, ideal: 90)
                 TableColumn(T("col.git"), value: \.git) { r in sizeCell(r.git) }.width(min: 70, ideal: 90)
                 TableColumn(T("col.regenerable"), value: \.regen) { r in sizeCell(r.regen) }.width(min: 80, ideal: 100)
+                TableColumn(T("col.worktrees"), value: \.worktrees) { r in
+                    if r.project.worktrees.isEmpty { Text(verbatim: "—").foregroundStyle(.tertiary) }
+                    else { Text(T("projects.worktrees", r.project.worktrees.count, Fmt.bytes(r.worktrees))).monospacedDigit() }
+                }
+                .width(min: 110, ideal: 140)
                 TableColumn(T("col.total"), value: \.size) { r in sizeCell(r.size).fontWeight(.semibold) }.width(min: 70, ideal: 90)
             }
             .contextMenu(forSelectionType: String.self) { ids in
-                if let p = ids.first, let n = rows.first(where: { $0.id == p })?.node {
-                    Button(T("action.open_in_explorer")) { model.open(n) }
+                if let p = ids.first {
+                    Button(T("action.open_in_explorer")) { if let n = model.node(at: p) { model.analysisTab = .explorer; model.open(n) } }
                     Button(T("action.reveal")) { model.reveal(p) }
                     Button(T("action.copy_path")) { model.copyPath(p) }
                 }
@@ -173,43 +189,75 @@ struct ReposView: View {
         }
     }
 
-    private func sizeCell(_ b: Int64) -> Text {
-        Text(Fmt.bytes(b)).monospacedDigit()
+    static func relative(_ p: String, _ root: String) -> String {
+        p.hasPrefix(root + "/") ? String(p.dropFirst(root.count + 1)) : p
+    }
+
+    private func sizeCell(_ b: Int64) -> Text { Text(Fmt.bytes(b)).monospacedDigit() }
+}
+
+/// Barre sources / .git / régénérable / worktrees d'un projet.
+struct ProjectBar: View {
+    let row: ProjectRow
+    let scale: Int64
+    var body: some View {
+        GeometryReader { g in
+            let w = g.size.width * CGFloat(Double(row.size) / Double(max(scale, 1)))
+            // Les worktrees situés dans le dépôt sont déjà comptés dans sa taille : seuls ceux d'à côté s'ajoutent.
+            let inside = row.project.size
+            let outside = row.size - inside
+            let parts: [(Int64, Color)] = [(max(inside - row.git - row.regen, 0), Category.source.color),
+                                           (row.git, Category.git.color), (row.regen, Category.deps.color),
+                                           (outside, Category.ios.color)]
+            HStack(spacing: 0) {
+                ForEach(parts.indices, id: \.self) { i in
+                    Rectangle().fill(parts[i].1).frame(width: w * CGFloat(Double(parts[i].0) / Double(max(row.size, 1))))
+                }
+            }
+            .frame(width: max(w, 1), alignment: .leading)
+            .clipShape(RoundedRectangle(cornerRadius: 3))
+        }
     }
 }
 
-// MARK: - Gros fichiers
+// MARK: - Gros objets
 
 struct BigFilesView: View {
     @EnvironmentObject var model: AppModel
     let root: Node
-    @ViewState private var sortOrder = [KeyPathComparator(\BigFile.size, order: .reverse)]
+    @ViewState private var sortOrder = [KeyPathComparator(\BigObject.size, order: .reverse)]
     @ViewState private var selection: String?
 
     var body: some View {
-        let files = (model.result?.bigFiles ?? []).sorted(using: sortOrder)
+        let objects = model.bigObjects.sorted(using: sortOrder)
+        let c = model.config?.analysis ?? CairnConfig.Analysis()
         VStack(spacing: 0) {
             HStack {
-                Text(T("list.big_files", files.count, Fmt.bytes(Scanner.bigFileThreshold), Fmt.bytes(files.reduce(0) { $0 + $1.size })))
+                Text(T("big_objects.summary", objects.filter { $0.kind == .file }.count, Fmt.bytes(Int64(c.bigFileThresholdMB) * 1_000_000),
+                       objects.filter { $0.kind == .folder }.count, Fmt.bytes(Int64(c.bigFolderThresholdGB * 1_000_000_000))))
                     .foregroundStyle(.secondary)
                 Spacer()
             }
             .padding(10)
             Divider()
-            Table(files, selection: $selection, sortOrder: $sortOrder) {
-                TableColumn(T("col.name"), value: \.name) { f in
-                    Label(f.name, systemImage: "doc").lineLimit(1)
+            Table(objects, selection: $selection, sortOrder: $sortOrder) {
+                TableColumn(T("col.name"), value: \.name) { o in
+                    Label(o.name, systemImage: o.kind == .file ? "doc" : "folder").lineLimit(1)
                 }
                 .width(min: 160, ideal: 240)
-                TableColumn(T("col.location"), value: \.path) { f in
-                    Text(relative((f.path as NSString).deletingLastPathComponent))
-                        .lineLimit(1).truncationMode(.head).foregroundStyle(.secondary).help(f.path)
+                TableColumn(T("col.kind"), value: \.kind.rawValue) { o in
+                    Text(T("kind.\(o.kind.rawValue)")).foregroundStyle(.secondary)
                 }
-                TableColumn(T("col.in")) { f in
-                    if f.category != .source { CategoryTag(category: f.category) }
+                .width(min: 60, ideal: 80, max: 100)
+                TableColumn(T("col.location"), value: \.path) { o in
+                    Text(relative((o.path as NSString).deletingLastPathComponent))
+                        .lineLimit(1).truncationMode(.head).foregroundStyle(.secondary).help(o.path)
                 }
-                .width(min: 80, ideal: 100, max: 120)
-                TableColumn(T("col.size"), value: \.size) { f in Text(Fmt.bytes(f.size)).monospacedDigit() }
+                TableColumn(T("col.in")) { o in
+                    if o.category != .source { CategoryTag(category: o.category).fixedSize() }
+                }
+                .width(min: 80, ideal: 110, max: 130)
+                TableColumn(T("col.size"), value: \.size) { o in Text(Fmt.bytes(o.size)).monospacedDigit() }
                     .width(min: 70, ideal: 90)
             }
             .contextMenu(forSelectionType: String.self) { ids in

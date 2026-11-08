@@ -11,7 +11,7 @@ public enum CLI {
     public static func isCommandLine(_ args: [String]) -> Bool {
         let a = args.dropFirst().filter { !$0.hasPrefix("-psn_") && !$0.hasPrefix("-NS") && !$0.hasPrefix("-Apple") }
         guard let first = a.first else { return false }
-        return commands.contains(first) || ["-h", "--help", "--report", "--lang", "--config"].contains(first)
+        return commands.contains(first) || ["-h", "--help", "--lang", "--config"].contains(first)
     }
 
     /// Exécute la commande et renvoie le code de sortie.
@@ -46,8 +46,8 @@ public enum CLI {
         switch command {
         case "help", "-h", "--help":
             out(L10n.tr("cli.help")); return .ok
-        case "analyze", "--report":
-            return analyze(rest, out: out, err: err)
+        case "analyze":
+            return analyze(rest, store: store, out: out, err: err)
         case "config":
             return config(rest, store: store, out: out, err: err)
         default:
@@ -104,7 +104,7 @@ public enum CLI {
         }
     }
 
-    static func analyze(_ args: [String], out: (String) -> Void, err: (String) -> Void) -> Exit {
+    static func analyze(_ args: [String], store: ConfigStore, out: (String) -> Void, err: (String) -> Void) -> Exit {
         if args.contains("-h") || args.contains("--help") { out(L10n.tr("cli.analyze.help")); return .ok }
         var json = false
         var folders: [String] = []
@@ -113,42 +113,74 @@ public enum CLI {
             else if a.hasPrefix("-") { err(L10n.tr("cli.unknown_option", a)); return .usage }
             else { folders.append((a as NSString).expandingTildeInPath) }
         }
+        // Par défaut : les dossiers suivis de config.toml (sans modifier le fichier), sinon /Volumes/workspaces.
+        var config = CairnConfig()
+        if store.exists, let text = try? String(contentsOf: store.fileURL, encoding: .utf8),
+           let doc = try? TOMLDocument(parsing: text), let (c, _) = try? ConfigDecoder.decode(doc) {
+            config = c
+        }
+        let explicit = !folders.isEmpty
+        if !explicit { folders = config.folders.map(\.expandedPath) }
         if folders.isEmpty { folders = ["/Volumes/workspaces"] }
-        for f in folders where !FileManager.default.fileExists(atPath: f) {
-            err(L10n.tr("cli.missing_folder", f)); return .failure
+        if explicit {
+            for f in folders where !FileManager.default.fileExists(atPath: f) {
+                err(L10n.tr("cli.missing_folder", f)); return .failure
+            }
         }
 
+        let ctx = ScanContext(bigFileThreshold: Int64(config.analysis.bigFileThresholdMB) * 1_000_000)
+        let folderThreshold = Int64(config.analysis.bigFolderThresholdGB * 1_000_000_000)
+        let scans = Scanner.scanFolders(folders, ctx: ctx)
         var reports: [[String: Any]] = []
-        for folder in folders {
-            let r = Scanner.scan(root: folder, ctx: ScanContext())
+        var total: Int64 = 0
+        for scan in scans {
+            guard let r = scan.result else {
+                if json { reports.append(["path": scan.folder, "available": false]) }
+                else { err(L10n.tr("config.issue.folder_unavailable", scan.folder)) }
+                continue
+            }
+            total += r.root.size
+            let big = BigObjects.find(in: r.root, bigFiles: r.bigFiles, folderThreshold: folderThreshold)
+            let projects = Projects.find(in: r.root)
             if json {
                 var breakdown: [String: Int64] = [:]
                 for c in Category.allCases { breakdown[c.key] = r.root.bytes(c) }
                 reports.append([
-                    "path": folder, "size": r.root.size, "files": r.root.fileCount,
+                    "path": scan.folder, "available": true, "size": r.root.size, "files": r.root.fileCount,
                     "regenerable": r.root.regenerableBytes, "breakdown": breakdown,
                     "errors": r.errors, "duration_seconds": r.duration,
+                    "big_objects": big.prefix(50).map { ["kind": $0.kind.rawValue, "path": $0.path, "size": $0.size,
+                                                         "category": $0.category.key] as [String: Any] },
+                    "projects": projects.prefix(50).map { ["path": $0.path, "size": $0.totalSize, "git": $0.git,
+                                                           "regenerable": $0.regenerable, "worktrees": $0.worktrees.count,
+                                                           "worktree_bytes": $0.worktreeBytes] as [String: Any] },
                 ])
             } else {
-                out(L10n.tr("cli.report.summary", folder, Fmt.bytes(r.root.size), Fmt.count(r.root.fileCount),
+                out(L10n.tr("cli.report.summary", scan.folder, Fmt.bytes(r.root.size), Fmt.count(r.root.fileCount),
                             Fmt.duration(r.duration), r.errors))
                 for c in Category.allCases where r.root.bytes(c) > 0 {
                     out("  " + c.label.padding(toLength: 34, withPad: " ", startingAt: 0) + " " + Fmt.bytes(r.root.bytes(c)))
                 }
                 out(L10n.tr("cli.report.folders"))
-                for n in r.root.children.prefix(20) {
+                for n in r.root.children.prefix(15) {
                     out("  " + n.name.padding(toLength: 22, withPad: " ", startingAt: 0) + " "
                         + Fmt.bytes(n.size).padding(toLength: 10, withPad: " ", startingAt: 0) + " "
                         + L10n.tr("cli.report.of_regenerable", Fmt.bytes(n.regenerableBytes)))
                 }
+                out(L10n.tr("cli.report.big_objects"))
+                for o in big.prefix(10) {
+                    out("  " + Fmt.bytes(o.size).padding(toLength: 10, withPad: " ", startingAt: 0) + " "
+                        + L10n.tr(o.kind == .file ? "cli.report.kind_file" : "cli.report.kind_folder") + " " + o.path)
+                }
             }
         }
         if json {
-            let total = reports.reduce(Int64(0)) { $0 + (($1["size"] as? Int64) ?? 0) }
             let obj: [String: Any] = ["folders": reports, "total": total]
             if let data = try? JSONSerialization.data(withJSONObject: obj, options: [.prettyPrinted, .sortedKeys]),
                let s = String(data: data, encoding: .utf8) { out(s) }
+        } else if scans.count > 1 {
+            out(L10n.tr("cli.report.total", Fmt.bytes(total)))
         }
-        return .ok
+        return scans.contains(where: \.isAvailable) ? .ok : .failure
     }
 }

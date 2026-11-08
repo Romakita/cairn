@@ -18,7 +18,7 @@ Structure : `Sources/CairnCore` (logique, sans SwiftUI), `Sources/Cairn` (interf
 
 ```bash
 cairn --help
-cairn analyze /Volumes/workspaces --json
+cairn analyze [dossier…] --json   # par défaut : dossiers suivis de config.toml
 cairn config path | show | validate
 ```
 
