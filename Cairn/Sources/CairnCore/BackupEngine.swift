@@ -2,7 +2,7 @@ import Foundation
 
 /// Version de Cairn écrite dans les manifests.
 public enum CairnVersion {
-    /// Version du code : égale au fichier `Cairn/VERSION` (un test le vérifie ; `just bump` met les deux à jour).
+    /// Version du code : égale au fichier `Cairn/VERSION` (un test le vérifie ; la CI les met à jour à chaque release).
     public static let fallback = "0.1.1"
     /// Version du bundle .app si disponible, sinon la constante.
     public static var current: String {

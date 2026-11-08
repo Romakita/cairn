@@ -26,3 +26,9 @@ Une entrée après chaque correction de l'utilisateur. À relire au début de ch
 - Règle : avant de remplacer un composant, recenser toutes ses variantes dans les captures et garder une variante
   par usage ; appliquer le design system à tous les écrans qui l'utilisent (rail, réglages), pas seulement à
   l'écran demandé. Vérifier chaque écran avec `Cairn --snapshot` en clair et en sombre.
+
+## 2026-11-08 — Release automatique
+- Erreur : release déclenchée par un `just bump` manuel (tag absent ⇒ release), alors que le projet suit les
+  Conventional Commits : un `feat` mergé (PR #3) aurait dû produire la 0.2.0 sans autre geste.
+- Règle : quand les commits suivent une convention, la version en découle (semantic-release) ; ne pas ajouter d'étape
+  manuelle au flux branche → PR → revue → merge → build → release. Préférer un outil standard à un script maison.

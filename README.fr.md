@@ -264,17 +264,22 @@ d'inventaire = éditer `Sources/CairnCore/Resources/rules/rules.json`. Détails 
 
 La version suit [SemVer](https://semver.org/lang/fr/) et vit dans `Cairn/VERSION` (`just version`, `cairn --version`).
 
-Les releases sont publiées par la CI : branche → PR → revue → merge sur `main` → build → release.
+Les releases sont publiées par la CI avec [semantic-release](https://semantic-release.gitbook.io/) : branche → PR →
+revue → merge sur `main` → build → release. La version découle des
+[Conventional Commits](https://www.conventionalcommits.org/fr/) mergés depuis le dernier tag :
 
-```bash
-just bump 0.2.0                      # dans la PR : VERSION, constante du code, section datée du CHANGELOG
-git commit -am "chore(release): 0.2.0"
-```
+| Commits depuis la dernière release | Version suivante |
+|---|---|
+| un breaking change (`feat!: …`, ou `BREAKING CHANGE:` dans le corps) | majeure (`0.2.3` → `1.0.0`) |
+| un `feat` | mineure (`0.2.3` → `0.3.0`) |
+| seulement des `fix` / `perf` | patch (`0.2.3` → `0.2.4`) |
+| seulement `docs`, `ci`, `chore`, `refactor`, `test`… | pas de release |
 
-Une fois la PR mergée et le build de `main` passé, la CI crée le tag `v0.2.0` sur ce commit et une release GitHub
-avec `Cairn-<version>-arm64.zip`, son empreinte SHA-256 et les notes du CHANGELOG (l'archive est aussi conservée
-avec l'exécution du workflow). Un merge qui ne change pas `Cairn/VERSION` ne publie rien : son tag existe déjà.
-Pousser un tag `vX.Y.Z` à la main fonctionne toujours ; un tag qui ne correspond pas à `Cairn/VERSION` est refusé.
+Une fois le build de `main` passé, la CI met à jour `Cairn/VERSION`, la constante du code et `CHANGELOG.md` (la section
+`[Unreleased]` devient la section datée de la version), construit et teste l'archive, pousse un commit
+`chore(release): X.Y.Z` sur `main`, le tague `vX.Y.Z` et publie une release GitHub avec `Cairn-<version>-arm64.zip` et
+son empreinte SHA-256. Les notes de release sont la section `[Unreleased]` ; si elle est vide, ce sont les sujets des
+commits. Configuration : [.releaserc.json](.releaserc.json).
 
 ## Feuille de route
 

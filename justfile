@@ -64,9 +64,9 @@ storage-report *args:
 version:
     @cat Cairn/VERSION
 
-# Change la version (VERSION, code, CHANGELOG) dans la PR ; au merge sur main, la CI crée le tag et la release
-bump new:
-    Cairn/scripts/bump-version.sh {{new}}
+# Notes de la prochaine release (section [Unreleased], ou sujets des commits depuis le dernier tag)
+release-notes:
+    Cairn/scripts/release-notes.sh "$(git rev-list -n1 "$(git describe --tags --abbrev=0 --match 'v[0-9]*')")"
 
 # Construit l'archive de release en local (build/Cairn-<version>-<arch>.zip), sans installer
 release-build:
