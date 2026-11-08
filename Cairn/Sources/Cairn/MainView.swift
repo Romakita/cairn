@@ -56,6 +56,8 @@ struct MainShell: View {
                     if sidebarVisible {
                         SidebarView()
                             .frame(width: 248)
+                            .frame(maxHeight: .infinity)
+                            .background(Palette.sidebar) // gris propre, distinct du cadre et du contenu
                             .overlay(alignment: .trailing) { Rectangle().fill(Palette.border).frame(width: 1) }
                             .transition(.move(edge: .leading).combined(with: .opacity))
                     }
