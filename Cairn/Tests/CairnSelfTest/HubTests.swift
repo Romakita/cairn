@@ -221,4 +221,30 @@ let hubTests: [TestCase] = [
         try expectEqual(ActivityLog.backupDays(events, days: 7, now: now, calendar: cal),
                         [nil, nil, nil, nil, false, true, nil])
     },
+    TestCase("activity_concurrent_processes_keep_every_event") {
+        try withTempDir { dir in
+            let exe = CommandLine.arguments[0]
+            let procs = (0..<8).map { _ -> Process in
+                let p = Process()
+                p.executableURL = URL(fileURLWithPath: exe)
+                p.arguments = ["--append-activity", dir.path, "20"]
+                return p
+            }
+            try procs.forEach { try $0.run() }
+            procs.forEach { $0.waitUntilExit() }
+            try expectEqual(ActivityLog(paths: CairnPaths(root: dir)).recent(500).count, 160)
+        }
+    },
+    TestCase("full_check_git_options_are_read_only_and_unfiltered") {
+        var c = CairnConfig()
+        c.git.fetchBefore = true
+        var screen = GitOptions()
+        screen.only = "cairn"
+        let check = screen.forAnalysis(config: c, fullCheck: true)
+        try expect(!check.fetch, "jamais de git fetch pendant « Tout vérifier »")
+        try expectEqual(check.only, nil)
+        let explicit = screen.forAnalysis(config: c, fullCheck: false)
+        try expect(explicit.fetch, "l'analyse git explicite garde fetch_before")
+        try expectEqual(explicit.only, "cairn")
+    },
 ]

@@ -317,11 +317,11 @@ extension AppModel {
 
     /// Analyse en lecture seule de tous les dépôts des dossiers suivis.
     /// `cancel` : résultats ignorés et analyse arrêtée (vérification complète) ; `onDone(false)` dans ce cas.
-    func analyzeGit(cancel: CancelToken? = nil, onDone: ((Bool) -> Void)? = nil) {
+    /// `fullCheck` (« Tout vérifier ») : tous les dépôts, sans le filtre de l'écran Git, et jamais de `git fetch`
+    /// (qui modifie le dépôt et supprime des références distantes avec `--prune`).
+    func analyzeGit(cancel: CancelToken? = nil, fullCheck: Bool = false, onDone: ((Bool) -> Void)? = nil) {
         isAnalyzingGit = true
-        var options = gitOptions
-        options.staleDays = config?.git.worktreeStaleDays ?? 30
-        options.fetch = config?.git.fetchBefore ?? false
+        let options = gitOptions.forAnalysis(config: config, fullCheck: fullCheck)
         let folders = trackedFolders.filter(\.isAvailable).map(\.expandedPath)
         Task.detached(priority: .userInitiated) {
             let reports = GitMaintenance.analyzeAll(folders: folders, options: options, cancel: cancel)

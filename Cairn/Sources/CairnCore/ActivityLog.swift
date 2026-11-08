@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 /// Journal d'activité affiché sur l'accueil (`state/activity.jsonl`) : une ligne JSON par événement, 200 au plus.
@@ -30,15 +31,20 @@ public struct ActivityLog: Sendable {
 
     private static let lock = NSLock()
 
-    /// Ajoute un événement ; au-delà de 200 lignes, les plus anciennes sont retirées.
+    /// Ajoute un événement ; au-delà de 200 lignes, les plus anciennes sont retirées. L'app et la commande `cairn`
+    /// peuvent écrire en même temps : la lecture-modification-écriture se fait sous un verrou de fichier
+    /// (`activity.lock`, `flock` bloquant), en plus du verrou entre threads.
     public func append(_ event: Event) {
         Self.lock.withLock {
+            try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            let fd = open(url.deletingLastPathComponent().appendingPathComponent("activity.lock").path, O_RDWR | O_CREAT, 0o600)
+            if fd >= 0 { flock(fd, LOCK_EX) }
+            defer { if fd >= 0 { flock(fd, LOCK_UN); close(fd) } }
             let e = JSONEncoder(); e.dateEncodingStrategy = .iso8601; e.outputFormatting = [.sortedKeys]
             guard let line = try? e.encode(event) else { return }
             var lines = readLines()
             lines.append(String(decoding: line, as: UTF8.self))
             if lines.count > Self.maxLines { lines.removeFirst(lines.count - Self.maxLines) }
-            try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try? (lines.joined(separator: "\n") + "\n").write(to: url, atomically: true, encoding: .utf8)
         }
     }
