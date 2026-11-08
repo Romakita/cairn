@@ -34,7 +34,7 @@ final class GitWorkerPool: @unchecked Sendable {
         return r == 0 ? Int64(info.ri_resident_size) : 0
     }
 
-    func run(_ repos: [String], progress: @escaping (GitMaintenance.PoolProgress) -> Void) -> [RepoReport] {
+    func run(_ repos: [String], cancel: CancelToken? = nil, progress: @escaping (GitMaintenance.PoolProgress) -> Void) -> [RepoReport] {
         let optionsJSON = String(decoding: (try? JSONEncoder().encode(options)) ?? Data(), as: UTF8.self)
         let sem = DispatchSemaphore(value: parallel)
         let group = DispatchGroup()
@@ -47,6 +47,7 @@ final class GitWorkerPool: @unchecked Sendable {
             var snapshot: [String: Int64] = [:]
             self.lock.withLock {
                 for (repo, (p, start)) in self.running where p.isRunning {
+                    if cancel?.isCancelled == true { p.terminate(); continue }
                     let mem = Self.residentBytes(p.processIdentifier)
                     snapshot[repo] = mem
                     if mem > self.memoryLimit {
@@ -62,6 +63,7 @@ final class GitWorkerPool: @unchecked Sendable {
 
         for repo in repos {
             sem.wait()
+            if cancel?.isCancelled == true { sem.signal(); break }
             group.enter()
             DispatchQueue.global(qos: .userInitiated).async {
                 defer { sem.signal(); group.leave() }

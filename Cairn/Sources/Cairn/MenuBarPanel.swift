@@ -55,6 +55,8 @@ final class StorageMonitor: NSObject, UNUserNotificationCenterDelegate {
     }
 
     func notify(_ a: StorageAlerts.Alert) {
+        model?.logActivity(.init(kind: .diskAlert, subject: a.volume, bytes: a.available,
+                                 level: a.level == .critical ? "critical" : "low"))
         let c = UNMutableNotificationContent()
         c.title = T(a.level == .critical ? "alerts.critical_title" : "alerts.low_title", a.volume)
         var body = T("alerts.body", Fmt.bytes(a.available), Fmt.number(a.percentFree, digits: 1))

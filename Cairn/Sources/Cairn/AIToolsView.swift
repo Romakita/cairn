@@ -85,7 +85,7 @@ struct AIToolsView: View {
 }
 
 extension AppModel {
-    func refreshAIStats() {
+    func refreshAIStats(cancel: CancelToken? = nil, onDone: ((Bool) -> Void)? = nil) {
         let config = self.config ?? CairnConfig()
         let paths = self.paths
         Task.detached(priority: .utility) {
@@ -95,7 +95,11 @@ extension AppModel {
                 s.lastBackup = AIBackup.lastBackup(toolID: p.id, config: config, state: state)
                 return s
             }
-            await MainActor.run { self.aiStats = stats }
+            await MainActor.run {
+                guard cancel?.isCancelled != true else { onDone?(false); return }
+                self.aiStats = stats
+                onDone?(true)
+            }
         }
     }
 

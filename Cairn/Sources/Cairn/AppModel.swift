@@ -38,6 +38,7 @@ final class AppModel: ObservableObject {
             } else {
                 // Fin d'une sauvegarde : nouveau relevé de l'espace libre.
                 storage.check()
+                reloadActivity()
             }
         }
     }
@@ -67,6 +68,11 @@ final class AppModel: ObservableObject {
     @Published var revision = 0               // incrémenté quand l'arbre change
     @Published var isDeleting = false
     @Published var lastMessage: String?
+    // Accueil (hub) : vérification complète en cours, dernière vérification, activité récente.
+    @Published var checkStates: [HubState.Module: CheckState] = [:]
+    @Published var lastCheck: Date?
+    @Published var activity: [ActivityLog.Event] = []
+    var checkToken: CancelToken?
 
     /// Configuration valide en cours (`nil` avant le premier lancement complet).
     @Published var config: CairnConfig?
@@ -102,6 +108,8 @@ final class AppModel: ObservableObject {
         pruneLogs()
         runState = RunState.load(paths)
         summary = AnalysisSummary.load(paths)
+        lastCheck = HubRecord.load(paths).lastCheck
+        reloadActivity()
         janitorTimer = Timer.scheduledTimer(withTimeInterval: 86_400, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.pruneLogs() }
         }
@@ -179,12 +187,13 @@ final class AppModel: ObservableObject {
     }
 
     /// Analyse tous les dossiers suivis disponibles (les liens physiques communs ne sont comptés qu'une fois).
-    func scan() {
+    /// `onDone(true)` à la fin de l'analyse, `onDone(false)` si elle est annulée ou remplacée.
+    func scan(onDone: ((Bool) -> Void)? = nil) {
         cancel()
         var folders = trackedFolders.filter(\.isAvailable).map(\.expandedPath)
         if folders.isEmpty && FileManager.default.fileExists(atPath: rootPath) { folders = [rootPath] }
         unavailableFolders = trackedFolders.filter { !$0.isAvailable }.map(\.expandedPath)
-        guard !folders.isEmpty else { return }
+        guard !folders.isEmpty else { onDone?(false); return }
         if !folders.contains(rootPath) { rootPath = folders[0] }
         let analysis = config?.analysis ?? CairnConfig.Analysis()
         let ctx = ScanContext(bigFileThreshold: Int64(analysis.bigFileThresholdMB) * 1_000_000)
@@ -221,15 +230,16 @@ final class AppModel: ObservableObject {
             let errors = scans.compactMap(\.result).reduce(0) { $0 + $1.errors }
             let duration = Date().timeIntervalSince(start)
             await MainActor.run {
-                guard self.ctx === ctx else { return }
+                guard self.ctx === ctx else { onDone?(false); return }
                 self.timer?.invalidate()
                 self.isScanning = false
-                if ctx.cancelled { return }
+                if ctx.cancelled { onDone?(false); return }
                 self.analyses = analyses
                 self.applyCurrentFolder()
                 self.refreshSummary()
                 self.storage.check()
                 self.lastMessage = T("scan.done", Fmt.duration(duration)) + (errors > 0 ? T("scan.errors", errors) : "")
+                onDone?(true)
             }
         }
     }
@@ -347,6 +357,9 @@ final class AppModel: ObservableObject {
                 }
                 self.isDeleting = false
                 self.revision += 1
+                if !removedNodes.isEmpty {
+                    self.logActivity(.init(kind: .cleanup, count: removedNodes.count, bytes: freed))
+                }
                 var msg = permanently
                     ? T("remove.deleted", removedNodes.count, Fmt.bytes(freed))
                     : T("remove.trashed", removedNodes.count, Fmt.bytes(freed))
