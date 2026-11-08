@@ -32,3 +32,10 @@ Une entrée après chaque correction de l'utilisateur. À relire au début de ch
   Conventional Commits : un `feat` mergé (PR #3) aurait dû produire la 0.2.0 sans autre geste.
 - Règle : quand les commits suivent une convention, la version en découle (semantic-release) ; ne pas ajouter d'étape
   manuelle au flux branche → PR → revue → merge → build → release. Préférer un outil standard à un script maison.
+
+## 2026-11-08 — Accueil trop neutre
+- Erreur : le hub reprenait le style neutre des réglages de Codex (icônes grises cerclées) ; jugé simpliste, sans
+  couleur ni caractère, alors que la référence demandée (Avast) mise sur de grandes icônes colorées.
+- Règle : quand une page s'inspire d'une référence visuelle, en reprendre la hiérarchie (taille des icônes, couleur
+  par module, petits graphiques) et ne garder le neutre du design system que pour la structure (cartes, boutons) ;
+  montrer une capture avant de considérer le design comme fini.

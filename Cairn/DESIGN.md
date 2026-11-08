@@ -21,6 +21,11 @@ l'action principale. Les jetons sont dans `Sources/Cairn/Theme.swift`, les compo
 Les tons `success`, `warning`, `danger`, `info` restent réservés aux badges et bandeaux ; les couleurs de
 catégories aux graphiques.
 
+Couleurs de module (`Palette.module`, accueil seulement) : Stockage bleu `#2563EB`, Sauvegarde vert d'eau `#0D9488`,
+Git orange `#EA580C`, Outils IA violet `#7C3AED`, Restauration indigo `#4F46E5` (variantes claires en sombre). Elles
+teintent la grande tuile d'icône des cartes (64 pt, fond à 13 %) et leurs mini-graphiques ; l'état d'un module
+reste dit par un `Badge` de ton (« À jour », « À regarder »…), et l'action principale reste noire.
+
 ## Typographie
 
 Police système (SF Pro), graisses légères :

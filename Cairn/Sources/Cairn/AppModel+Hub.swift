@@ -100,12 +100,15 @@ extension AppModel {
     // MARK: - Activité récente
 
     func logActivity(_ event: ActivityLog.Event) {
-        let log = ActivityLog(paths: paths)
-        log.append(event)
-        activity = log.recent(10)
+        ActivityLog(paths: paths).append(event)
+        reloadActivity()
     }
 
-    func reloadActivity() { activity = ActivityLog(paths: paths).recent(10) }
+    func reloadActivity() {
+        let all = ActivityLog(paths: paths).recent(ActivityLog.maxLines)
+        activity = Array(all.prefix(10))
+        backupDays = ActivityLog.backupDays(all)
+    }
 
     // MARK: - Actions (navigation, ou sauvegarde demandée)
 
@@ -169,6 +172,17 @@ enum HubText {
         case .diskLow: T("hub.issue.disk_low", i.subject, Fmt.bytes(i.bytes ?? 0))
         case .folderUnavailable: T("hub.issue.folder_unavailable", i.subject)
         case .versionsDamaged: T("hub.issue.versions_damaged", i.subject)
+        }
+    }
+
+    /// Badge d'état d'une carte (aucun tant que le module n'a pas de données).
+    static func badge(_ t: HubState.Tone) -> (String, Palette.Tone)? {
+        switch t {
+        case .ok: (T("hub.badge.ok"), .success)
+        case .info: (T("hub.badge.info"), .info)
+        case .attention: (T("hub.badge.attention"), .warning)
+        case .error: (T("hub.badge.error"), .danger)
+        case .unknown: nil
         }
     }
 

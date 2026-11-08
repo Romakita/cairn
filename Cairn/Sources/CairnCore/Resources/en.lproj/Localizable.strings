@@ -173,6 +173,10 @@
 "hub.check.help" = "Read-only check: nothing is deleted, cleaned or backed up.";
 "hub.checking" = "Checking…";
 "hub.resolve" = "Resolve";
+"hub.badge.ok" = "Up to date";
+"hub.badge.info" = "Can improve";
+"hub.badge.attention" = "Needs a look";
+"hub.badge.error" = "Needs fixing";
 "hub.issue.config_invalid" = "Invalid configuration: %@";
 "hub.issue.backup_failed" = "The last backup to %@ failed";
 "hub.issue.disk_critical" = "%1$@ is nearly full: only %2$@ free";

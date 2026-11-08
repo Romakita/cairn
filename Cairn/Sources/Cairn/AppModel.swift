@@ -72,6 +72,8 @@ final class AppModel: ObservableObject {
     @Published var checkStates: [HubState.Module: CheckState] = [:]
     @Published var lastCheck: Date?
     @Published var activity: [ActivityLog.Event] = []
+    /// Sauvegardes des 7 derniers jours (pastilles de la carte Sauvegarde).
+    @Published var backupDays: [Bool?] = []
     var checkToken: CancelToken?
 
     /// Configuration valide en cours (`nil` avant le premier lancement complet).

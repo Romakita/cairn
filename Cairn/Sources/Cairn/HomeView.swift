@@ -1,3 +1,4 @@
+import AppKit
 import CairnCore
 import SwiftUI
 
@@ -27,25 +28,15 @@ struct HomeView: View {
                     .overlay(alignment: .top) { Rectangle().fill(Palette.border).frame(height: 1) }
             }
         }
-        .onAppear { model.reloadActivity() }
+        // Événements écrits par la commande `cairn` pendant que l'app était en arrière-plan.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            model.reloadActivity()
+        }
     }
 }
 
-/// Icône cerclée au ton d'un état : anneau fin coloré, comme une jauge mais en trait fin.
-struct StatusRing: View {
-    let icon: String
-    let tone: HubState.Tone
-    var size: CGFloat = 40
-
-    var body: some View {
-        Image(systemName: icon)
-            .font(.system(size: size * 0.4))
-            .fontWeight(.light)
-            .foregroundStyle(tone == .unknown ? Palette.secondary : Palette.text)
-            .frame(width: size, height: size)
-            .overlay(Circle().stroke(Self.color(tone), lineWidth: size > 48 ? 2 : 1.5))
-    }
-
+/// Couleur d'un état du hub (icône de l'en-tête).
+enum StatusColor {
     static func color(_ t: HubState.Tone) -> Color {
         switch t {
         case .ok: Palette.foreground(.success)
@@ -65,7 +56,12 @@ struct HubHeader: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            StatusRing(icon: icon, tone: tone, size: 64)
+            Image(systemName: icon)
+                .font(.system(size: 30, weight: .medium))
+                .foregroundStyle(StatusColor.color(tone))
+                .frame(width: 76, height: 76)
+                .background(StatusColor.color(tone).opacity(0.12), in: Circle())
+                .overlay(Circle().stroke(StatusColor.color(tone).opacity(0.5), lineWidth: 1.5))
                 .padding(.bottom, 4)
             Text(HubText.title(hub))
                 .font(.system(size: 28, weight: .medium))
@@ -151,18 +147,21 @@ struct ModuleCard: View {
 
     var body: some View {
         let progress = model.checkStates[state.module]
-        Card(padding: 16) {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .top) {
-                    StatusRing(icon: HubText.icon(state.module), tone: state.tone)
-                    Spacer()
-                    if progress == .running { ProgressView().controlSize(.small) }
-                }
+        let color = Palette.module(state.module)
+        Card(padding: 18) {
+            VStack(spacing: 0) {
+                Image(systemName: HubText.icon(state.module))
+                    .font(.system(size: 28, weight: .regular))
+                    .foregroundStyle(color)
+                    .frame(width: 64, height: 64)
+                    .background(color.opacity(0.13), in: RoundedRectangle(cornerRadius: 18))
+                    .padding(.top, 6)
                 Text(HubText.module(state.module))
-                    .font(.system(size: 13)).foregroundStyle(Palette.secondary)
+                    .font(.system(size: 13, weight: .medium)).foregroundStyle(Palette.secondary)
                     .padding(.top, 14)
                 Text(HubText.figure(state.figure))
-                    .font(.system(size: 20, weight: .medium)).foregroundStyle(Palette.text)
+                    .font(.system(size: 20, weight: .semibold)).foregroundStyle(Palette.text)
+                    .multilineTextAlignment(.center)
                     .lineLimit(2).minimumScaleFactor(0.8)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 4)
@@ -178,8 +177,12 @@ struct ModuleCard: View {
                     }
                 }
                 .font(.system(size: 12.5)).foregroundStyle(Palette.secondary)
+                .multilineTextAlignment(.center)
                 .lineLimit(2).fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 4)
+                ModuleChart(module: state.module)
+                    .frame(height: 10)
+                    .padding(.top, 14).padding(.horizontal, 6)
                 Spacer(minLength: 16)
                 Button { model.perform(state.action) } label: {
                     Text(HubText.action(state.action)).lineLimit(1).frame(maxWidth: .infinity)
@@ -187,13 +190,84 @@ struct ModuleCard: View {
                 .buttonStyle(.pillOutline)
                 .disabled(disabled)
             }
-            .frame(maxWidth: .infinity, minHeight: 168, alignment: .topLeading)
+            .frame(maxWidth: .infinity, minHeight: 260, alignment: .top)
+        }
+        .overlay(alignment: .topTrailing) {
+            Group {
+                if progress == .running {
+                    ProgressView().controlSize(.small)
+                } else if let badge = HubText.badge(state.tone) {
+                    Badge(text: badge.0, tone: badge.1)
+                }
+            }
+            .padding(12)
         }
     }
 
     /// Pas de sauvegarde pendant une autre sauvegarde ou avec une configuration invalide.
     var disabled: Bool {
         state.action == .backupNow && (model.isBackingUp || model.configIssues.contains { $0.severity == .error })
+    }
+}
+
+/// Mini-graphique d'une carte : occupation et récupérable (Stockage), 7 derniers jours (Sauvegarde),
+/// branches et worktrees (Git), poids des outils (IA). Vide quand il n'y a rien à montrer.
+struct ModuleChart: View {
+    @EnvironmentObject var model: AppModel
+    let module: HubState.Module
+
+    var body: some View {
+        let color = Palette.module(module)
+        switch module {
+        case .storage:
+            if let v = model.volumeSummaries.first {
+                FillBar(fraction: v.used, color: v.color == Palette.accent ? color : v.color)
+            } else { Color.clear }
+        case .backup:
+            if model.config?.destinations.isEmpty == false {
+                HStack(spacing: 6) {
+                    ForEach(Array(model.backupDays.enumerated()), id: \.offset) { _, day in
+                        Circle()
+                            .fill(day == nil ? Palette.field : (day! ? color : Palette.foreground(.danger)))
+                            .frame(width: 9, height: 9)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+            } else { Color.clear }
+        case .git:
+            if let reports = model.gitReports {
+                let branches = reports.flatMap(\.branches).filter { GitMaintenance.selectedByDefault($0, options: model.gitOptions) }.count
+                let worktrees = reports.flatMap(\.worktrees).filter { GitMaintenance.selectedByDefault($0, options: model.gitOptions) }.count
+                SegmentBar(parts: [(Double(branches), color), (Double(worktrees), color.opacity(0.45))])
+            } else { Color.clear }
+        case .ai:
+            if let stats = model.aiStats?.filter(\.detected), !stats.isEmpty {
+                let shades = [1.0, 0.65, 0.4, 0.25]
+                SegmentBar(parts: stats.enumerated().map { (Double(max($0.element.totalBytes, 1)), color.opacity(shades[$0.offset % shades.count])) })
+            } else { Color.clear }
+        case .restore:
+            Color.clear
+        }
+    }
+}
+
+/// Barre segmentée (proportions), sur la piste grise des jauges.
+struct SegmentBar: View {
+    let parts: [(Double, Color)]
+    var body: some View {
+        let total = parts.reduce(0) { $0 + $1.0 }
+        GeometryReader { g in
+            HStack(spacing: 2) {
+                ForEach(Array(parts.enumerated()), id: \.offset) { _, p in
+                    if p.0 > 0 { Rectangle().fill(p.1).frame(width: max(3, (g.size.width - 2 * CGFloat(parts.count - 1)) * p.0 / total)) }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Palette.field)
+            .clipShape(Capsule())
+        }
+        .frame(height: 8)
+        .opacity(total > 0 ? 1 : 0)
     }
 }
 

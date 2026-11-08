@@ -74,6 +74,11 @@ dernières. Aucun chemin de fichier personnel n'y est écrit au-delà des noms d
   chiffre en 22 pt, détail en `secondary`, bouton `.pillOutline` en bas. Grille adaptative (`LazyVGrid`,
   minimum 180 pt) pour tenir de 1100 pt de large à plein écran.
 - Bandeau : `Banner` du ton du problème, fixé en bas de la zone de contenu, bouton `.pillPrimary` « Résoudre ».
+- Couleur (retour de l'utilisateur, plus de caractère à la Avast) : chaque module a une couleur d'identité
+  (`Palette.module`) qui teinte une grande tuile d'icône centrée (64 pt) et un mini-graphique (jauge d'occupation,
+  7 pastilles des derniers jours de sauvegarde tirées du journal d'activité, barre branches / worktrees, poids des
+  outils IA) ; l'état du module est un `Badge` en haut à droite de la carte. L'en-tête garde un cercle au ton de
+  l'état global. Cinq cartes sur une ligne si la largeur le permet, sinon trois colonnes.
 - Les alertes de volume actuelles (`activeAlerts`) passent dans la carte Stockage et le bandeau ; elles ne sont
   plus empilées en haut de page.
 

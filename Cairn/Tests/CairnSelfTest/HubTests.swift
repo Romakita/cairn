@@ -207,4 +207,18 @@ let hubTests: [TestCase] = [
             try expectEqual(ActivityLog(paths: paths).recent(10).count, 1)
         }
     },
+    TestCase("activity_backup_days") {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC")!
+        let day = 86_400.0
+        let events: [ActivityLog.Event] = [
+            .init(date: now.addingTimeInterval(-10 * day), kind: .backupSucceeded),  // hors fenêtre
+            .init(date: now.addingTimeInterval(-2 * day), kind: .backupFailed),
+            .init(date: now.addingTimeInterval(-1 * day), kind: .backupFailed),
+            .init(date: now.addingTimeInterval(-1 * day + 60), kind: .backupSucceeded),
+            .init(date: now, kind: .cleanup),
+        ]
+        try expectEqual(ActivityLog.backupDays(events, days: 7, now: now, calendar: cal),
+                        [nil, nil, nil, nil, false, true, nil])
+    },
 ]

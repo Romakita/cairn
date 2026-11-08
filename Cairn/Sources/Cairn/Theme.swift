@@ -65,6 +65,20 @@ enum Palette {
     }
 }
 
+extension Palette {
+    /// Couleur d'identité d'un module de l'accueil (tuile d'icône et mini-graphiques). Les tons d'état restent
+    /// réservés aux badges et aux bandeaux.
+    static func module(_ m: HubState.Module) -> Color {
+        switch m {
+        case .storage: Color(light: 0x2563EB, dark: 0x60A5FA)
+        case .backup: Color(light: 0x0D9488, dark: 0x2DD4BF)
+        case .git: Color(light: 0xEA580C, dark: 0xFB923C)
+        case .ai: Color(light: 0x7C3AED, dark: 0xA78BFA)
+        case .restore: Color(light: 0x4F46E5, dark: 0x818CF8)
+        }
+    }
+}
+
 extension CairnCore.Category {
     /// Couleur réservée aux graphiques.
     var color: Color {

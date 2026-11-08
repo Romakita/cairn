@@ -111,6 +111,8 @@ enum Snapshot {
             .init(date: now.addingTimeInterval(-3 * 3600), kind: .backupSucceeded, subject: "syno", bytes: 1_200_000_000),
             .init(date: now.addingTimeInterval(-26 * 3600), kind: .cleanup, count: 4, bytes: 12_000_000_000),
         ]
+        model.backupDays = [true, true, nil, true, false, true, true]
+        model.aiStats = AIProfiles.bundled.map { AIBackup.stats($0) } // lecture seule
         model.section = .home
         let size = CGSize(width: 1280, height: 1000)
         render(RootView().environmentObject(model), size: size, dark: dark, to: "\(outDir)/home-ok-\(suffix).png")

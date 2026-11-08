@@ -51,6 +51,19 @@ public struct ActivityLog: Sendable {
         return Array(events.reversed().prefix(limit))
     }
 
+    /// Sauvegardes des `days` derniers jours, du plus ancien à aujourd'hui : `true` si une sauvegarde a réussi ce
+    /// jour-là, `false` si elles ont toutes échoué, `nil` sans sauvegarde.
+    public static func backupDays(_ events: [Event], days: Int = 7, now: Date = Date(),
+                                  calendar: Calendar = .current) -> [Bool?] {
+        let today = calendar.startOfDay(for: now)
+        return (0..<days).reversed().map { offset -> Bool? in
+            guard let day = calendar.date(byAdding: .day, value: -offset, to: today) else { return nil }
+            let kinds = events.filter { calendar.isDate($0.date, inSameDayAs: day) }.map(\.kind)
+            if kinds.contains(.backupSucceeded) { return true }
+            return kinds.contains(.backupFailed) ? false : nil
+        }
+    }
+
     private func readLines() -> [String] {
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
         return text.split(separator: "\n").map(String.init).filter { !$0.isEmpty }
