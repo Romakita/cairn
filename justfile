@@ -64,7 +64,7 @@ storage-report *args:
 version:
     @cat Cairn/VERSION
 
-# Notes de la prochaine release (section [Unreleased], ou sujets des commits depuis le dernier tag)
+# Notes de la prochaine release (sujets des commits depuis le dernier tag)
 release-notes:
     Cairn/scripts/release-notes.sh "$(git rev-list -n1 "$(git describe --tags --abbrev=0 --match 'v[0-9]*')")"
 

@@ -50,3 +50,9 @@ Une entrée après chaque correction de l'utilisateur. À relire au début de ch
 - Règle : tout bouton d'action est désactivé quand son action ne peut pas aboutir, avec la raison en `.help`
   (règle pure et testée dans CairnCore). Aucun `Picker(.segmented)` : les groupes de boutons utilisent `TabBar`
   (« Public  Personnel ») ; en-tête de détail = menu « … » (destructif en rouge, en dernier), « Gérer », action principale.
+
+## 2026-11-08 — CHANGELOG rédigé à la main
+- Erreur : la section `[Unreleased]` du CHANGELOG était rédigée à la main (commits `docs(changelog): …`), alors que
+  semantic-release génère le CHANGELOG et la release GitHub.
+- Règle : ne jamais modifier `CHANGELOG.md` ; la note de release vient des sujets des commits `feat`/`fix`/`perf`,
+  qu'il faut donc écrire comme des lignes lisibles par un utilisateur.
