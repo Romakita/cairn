@@ -21,7 +21,10 @@ struct CleanableView: View {
     @ViewState private var pending: PendingDeletion?
 
     var body: some View {
-        let root = model.root!
+        if let root = model.root { content(root) }
+    }
+
+    func content(_ root: Node) -> some View {
         let all = model.regenerableNodes().map { CleanRow(node: $0, relPath: $0.relativePath(to: root)) }
         let rows = all
             .filter { filter == nil || $0.node.category == filter }
@@ -30,7 +33,7 @@ struct CleanableView: View {
         let selectedNodes = rows.filter { selection.contains($0.id) }.map(\.node)
         let selectedSize = selectedNodes.reduce(Int64(0)) { $0 + $1.size }
 
-        VStack(spacing: 0) {
+        return VStack(spacing: 0) {
             HStack(spacing: 8) {
                 FilterChip(title: T("list.all"), total: all.reduce(0) { $0 + $1.size }, color: .accentColor, active: filter == nil) {
                     filter = nil
@@ -80,17 +83,29 @@ struct CleanableView: View {
                      : T("list.selected_total", selectedNodes.count, Fmt.bytes(selectedSize)))
                     .foregroundStyle(.secondary).monospacedDigit()
                 Spacer()
-                Button(T("action.trash_ellipsis")) { pending = PendingDeletion(nodes: selectedNodes, permanently: false) }
-                    .disabled(selectedNodes.isEmpty)
+                // La corbeille (réversible) est l'action mise en avant ; la suppression définitive reste secondaire.
                 Button(T("action.delete_ellipsis"), role: .destructive) {
                     pending = PendingDeletion(nodes: selectedNodes, permanently: true)
                 }
                 .disabled(selectedNodes.isEmpty)
-                .buttonStyle(.borderedProminent).tint(.red)
+                Button(T("action.trash_ellipsis")) { pending = PendingDeletion(nodes: selectedNodes, permanently: false) }
+                    .disabled(selectedNodes.isEmpty)
+                    .buttonStyle(.borderedProminent)
             }
             .padding(10)
         }
         .deletionConfirmation($pending, model: model)
+        .onAppear { applyPreselection(all) }
+        .onChange(of: model.pendingCleanupPreselection) { _, _ in applyPreselection(all) }
+    }
+
+    /// Arrivée depuis une alerte ou le panneau : les plus gros dossiers régénérables sont cochés (sans rien supprimer).
+    private func applyPreselection(_ all: [CleanRow]) {
+        guard model.pendingCleanupPreselection else { return }
+        model.pendingCleanupPreselection = false
+        filter = nil
+        search = ""
+        selection = Set(CleanupSuggestion.preselect(all.map(\.node)).map(\.path))
     }
 }
 
@@ -146,6 +161,10 @@ struct ReposView: View {
             HStack {
                 Text(T("projects.count", rows.count)).foregroundStyle(.secondary)
                 Spacer()
+                if let p = selection, let project = model.projects.first(where: { $0.path == p }),
+                   project.isGitRepo || !project.worktrees.isEmpty {
+                    Button(T("action.git_maintenance")) { model.openGitMaintenance(repo: project.path) }
+                }
                 TextField(T("list.filter"), text: $search).textFieldStyle(.roundedBorder).frame(width: 220)
             }
             .padding(10)
@@ -180,6 +199,9 @@ struct ReposView: View {
             .contextMenu(forSelectionType: String.self) { ids in
                 if let p = ids.first {
                     Button(T("action.open_in_explorer")) { if let n = model.node(at: p) { model.analysisTab = .explorer; model.open(n) } }
+                    if let project = model.projects.first(where: { $0.path == p }), project.isGitRepo || !project.worktrees.isEmpty {
+                        Button(T("action.git_maintenance")) { model.openGitMaintenance(repo: project.path) }
+                    }
                     Button(T("action.reveal")) { model.reveal(p) }
                     Button(T("action.copy_path")) { model.copyPath(p) }
                 }

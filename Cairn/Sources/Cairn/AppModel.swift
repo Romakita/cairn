@@ -18,9 +18,33 @@ final class AppModel: ObservableObject {
     @Published var selectedBranches = Set<String>()
     @Published var selectedWorktrees = Set<String>()
     @Published var gitOptions = GitOptions()
+    /// Espace libéré estimé pour la sélection git réelle (nil pendant le calcul).
+    @Published var gitSelectionReclaimable: Int64?
+    var gitEstimateGeneration = 0
+    /// Présélection à appliquer à l'écran Nettoyable (arrivée depuis une alerte ou le panneau).
+    @Published var pendingCleanupPreselection = false
     // Sauvegardes.
     @Published var runState = RunState()
-    @Published var isBackingUp = false
+    @Published var isBackingUp = false {
+        didSet {
+            guard oldValue != isBackingUp else { return }
+            menuBarTimer?.invalidate()
+            menuBarTimer = nil
+            menuBarFrame = 0
+            if isBackingUp {
+                menuBarTimer = Timer.scheduledTimer(withTimeInterval: 0.6, repeats: true) { [weak self] _ in
+                    MainActor.assumeIsolated { self.map { $0.menuBarFrame = ($0.menuBarFrame + 1) % 2 } }
+                }
+            } else {
+                // Fin d'une sauvegarde : nouveau relevé de l'espace libre.
+                storage.check()
+            }
+        }
+    }
+    /// Image de l'icône de la barre des menus pendant une sauvegarde (alternance).
+    @Published var menuBarFrame = 0
+    private var menuBarTimer: Timer?
+    private var servicesStarted = false
     @Published var backupProgress: (String, BackupProgress)?
     @Published var lastBackupResults: [BackupService.Result] = []
     @Published var newImagePassword: (String, String)?
@@ -73,6 +97,17 @@ final class AppModel: ObservableObject {
         janitorTimer = Timer.scheduledTimer(withTimeInterval: 86_400, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.pruneLogs() }
         }
+        // Surveillance et planificateur dès le lancement, même sans fenêtre (barre des menus seule).
+        AppDelegate.model = self
+        DispatchQueue.main.async { [weak self] in self?.startServices() }
+    }
+
+    /// Démarre une seule fois la surveillance de l'espace libre et le planificateur des sauvegardes.
+    func startServices() {
+        guard !servicesStarted else { return }
+        servicesStarted = true
+        backups.start(model: self)
+        storage.start(model: self)
     }
 
     /// Charge `config.toml`. En cas d'erreur, la dernière configuration valide est gardée.
@@ -91,6 +126,8 @@ final class AppModel: ObservableObject {
             }
             let previousFolders = config?.folders
             let previousLanguage = config?.language
+            // Options git de l'interface initialisées depuis [git] (et suivies si la section change).
+            if config?.git != loaded.config.git { gitOptions.gc = loaded.config.git.gc }
             config = loaded.config
             showOnboarding = false
             L10n.configure(explicit: loaded.config.language)
@@ -305,6 +342,8 @@ final class AppModel: ObservableObject {
                     : T("remove.trashed", removedNodes.count, Fmt.bytes(freed))
                 if !failed.isEmpty { msg += "\n" + T("remove.failures", failed.joined(separator: ", ")) }
                 self.lastMessage = msg
+                self.refreshSummary()
+                self.storage.check()
             }
         }
     }

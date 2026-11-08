@@ -103,6 +103,8 @@ public struct WorktreeInfo: Identifiable, Hashable, Sendable, Codable {
     public let status: Status
     /// Raison du statut « obsolète » quand le worktree est aussi « à risque ».
     public let staleReason: Status?
+    /// Fusion de sa branche dans la principale (nil sans branche, ou si c'est la principale).
+    public let branchStatus: GoneBranch.Status?
     public var id: String { path }
     public var isAtRisk: Bool { modifiedFiles > 0 || untrackedFiles > 0 || unpushedCommits > 0 }
     public var isObsolete: Bool { status == .orphan || status == .merged || status == .stale || staleReason != nil }
@@ -133,8 +135,14 @@ public struct GitOptions: Sendable, Codable {
 }
 
 public enum GitMaintenance {
-    static let pruned: Set<String> = ["node_modules", ".pnpm-store", ".Trashes", ".Spotlight-V100", ".fseventsd",
-                                      ".DocumentRevisions-V100", ".TemporaryItems", "Pods", "DerivedData", ".venv"]
+    /// Dossiers système de volume, en plus des dossiers classés par le Scanner (régénérables, corbeille).
+    static let systemFolders: Set<String> = [".Spotlight-V100", ".fseventsd", ".DocumentRevisions-V100", ".TemporaryItems"]
+
+    /// Dossier où l'on ne cherche pas de dépôt : même classification que l'analyse (node_modules, build à côté
+    /// d'un package.json, corbeille…), plus les dossiers système.
+    static func skipsDiscovery(name: String, parentPath: String) -> Bool {
+        systemFolders.contains(name) || Scanner.classify(name: name, parentPath: parentPath) != .source
+    }
 
     // MARK: Découverte
 
@@ -152,9 +160,10 @@ public enum GitMaintenance {
                     let name = url.lastPathComponent
                     let v = try? url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
                     guard v?.isDirectory == true, v?.isSymbolicLink != true else { return }
-                    if pruned.contains(name) { e.skipDescendants(); return }
                     if name == ".git" {
                         repos.append(url.deletingLastPathComponent().path)
+                        e.skipDescendants()
+                    } else if skipsDiscovery(name: name, parentPath: url.deletingLastPathComponent().path) {
                         e.skipDescendants()
                     }
                 }
@@ -243,10 +252,11 @@ public enum GitMaintenance {
             var size: Int64 = 0, regen: Int64 = 0, modified = 0, untracked = 0, unpushed = 0
             var last: Date?
             // Une branche fusionnée ou squashée dans la principale n'a pas de travail « non poussé » à perdre.
-            let integrated: Bool = {
-                guard let b = w.branch, "refs/heads/\(b)" != main else { return false }
-                return mergeStatus(git, ref: "refs/heads/\(b)", main: main) != .unmerged
+            let branchStatus: GoneBranch.Status? = {
+                guard let b = w.branch, "refs/heads/\(b)" != main else { return nil }
+                return mergeStatus(git, ref: "refs/heads/\(b)", main: main)
             }()
+            let integrated = branchStatus.map { $0 != .unmerged } ?? false
             if exists {
                 (size, regen) = Scanner.measure(w.path) // sans arbre en mémoire
                 let wt = Git(w.path)
@@ -265,7 +275,7 @@ public enum GitMaintenance {
             return WorktreeInfo(repo: git.repo, path: w.path, branch: w.branch, head: w.head, exists: exists && !w.prunable,
                                 size: size, regenerable: regen, lastModified: last, modifiedFiles: modified,
                                 untrackedFiles: untracked, unpushedCommits: unpushed, status: status,
-                                staleReason: status == .risk ? staleReason : nil)
+                                staleReason: status == .risk ? staleReason : nil, branchStatus: branchStatus)
         }
     }
 
@@ -300,6 +310,16 @@ public enum GitMaintenance {
                                        checkedOutInWorktree: checkedOut[name]))
         }
         let wts = worktrees(git, main: main, goneBranches: Set(branches.map(\.name)), staleDays: options.staleDays, now: now)
+        // Branche fusionnée ou squashée d'un worktree, même si son amont existe encore : proposée avec le worktree.
+        let known = Set(branches.map(\.name))
+        for w in wts {
+            guard let name = w.branch, let st = w.branchStatus, st != .unmerged, !known.contains(name), name != current,
+                  let l = git.line(["for-each-ref", "refs/heads/\(name)", "--format=\(fmt)"]) else { continue }
+            let f = l.split(separator: "\u{1f}", omittingEmptySubsequences: false).map(String.init)
+            guard f.count >= 5 else { continue }
+            branches.append(GoneBranch(repo: repo, name: name, status: st, sha: f[2], date: f[3],
+                                       subject: f[4...].joined(separator: " "), checkedOutInWorktree: w.path))
+        }
         let toDelete = branches.filter { selectedByDefault($0, options: options) }
         return RepoReport(path: repo, gitBytes: loose + pack, looseBytes: loose, mainRef: main, branches: branches,
                           worktrees: wts, reclaimableBytes: estimate(git, deleting: toDelete.map(\.name)))
@@ -315,8 +335,36 @@ public enum GitMaintenance {
         w.isObsolete && (!w.isAtRisk || options.includeAtRisk)
     }
 
+    /// Branches à supprimer avec les worktrees choisis : fusionnées ou squashées, extraites dans l'un d'eux.
+    public static func branchesFollowing(worktrees paths: Set<String>, in branches: [GoneBranch]) -> [GoneBranch] {
+        branches.filter { b in b.status != .unmerged && b.checkedOutInWorktree.map(paths.contains) == true }
+    }
+
+    /// Récapitulatif d'une sélection : taille des `.git`, branches supprimées / gardées, worktrees retirés / gardés.
+    public struct Recap: Equatable, Sendable {
+        public var gitBytes: Int64 = 0
+        public var deletedBranches = 0
+        public var keptBranches = 0
+        public var removedWorktrees = 0
+        public var keptWorktrees = 0
+    }
+
+    public static func recap(_ reports: [RepoReport], branches: Set<String>, worktrees: Set<String>) -> Recap {
+        var r = Recap()
+        for rep in reports {
+            r.gitBytes += rep.gitBytes
+            let del = rep.branches.filter { branches.contains($0.id) }.count
+            r.deletedBranches += del
+            r.keptBranches += rep.branches.count - del
+            let rm = rep.worktrees.filter { worktrees.contains($0.id) }.count
+            r.removedWorktrees += rm
+            r.keptWorktrees += rep.worktrees.count - rm
+        }
+        return r
+    }
+
     /// Octets des objets accessibles uniquement par les branches supprimées.
-    static func estimate(_ git: Git, deleting names: [String]) -> Int64 {
+    public static func estimate(_ git: Git, deleting names: [String]) -> Int64 {
         guard !names.isEmpty else { return 0 }
         let del = Set(names.map { "refs/heads/\($0)" })
         let others = git.run(["for-each-ref", "--format=%(refname)"]).out.split(separator: "\n").map(String.init).filter { !del.contains($0) }
@@ -395,7 +443,8 @@ public enum GitMaintenance {
         }
         if options.pruneNow {
             git.run(["reflog", "expire", "--expire-unreachable=now", "--all"])
-            if options.gc { git.run(["gc", "--quiet", "--prune=now"]) }
+            // Sans gc, les objets devenus inaccessibles resteraient sur le disque : on les élague quand même.
+            if options.gc { git.run(["gc", "--quiet", "--prune=now"]) } else { git.run(["prune", "--expire=now"]) }
         } else if options.gc {
             git.run(["gc", "--quiet"])
         }
@@ -404,7 +453,7 @@ public enum GitMaintenance {
 
     // MARK: Rapport
 
-    /// Rapport TSV : une ligne par branche « gone » (colonnes de git-cleanup.sh).
+    /// Rapport TSV : une ligne par branche proposée (« gone », ou fusionnée d'un worktree ; colonnes de git-cleanup.sh).
     public static func tsv(_ reports: [RepoReport], root: String) -> String {
         var out = "repo\tbranche\tstatut\tsha\tdernier_commit\tsujet\n"
         for r in reports {

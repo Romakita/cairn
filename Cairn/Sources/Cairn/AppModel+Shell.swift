@@ -28,11 +28,38 @@ extension AppModel {
         return DiskAlert(text: text, critical: critical)
     }
 
+    /// Texte d'une alerte de volume : espace libre, prévision de remplissage, espace récupérable.
+    func alertText(_ a: StorageAlerts.Alert) -> String {
+        var text = T("alert.disk_low", a.volume, Fmt.bytes(a.available), Fmt.number(a.percentFree, digits: 1))
+        if let d = a.daysToFull, d < 7 { text += " " + T("alerts.forecast", Fmt.number(d, digits: 0)) }
+        if let s = summary, s.reclaimableBytes > 0 { text += " " + T("alert.reclaimable", Fmt.bytes(s.reclaimableBytes)) }
+        return text
+    }
+
+    /// Erreur : configuration invalide ou dernière sauvegarde en échec. Attention : disque presque plein, dossier
+    /// indisponible, versions abîmées, destination en attente depuis plus d'un jour.
     var globalStatus: GlobalStatus {
         if configIssues.contains(where: { $0.severity == .error }) { return .error }
-        if diskAlert != nil || !activeAlerts.isEmpty || trackedFolders.contains(where: { !$0.isAvailable })
-            || runState.destinations.values.contains(where: { !$0.damagedVersions.isEmpty }) { return .attention }
+        let now = Date()
+        let schedule = config?.schedule ?? CairnConfig.Schedule()
+        let backup = (config?.destinations ?? []).map {
+            Health.destination(runState[$0.id], waiting: destinationWaiting[$0.id] == true, schedule: schedule, now: now)
+        }.max() ?? .ok
+        if backup == .error { return .error }
+        if backup == .attention || diskAlert != nil || !activeAlerts.isEmpty || trackedFolders.contains(where: { !$0.isAvailable }) {
+            return .attention
+        }
         return .ok
+    }
+
+    /// Symbole de la barre des menus : animé pendant une sauvegarde, distinct pour l'attention et l'erreur.
+    var menuBarSymbol: String {
+        if isBackingUp { return menuBarFrame == 0 ? "arrow.triangle.2.circlepath" : "arrow.triangle.2.circlepath.circle" }
+        switch globalStatus {
+        case .ok: return "square.stack.3d.up"
+        case .attention: return "exclamationmark.triangle"
+        case .error: return "xmark.octagon"
+        }
     }
 
     func destinationLabel(_ d: CairnConfig.Destination) -> String {

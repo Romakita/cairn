@@ -62,6 +62,18 @@ extension Scanner {
     }
 }
 
+// MARK: - Présélection du nettoyage
+
+public enum CleanupSuggestion {
+    /// Dossiers régénérables proposés quand on arrive d'une alerte : les plus gros (au plus `limit`, chacun d'au
+    /// moins `minBytes`). Une simple présélection : rien n'est supprimé sans confirmation.
+    public static func preselect(_ nodes: [Node], limit: Int = 10, minBytes: Int64 = 100_000_000) -> [Node] {
+        Array(nodes.filter { $0.isDirectory && $0.category.isRegenerable && $0.size >= minBytes }
+            .sorted { $0.size > $1.size }
+            .prefix(limit))
+    }
+}
+
 // MARK: - Gros objets
 
 public struct BigObject: Identifiable, Hashable, Sendable {

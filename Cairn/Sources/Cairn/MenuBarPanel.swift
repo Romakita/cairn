@@ -91,8 +91,10 @@ final class StorageMonitor: NSObject, UNUserNotificationCenterDelegate {
 }
 
 extension AppModel {
-    /// Ouvre l'écran Nettoyable (rien n'est supprimé sans confirmation).
+    /// Ouvre l'écran Nettoyable avec les plus gros dossiers régénérables présélectionnés
+    /// (rien n'est supprimé sans confirmation).
     func openCleanup() {
+        pendingCleanupPreselection = true
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         NSApp.windows.first { $0.canBecomeMain }?.makeKeyAndOrderFront(nil)
@@ -153,6 +155,17 @@ struct MenuBarPanel: View {
                 }
             }
             backupTile
+            if !model.isScanning, Health.analysisIsStale(model.summary?.date, now: Date()) {
+                tile {
+                    HStack(spacing: 10) {
+                        Label(model.summary.map { T("menu.analysis_stale", Fmt.date($0.date)) } ?? T("menu.no_analysis"),
+                              systemImage: "clock.arrow.circlepath")
+                            .font(.system(size: 13, weight: .medium)).foregroundStyle(Palette.foreground(.warning))
+                        Spacer()
+                        Button(T("action.analyze")) { model.scan() }.buttonStyle(.bordered)
+                    }
+                }
+            }
             ForEach(model.activeAlerts, id: \.volume) { a in
                 tile {
                     Label(a.daysToFull.map { T("alerts.forecast_short", a.volume, Fmt.number($0, digits: 0)) }
@@ -235,9 +248,21 @@ struct MenuBarPanel: View {
                         .font(.system(size: 13.5, weight: .semibold))
                     if let w = waiting.first { Text(T("menu.waiting", model.destinationLabel(w))).font(.system(size: 12)).foregroundStyle(Palette.secondary) }
                     else if dests.isEmpty { Text(T("home.no_destination")).font(.system(size: 12)).foregroundStyle(Palette.secondary) }
+                    if !dests.isEmpty, !model.isBackingUp, let next = nextBackupText(dests) {
+                        Text(next).font(.system(size: 12)).foregroundStyle(Palette.secondary)
+                    }
                 }
             }
         }
+    }
+
+    /// Prochaine échéance (la plus proche parmi les destinations), « en retard » si elle est déjà passée.
+    func nextBackupText(_ dests: [CairnConfig.Destination]) -> String? {
+        guard let s = model.config?.schedule else { return nil }
+        guard s.frequency != .manual else { return T("menu.next_backup_manual") }
+        let now = Date()
+        guard let next = dests.compactMap({ Health.nextBackup(s, lastSuccess: model.runState[$0.id].lastSuccess, now: now) }).min() else { return nil }
+        return next <= now ? T("menu.next_backup_due") : T("menu.next_backup", Fmt.date(next))
     }
 
     func tile<C: View>(@ViewBuilder _ content: () -> C) -> some View {

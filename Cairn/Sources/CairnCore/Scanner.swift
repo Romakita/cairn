@@ -91,6 +91,10 @@ public enum Scanner {
         var levelOne: [Node] = []
         var bigFiles: [BigFile] = []
 
+        // Volume de la racine : comme fts(3) avec FTS_XDEV, on ne franchit pas les points de montage.
+        var rootStat = stat()
+        let rootDevice: dev_t? = stat(root, &rootStat) == 0 ? rootStat.st_dev : nil
+
         // Les deux premiers niveaux sont listés ici, puis chaque dossier de niveau 2 est analysé en parallèle.
         func expand(_ node: Node, depth: Int) {
             guard let names = try? FileManager.default.contentsOfDirectory(atPath: node.path) else { return }
@@ -99,6 +103,7 @@ public enum Scanner {
                 var st = stat()
                 guard lstat(path, &st) == 0 else { continue }
                 if (st.st_mode & S_IFMT) == S_IFDIR {
+                    if let rootDevice, isOtherVolume(st, rootDevice: rootDevice) { continue }
                     let cat = classify(name: name, parentPath: node.path)
                     if name == ".git" { node.isGitRepo = true }
                     if depth == 1 && cat == .source {
@@ -140,6 +145,9 @@ public enum Scanner {
         return ScanResult(root: rootNode, bigFiles: bigFiles, errors: ctx.snapshot().errors,
                           duration: Date().timeIntervalSince(start))
     }
+
+    /// Dossier situé sur un autre volume que la racine (point de montage) : ignoré par l'analyse.
+    public static func isOtherVolume(_ st: stat, rootDevice: dev_t) -> Bool { st.st_dev != rootDevice }
 
     private static func fileSize(_ st: stat, ctx: ScanContext) -> Int64 {
         if (st.st_mode & S_IFMT) == S_IFREG && st.st_nlink > 1 {
