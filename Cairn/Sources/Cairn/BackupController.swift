@@ -56,7 +56,8 @@ final class BackupController {
             for d in dests {
                 let reachable = DestinationSession.provider(for: d).isReachable()
                 waiting[d.id] = !reachable
-                let decision = BackupSchedule.decide(schedule, lastSuccess: state[d.id].lastSuccess, now: Date(),
+                let decision = BackupSchedule.decide(schedule, lastSuccess: state[d.id].lastSuccess,
+                                                     lastAttempt: state[d.id].lastAttempt, now: Date(),
                                                      running: false, power: power, reachable: reachable)
                 if decision == .run { due.append(d.id) }
             }

@@ -216,6 +216,9 @@ let backupTests: [TestCase] = [
         try expectEqual(BackupSchedule.decide(s, lastSuccess: nil, now: at("2026-11-08T150000"), running: false,
                                               power: .init(onBattery: true, percent: 15, lowPowerMode: false), reachable: true, calendar: cal), .waitingPower)
         try expectEqual(BackupSchedule.decide(s, lastSuccess: nil, now: at("2026-11-08T150000"), running: false, power: .ac, reachable: false, calendar: cal), .waitingDestination)
+        try expectEqual(BackupSchedule.decide(s, lastSuccess: nil, lastAttempt: at("2026-11-08T144000"), now: at("2026-11-08T150000"), running: false, power: .ac, reachable: true, calendar: cal), .retryLater, "échec il y a 20 min → pas de relance")
+        try expectEqual(BackupSchedule.decide(s, lastSuccess: nil, lastAttempt: at("2026-11-08T135000"), now: at("2026-11-08T150000"), running: false, power: .ac, reachable: true, calendar: cal), .run, "échec il y a plus d'une heure → relance")
+        try expectEqual(BackupSchedule.decide(s, lastSuccess: at("2026-11-07T120500"), lastAttempt: at("2026-11-07T120500"), now: at("2026-11-08T150000"), running: false, power: .ac, reachable: true, calendar: cal), .run, "dernière tentative réussie → pas de délai")
         var w = s
         w.frequency = .weekly
         w.weekday = "monday" // 2026-11-09 est un lundi

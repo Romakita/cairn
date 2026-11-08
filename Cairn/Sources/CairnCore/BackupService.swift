@@ -118,6 +118,17 @@ public final class BackupService: @unchecked Sendable {
         var prepWarnings: [String] = []
         do { parts = try self.parts(staging: staging, request: request, warn: { prepWarnings.append($0) }) } catch {
             log.write("error before destinations: \(error)")
+            // Noté sur chaque destination visée : l'état l'affiche et la planification attend avant de relancer.
+            if !request.dryRun {
+                var state = RunState.load(paths)
+                for d in config.destinations where request.destinationIDs?.contains(d.id) ?? true {
+                    var ds = state[d.id]
+                    ds.lastAttempt = Date()
+                    ds.lastError = String(describing: error)
+                    state[d.id] = ds
+                }
+                try? state.save(paths)
+            }
             throw error
         }
         log.write("parts: " + parts.map(\.target).joined(separator: ", "))
