@@ -14,9 +14,11 @@ struct BackupView: View {
     @EnvironmentObject var model: AppModel
     @ViewState private var pendingRetention: (CairnConfig.Retention, [String], Int64)?
     @ViewState private var confirmRetention = false
-    /// Vérification complète : destinations en cours et rapport par version.
-    @ViewState private var fullVerifying: Set<String> = []
+    /// Vérification complète : rapport par version.
     @ViewState private var fullReports: [String: [Integrity.Report]] = [:]
+    /// Destination ouverte dans la feuille de modification ou de suppression.
+    @ViewState private var editing: CairnConfig.Destination?
+    @ViewState private var deleting: CairnConfig.Destination?
 
     var body: some View {
         let dests = model.config?.destinations ?? []
@@ -33,6 +35,12 @@ struct BackupView: View {
             }
         }
         .sheet(isPresented: $model.showAddDestination) { AddDestinationSheet().environmentObject(model) }
+        .sheet(isPresented: Binding(get: { editing != nil }, set: { if !$0 { editing = nil } })) {
+            if let editing { AddDestinationSheet(editing: editing).environmentObject(model) }
+        }
+        .sheet(isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
+            if let deleting { DeleteDestinationSheet(destination: deleting).environmentObject(model) }
+        }
         .alert(T("backup.image_password.title"), isPresented: Binding(get: { model.newImagePassword != nil }, set: { if !$0 { model.newImagePassword = nil } })) {
             Button(T("backup.image_password.copy")) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(model.newImagePassword?.1 ?? "", forType: .string) }
             Button(T("backup.image_password.noted"), role: .cancel) {}
@@ -67,14 +75,13 @@ struct BackupView: View {
                         Text(d.url ?? d.path ?? "").font(.system(size: 13)).foregroundStyle(Palette.secondary)
                     }
                     Spacer()
-                    Button(T("backup.simulate")) { model.backups.run(destinations: [d.id], dryRun: true) }.buttonStyle(.pill)
-                    Button(T("backup.verify")) { model.verify(d) }.buttonStyle(.pill)
-                    Button(T("backup.verify_full")) { verifyFull(d) }.buttonStyle(.pill)
-                        .disabled(fullVerifying.contains(d.id) || model.isBackingUp)
+                    moreMenu(d)
+                    Button { editing = d } label: { Label(T("destination.edit"), systemImage: "gearshape") }.buttonStyle(.pill)
                     if model.isBackingUp {
                         Button(T("action.stop")) { model.backups.cancel() }.buttonStyle(.pill)
                     } else {
                         Button(T("action.backup_now")) { model.backups.run(destinations: [d.id], dryRun: false) }.buttonStyle(.pillPrimary)
+                            .disabled(reason(.backup, d) != nil).help(reason(.backup, d).map { T($0) } ?? "")
                     }
                 }
                 if !d.encrypted && model.config?.home.include.contains(where: { $0.hasPrefix(".ssh") || $0.hasPrefix(".aws") }) == true {
@@ -95,35 +102,83 @@ struct BackupView: View {
                     // Échec avant les destinations : seul le journal peut l'expliquer.
                     HStack { Spacer(); Button(T("backup.view_log")) { Notifier.openLog(log) }.buttonStyle(.pill) }
                 }
-                if fullVerifying.contains(d.id) || fullReports[d.id] != nil {
+                if model.verifying.contains(d.id) || fullReports[d.id] != nil {
                     fullVerificationCard(d)
                 }
+                // Cartes d'une même rangée à la même hauteur : la rangée prend la hauteur de la plus haute.
                 HStack(alignment: .top, spacing: 14) {
                     statCard(T("home.last_backup"), ds.lastSuccess.map(Fmt.date) ?? T("backup.never"),
                              ds.lastSuccess == nil ? (ds.lastError ?? "") : T("backup.transferred", Fmt.bytes(ds.lastBytesTransferred), Fmt.duration(ds.lastDuration)))
                     statCard(T("backup.next"), nextText(), waiting ? T("backup.waiting_since", ds.waitingSince.map(Fmt.date) ?? "—") : T("frequency.\(model.config?.schedule.frequency.rawValue ?? "daily")"))
                     statCard(T("backup.integrity"), ds.damagedVersions.isEmpty ? T("backup.integrity.ok") : T("backup.integrity.damaged", ds.damagedVersions.count),
-                             ds.lastVerification.map { T("backup.integrity.checked", Fmt.date($0)) } ?? T("backup.integrity.never"))
+                             ds.lastVerification.map { T("backup.integrity.checked", Fmt.date($0)) } ?? T("backup.integrity.never")) {
+                        HStack(spacing: 8) {
+                            Button(T("backup.verify.short")) { model.verify(d) }.buttonStyle(.pill).fixedSize()
+                                .disabled(reason(.verify, d) != nil).help(reason(.verify, d).map { T($0) } ?? "")
+                            Button(T("backup.verify_full.short")) { verifyFull(d) }.buttonStyle(.pill).fixedSize()
+                                .disabled(reason(.verifyFull, d) != nil).help(reason(.verifyFull, d).map { T($0) } ?? "")
+                        }
+                    }
                 }
+                .fixedSize(horizontal: false, vertical: true)
                 HStack(alignment: .top, spacing: 14) {
-                    versionsCard(d)
+                    historyCard(d)
                     VStack(spacing: 14) {
                         retentionCard(d)
                         scheduleCard()
                     }
-                    .frame(width: 340)
+                    .frame(width: 370)
                 }
+                .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.horizontal, 32).padding(.vertical, 20)
         }
+        // Historique lu dès l'ouverture, et relu quand la destination redevient joignable ou après une sauvegarde.
+        .task(id: "\(d.id)|\(String(describing: probed))|\(model.isBackingUp)|\(model.versions[d.id] == nil)") {
+            model.autoLoadVersions(d)
+        }
+    }
+
+    /// Clé de la raison pour laquelle une action est indisponible (`nil` : disponible).
+    func reason(_ action: BackupAction, _ d: CairnConfig.Destination) -> String? {
+        let hasBackups = model.versions[d.id].map { !$0.isEmpty } ?? (model.runState[d.id].lastSuccess != nil)
+        return BackupActions.unavailableReason(action, .init(reachable: model.destinationWaiting[d.id].map { !$0 },
+                                                             backingUp: model.isBackingUp,
+                                                             verifying: model.verifying.contains(d.id), hasBackups: hasBackups))
+    }
+
+    /// Menu « … » : simulation, adresse, suppression (en rouge, en dernier).
+    func moreMenu(_ d: CairnConfig.Destination) -> some View {
+        Menu {
+            Button { model.backups.run(destinations: [d.id], dryRun: true) } label: { Label(T("backup.simulate"), systemImage: "play.circle") }
+                .disabled(reason(.simulate, d) != nil)
+            Button {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(d.url ?? d.path ?? "", forType: .string)
+            } label: { Label(T("destination.copy_address"), systemImage: "link") }
+            Divider()
+            Button(role: .destructive) { deleting = d } label: { Label(T("destination.delete.menu"), systemImage: "trash") }
+        } label: {
+            Image(systemName: "ellipsis").font(.system(size: 14, weight: .semibold)).foregroundStyle(Palette.text)
+                .frame(width: 36, height: 36).background(Palette.field, in: Circle()).contentShape(Circle())
+        }
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+        .help(T("destination.more"))
+        .accessibilityLabel(T("destination.more"))
     }
 
     func statCard(_ title: String, _ value: String, _ detail: String) -> some View {
-        Card {
+        statCard(title, value, detail) { EmptyView() }
+    }
+
+    func statCard<Actions: View>(_ title: String, _ value: String, _ detail: String, @ViewBuilder actions: () -> Actions) -> some View {
+        Card(fill: true) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(title).font(.system(size: 13)).foregroundStyle(Palette.secondary)
                 Text(value).font(.system(size: 20, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
                 Text(detail).font(.system(size: 12.5)).foregroundStyle(Palette.secondary).lineLimit(2)
+                Spacer(minLength: 0)
+                actions().padding(.top, 4)
             }
         }
     }
@@ -174,12 +229,12 @@ struct BackupView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text(T("backup.verify_full.title")).font(.system(size: 15, weight: .semibold))
-                    if fullVerifying.contains(d.id) {
+                    if model.verifying.contains(d.id) {
                         ProgressView().controlSize(.small)
                         Text(T("backup.verify_full.running")).font(.system(size: 12.5)).foregroundStyle(Palette.secondary)
                     }
                     Spacer()
-                    if !fullVerifying.contains(d.id) {
+                    if !model.verifying.contains(d.id) {
                         Button(T("backup.result.dismiss")) { fullReports[d.id] = nil }.buttonStyle(.pill)
                     }
                 }
@@ -204,12 +259,8 @@ struct BackupView: View {
     }
 
     func verifyFull(_ d: CairnConfig.Destination) {
-        fullVerifying.insert(d.id)
         fullReports[d.id] = nil
-        model.verify(d, full: true) { reports in
-            fullVerifying.remove(d.id)
-            fullReports[d.id] = reports
-        }
+        model.verify(d, full: true) { reports in fullReports[d.id] = reports }
     }
 
     func nextText() -> String {
@@ -220,17 +271,24 @@ struct BackupView: View {
         return Fmt.date(last.addingTimeInterval(step))
     }
 
-    func versionsCard(_ d: CairnConfig.Destination) -> some View {
-        Card {
+    /// Historique des sauvegardes de ce Mac sur la destination, lu automatiquement.
+    func historyCard(_ d: CairnConfig.Destination) -> some View {
+        let loading = model.versionsLoading.contains(d.id)
+        let shown = 12
+        return Card(fill: true) {
             VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text(T("backup.versions")).font(.system(size: 15, weight: .semibold))
-                    if let v = model.versions[d.id] { Text(T("backup.versions_count", v.count)).foregroundStyle(Palette.secondary).font(.system(size: 12.5)) }
+                HStack(spacing: 8) {
+                    Text(T("backup.history")).font(.system(size: 15, weight: .semibold))
+                    if let v = model.versions[d.id], !v.isEmpty {
+                        Text(T("backup.history.count", v.count)).foregroundStyle(Palette.secondary).font(.system(size: 12.5))
+                    }
                     Spacer()
-                    Button(T("backup.load_versions")) { model.loadVersions(d) }.buttonStyle(.pill)
+                    if loading { ProgressView().controlSize(.small) }
+                    Button { model.loadVersions(d) } label: { Label(T("backup.history.refresh"), systemImage: "arrow.clockwise") }
+                        .buttonStyle(.pill).disabled(loading || model.isBackingUp)
                 }
-                if let versions = model.versions[d.id] {
-                    ForEach(versions.reversed().prefix(30)) { v in
+                if let versions = model.versions[d.id], !versions.isEmpty {
+                    ForEach(versions.reversed().prefix(shown)) { v in
                         HStack {
                             Circle().fill(v.damaged ? Color.orange : Palette.foreground(.success)).frame(width: 8, height: 8)
                             Text(Fmt.date(v.date)).fontWeight(.medium)
@@ -240,11 +298,23 @@ struct BackupView: View {
                         }
                         .padding(.vertical, 4)
                     }
+                    if versions.count > shown {
+                        Text(T("backup.history.more", versions.count - shown)).font(.system(size: 12.5)).foregroundStyle(Palette.secondary)
+                    }
                 } else {
-                    Text(T("backup.versions_hint")).foregroundStyle(Palette.secondary).font(.system(size: 13))
+                    Text(historyPlaceholder(d, loading: loading)).foregroundStyle(Palette.secondary).font(.system(size: 13))
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+                Spacer(minLength: 0)
             }
         }
+    }
+
+    func historyPlaceholder(_ d: CairnConfig.Destination, loading: Bool) -> String {
+        if loading { return T("backup.history.loading") }
+        if let e = model.versionsError[d.id] { return T("backup.history.error", e) }
+        if model.destinationWaiting[d.id] == true { return T("backup.history.unreachable") }
+        return model.versions[d.id] == nil ? T("backup.history.loading") : T("backup.history.empty")
     }
 
     func retentionCard(_ d: CairnConfig.Destination) -> some View {
@@ -257,18 +327,15 @@ struct BackupView: View {
         return Card {
             VStack(alignment: .leading, spacing: 12) {
                 Text(T("backup.retention")).font(.system(size: 15, weight: .semibold))
-                Picker("", selection: Binding(get: { mode }, set: { m in
-                               switch m {
-                               case 0: change(d, .recommended)
-                               case 1: change(d, .count(12))
-                               default: change(d, .tiered(days: 14, weeks: 26))
-                               }
-                           })) {
-                    Text(T("backup.retention.recommended")).tag(0)
-                    Text(T("backup.retention.count")).tag(1)
-                    Text(T("backup.retention.custom")).tag(2)
-                }
-                .pickerStyle(.segmented).labelsHidden()
+                TabBar(options: [(0, T("backup.retention.recommended")), (1, T("backup.retention.count")), (2, T("backup.retention.custom"))],
+                       selection: Binding(get: { mode }, set: { m in
+                           guard m != mode else { return }
+                           switch m {
+                           case 0: change(d, .recommended)
+                           case 1: change(d, .count(12))
+                           default: change(d, .tiered(days: 14, weeks: 26))
+                           }
+                       }))
                 switch d.retention {
                 case let .count(n):
                     Stepper(T("backup.retention.versions", n), value: Binding(get: { n }, set: { change(d, .count($0)) }), in: 1...520)
@@ -286,13 +353,14 @@ struct BackupView: View {
 
     func scheduleCard() -> some View {
         let s = model.config?.schedule ?? CairnConfig.Schedule()
-        return Card {
+        return Card(fill: true) {
             VStack(alignment: .leading, spacing: 10) {
                 Text(T("settings.schedule")).font(.system(size: 15, weight: .semibold))
                 Text(s.frequency == .manual ? T("frequency.manual") : "\(T("frequency.\(s.frequency.rawValue)")) · \(s.time)")
                 Toggle(T("onboarding.schedule.background_toggle"), isOn: Binding(get: { s.background }, set: { v in model.updateConfig { $0.schedule.background = v } }))
                 Text(T("settings.battery", s.onBatteryMinPercent)).font(.system(size: 12.5)).foregroundStyle(Palette.secondary)
                 Text(T("backup.never_wakes")).font(.system(size: 12.5)).foregroundStyle(Palette.secondary)
+                Spacer(minLength: 0)
             }
             .font(.system(size: 13.5))
         }
@@ -330,8 +398,19 @@ struct BackupView: View {
 }
 
 extension AppModel {
-    /// Liste les versions d'une destination (monte puis démonte).
+    /// Lit l'historique à l'ouverture de la page : destination pas connue injoignable, rien de déjà lu ou en cours,
+    /// aucune sauvegarde en cours (elle tient l'image montée). Rien en mode `--snapshot`.
+    func autoLoadVersions(_ d: CairnConfig.Destination) {
+        guard !Self.offline, !isBackingUp, destinationWaiting[d.id] != true, versions[d.id] == nil,
+              versionsError[d.id] == nil, !versionsLoading.contains(d.id) else { return }
+        loadVersions(d)
+    }
+
+    /// Liste les sauvegardes de ce Mac sur une destination, en arrière-plan ; démonte toujours ce qui a été monté.
     func loadVersions(_ d: CairnConfig.Destination) {
+        guard !Self.offline, !versionsLoading.contains(d.id) else { return }
+        versionsLoading.insert(d.id)
+        versionsError[d.id] = nil
         Task.detached(priority: .userInitiated) {
             let session = DestinationSession(d)
             var list: [VersionInfo] = []
@@ -342,12 +421,14 @@ extension AppModel {
                 list = BackupEngine.versions(in: dir).compactMap { n in
                     BackupEngine.date(ofVersion: n).map { VersionInfo(name: n, date: $0, damaged: !Integrity.readDamaged(dir.appendingPathComponent(n)).isEmpty) }
                 }
-                session.close()
+            } catch ProviderError.notCreated {
+                // Destination encore vide : aucune sauvegarde.
             } catch { failure = String(describing: error) }
+            session.close()
             let (l, e) = (list, failure)
             await MainActor.run {
-                self.versions[d.id] = l
-                if let e { self.lastMessage = e }
+                self.versionsLoading.remove(d.id)
+                if let e { self.versionsError[d.id] = e; self.versions[d.id] = nil } else { self.versions[d.id] = l }
             }
         }
     }
@@ -390,6 +471,8 @@ extension AppModel {
     /// toutes les versions (`full`). L'état (`runs.json`) est mis à jour par `BackupService.verify`, comme en ligne
     /// de commande.
     func verify(_ d: CairnConfig.Destination, full: Bool = false, then: @escaping ([Integrity.Report]) -> Void = { _ in }) {
+        guard !verifying.contains(d.id) else { return }
+        verifying.insert(d.id)
         let paths = self.paths
         Task.detached(priority: .utility) {
             var msg = ""
@@ -406,6 +489,7 @@ extension AppModel {
             } catch { msg = String(describing: error) }
             let (m, list) = (msg, reports)
             await MainActor.run {
+                self.verifying.remove(d.id)
                 if !m.isEmpty { self.lastMessage = m }
                 self.runState = RunState.load(self.paths)
                 then(list)

@@ -32,6 +32,9 @@ final class DestinationFormModel: ObservableObject {
     @Published private(set) var browserImages: [ExistingImage] = []
     @Published private(set) var connected = false
 
+    /// Destination modifiée (`nil` à l'ajout) : type et chiffrement figés, mot de passe vide = celui du Trousseau.
+    private(set) var editing: CairnConfig.Destination?
+
     private var session = ProbeSession()
     private var generation = 0
     private var navigating = false
@@ -46,6 +49,33 @@ final class DestinationFormModel: ObservableObject {
                 MainActor.assumeIsolated { self?.volumesChanged(unmounted: n.name == NSWorkspace.didUnmountNotification) }
             }
         }
+    }
+
+    /// Formulaire prérempli pour modifier une destination. Un dossier local est vérifié tout de suite ; un NAS attend
+    /// « Se connecter » (pas de montage sans action de l'utilisateur).
+    convenience init(editing d: CairnConfig.Destination) {
+        self.init(kind: d.provider == .smb ? .smb : .local)
+        editing = d
+        encrypted = d.encrypted
+        switch d.provider {
+        case .smb:
+            smbAddress = d.url ?? "smb://"
+            smbUser = d.username ?? NSUserName()
+        case .local:
+            localPath = d.path ?? ""
+            if !localPath.isEmpty { submitLocalPath() }
+        }
+    }
+
+    /// Emplacement choisi différent de celui de la destination modifiée (les sauvegardes faites restent à l'ancien).
+    var locationChanged: Bool {
+        guard let editing, let d = destination(id: editing.id) else { return false }
+        if d.provider == .smb {
+            let (a, b) = (DestinationProbe.smbParts(d.url ?? ""), DestinationProbe.smbParts(editing.url ?? ""))
+            return a?.host.lowercased() != b?.host.lowercased() || a?.share != b?.share || a?.subpath != b?.subpath
+        }
+        let norm: (String?) -> String? = { $0.map { (($0 as NSString).expandingTildeInPath as NSString).standardizingPath } }
+        return norm(d.path) != norm(editing.path)
     }
 
     // MARK: Résultat
@@ -305,16 +335,7 @@ struct DestinationForm: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 12) {
-                if allowsLater {
-                    ChoiceTile(icon: "clock", title: T("onboarding.destination.later"),
-                               subtitle: T("onboarding.destination.later.text"), selected: form.kind == .later) { pick(.later) }
-                }
-                ChoiceTile(icon: "externaldrive", title: T("onboarding.destination.local"),
-                           subtitle: T("onboarding.destination.local.text"), selected: form.kind == .local) { pick(.local) }
-                ChoiceTile(icon: "server.rack", title: T("onboarding.destination.smb"),
-                           subtitle: T("onboarding.destination.smb.text"), selected: form.kind == .smb) { pick(.smb) }
-            }
+            if form.editing == nil { kindTiles }
             switch form.kind {
             case .later: EmptyView()
             case .local: localCard.transition(.opacity)
@@ -336,6 +357,19 @@ struct DestinationForm: View {
             Button(T("action.cancel"), role: .cancel) {}
         } message: {
             Text(T("onboarding.destination.disable_encryption.message"))
+        }
+    }
+
+    var kindTiles: some View {
+        HStack(spacing: 12) {
+            if allowsLater {
+                ChoiceTile(icon: "clock", title: T("onboarding.destination.later"),
+                           subtitle: T("onboarding.destination.later.text"), selected: form.kind == .later) { pick(.later) }
+            }
+            ChoiceTile(icon: "externaldrive", title: T("onboarding.destination.local"),
+                       subtitle: T("onboarding.destination.local.text"), selected: form.kind == .local) { pick(.local) }
+            ChoiceTile(icon: "server.rack", title: T("onboarding.destination.smb"),
+                       subtitle: T("onboarding.destination.smb.text"), selected: form.kind == .smb) { pick(.smb) }
         }
     }
 
@@ -366,7 +400,7 @@ struct DestinationForm: View {
                     TextField("", text: $form.smbUser).cairnField().frame(width: 300)
                 }
                 RowDivider()
-                SettingsRow(title: T("onboarding.destination.password"), subtitle: T("probe.smb.keychain_later")) {
+                SettingsRow(title: T("onboarding.destination.password"), subtitle: T(form.editing == nil ? "probe.smb.keychain_later" : "destination.edit.password_hint")) {
                     SecureField("", text: $form.password).cairnField().frame(width: 300)
                         .overlay(Capsule().strokeBorder(Palette.foreground(.danger), lineWidth: 1.5).opacity(form.passwordRejected ? 1 : 0))
                         .onSubmit { form.connect() }
@@ -398,7 +432,14 @@ struct DestinationForm: View {
                     if on { form.encrypted = true } else { confirmUnencrypted = true }
                 }))
                 .labelsHidden().toggleStyle(.switch)
+                .disabled(form.editing != nil)
             }
+        }
+        if form.editing != nil {
+            Text(T("destination.edit.encryption_fixed")).font(.system(size: 12.5)).foregroundStyle(Palette.secondary)
+        }
+        if form.locationChanged {
+            Banner(icon: "info.circle", text: T("destination.edit.folder_changed"), tone: .info)
         }
         if !form.encrypted {
             Banner(icon: "exclamationmark.triangle", text: T("onboarding.destination.unencrypted_warning"), tone: .warning)
@@ -616,7 +657,8 @@ struct VerificationStatus: View {
 
 // MARK: - Feuille de l'app
 
-/// « Ajouter une destination » depuis l'app : même formulaire que l'assistant, enregistrement à « Ajouter ».
+/// « Ajouter une destination » ou « Modifier la destination » depuis l'app : même formulaire que l'assistant,
+/// enregistrement seulement après vérification.
 struct AddDestinationSheet: View {
     @EnvironmentObject var model: AppModel
     @StateObject private var form: DestinationFormModel
@@ -626,11 +668,16 @@ struct AddDestinationSheet: View {
         _form = StateObject(wrappedValue: form ?? DestinationFormModel(kind: .local))
     }
 
+    /// Feuille de modification d'une destination existante.
+    init(editing d: CairnConfig.Destination) {
+        _form = StateObject(wrappedValue: DestinationFormModel(editing: d))
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(T("sidebar.add_destination")).font(.system(size: 22, weight: .medium))
-                Text(T("probe.sheet.text")).font(.system(size: 13.5)).foregroundStyle(Palette.secondary)
+                Text(T(form.editing == nil ? "sidebar.add_destination" : "destination.edit.title")).font(.system(size: 22, weight: .medium))
+                Text(T(form.editing == nil ? "probe.sheet.text" : "destination.edit.text")).font(.system(size: 13.5)).foregroundStyle(Palette.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 28).padding(.top, 24).padding(.bottom, 18)
@@ -646,10 +693,17 @@ struct AddDestinationSheet: View {
                 }
                 Spacer()
                 Button(T("action.cancel")) { close() }.buttonStyle(.pill).keyboardShortcut(.cancelAction)
-                Button { if model.saveNewDestination(form) { close() } } label: {
-                    Label(T("action.add"), systemImage: "plus")
+                if let original = form.editing {
+                    Button { if model.saveEditedDestination(form, original: original) { close() } } label: {
+                        Label(T("action.save"), systemImage: "checkmark")
+                    }
+                    .buttonStyle(.pillPrimary).disabled(!form.isVerified)
+                } else {
+                    Button { if model.saveNewDestination(form) { close() } } label: {
+                        Label(T("action.add"), systemImage: "plus")
+                    }
+                    .buttonStyle(.pillPrimary).disabled(!form.isVerified)
                 }
-                .buttonStyle(.pillPrimary).disabled(!form.isVerified)
             }
             .padding(.horizontal, 24).frame(height: 60)
         }
@@ -686,6 +740,25 @@ extension AppModel {
                 lastMessage = T("onboarding.keychain_error", String(describing: error))
             }
         }
+        return true
+    }
+
+    /// Enregistre une destination modifiée et vérifiée : seule la connexion change (identifiant, chiffrement, rétention
+    /// et historique conservés). Le mot de passe saisi va dans le Trousseau ; vide, celui du Trousseau reste.
+    func saveEditedDestination(_ form: DestinationFormModel, original: CairnConfig.Destination) -> Bool {
+        guard form.isVerified, let edited = form.destination(id: original.id) else { return false }
+        let d = original.updatingConnection(from: edited)
+        if d.provider == .smb, !form.password.isEmpty, let host = d.url.flatMap(OnboardingDraft.smbHost) {
+            do { try Keychain.setInternetPassword(form.password, server: host, account: d.username ?? NSUserName()) } catch {
+                lastMessage = T("onboarding.keychain_error", String(describing: error))
+                return false
+            }
+        }
+        updateConfig { c in if let i = c.destinations.firstIndex(where: { $0.id == d.id }) { c.destinations[i] = d } }
+        versions[d.id] = nil
+        versionsError[d.id] = nil
+        destinationWaiting[d.id] = false // vient d'être vérifiée
+        lastMessage = T("destination.edit.saved", destinationLabel(d))
         return true
     }
 
