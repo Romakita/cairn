@@ -173,6 +173,10 @@
 "hub.check.help" = "Vérification en lecture seule : rien n'est supprimé, nettoyé ni sauvegardé.";
 "hub.checking" = "Vérification en cours…";
 "hub.resolve" = "Résoudre";
+"hub.badge.ok" = "À jour";
+"hub.badge.info" = "À optimiser";
+"hub.badge.attention" = "À regarder";
+"hub.badge.error" = "À corriger";
 "hub.issue.config_invalid" = "Configuration invalide : %@";
 "hub.issue.backup_failed" = "La dernière sauvegarde vers %@ a échoué";
 "hub.issue.disk_critical" = "%1$@ est presque saturé : plus que %2$@ libres";
