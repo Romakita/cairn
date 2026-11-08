@@ -53,8 +53,8 @@ extension AppModel {
 
         // Stockage : `Scanner` ne modifie jamais le disque.
         scan { [weak self] ok in self?.finishCheck(.storage, ok: ok, token: token) }
-        // Git : `GitMaintenance.analyzeAll` (pool de workers), sans `apply`.
-        analyzeGit(cancel: token) { [weak self] ok in self?.finishCheck(.git, ok: ok, token: token) }
+        // Git : `GitMaintenance.analyzeAll` (pool de workers), sans `apply`, sans `git fetch` et sur tous les dépôts.
+        analyzeGit(cancel: token, fullCheck: true) { [weak self] ok in self?.finishCheck(.git, ok: ok, token: token) }
         // Sauvegarde et restauration : joignabilité (test TCP ou présence du volume), relecture de runs.json.
         let dests = config?.destinations ?? []
         let paths = self.paths

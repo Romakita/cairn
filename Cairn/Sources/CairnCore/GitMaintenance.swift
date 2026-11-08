@@ -134,6 +134,19 @@ public struct GitOptions: Sendable, Codable {
     public init() {}
 }
 
+extension GitOptions {
+    /// Options d'une analyse lancée depuis l'app : réglages de `[git]` appliqués à celles de l'écran Git. Pour la
+    /// vérification complète de l'accueil (`fullCheck`), tous les dépôts sans filtre et jamais de `git fetch`, qui
+    /// modifie le dépôt (`--prune` supprime des références distantes) : la vérification reste en lecture seule.
+    public func forAnalysis(config: CairnConfig?, fullCheck: Bool) -> GitOptions {
+        var o = self
+        o.staleDays = config?.git.worktreeStaleDays ?? 30
+        o.fetch = fullCheck ? false : (config?.git.fetchBefore ?? false)
+        if fullCheck { o.only = nil }
+        return o
+    }
+}
+
 public enum GitMaintenance {
     /// Dossiers système de volume, en plus des dossiers classés par le Scanner (régénérables, corbeille).
     static let systemFolders: Set<String> = [".Spotlight-V100", ".fseventsd", ".DocumentRevisions-V100", ".TemporaryItems"]

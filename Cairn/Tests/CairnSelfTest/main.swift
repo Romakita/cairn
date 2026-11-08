@@ -15,6 +15,13 @@ if CommandLine.arguments.count >= 3 && CommandLine.arguments[1] == "--hold-lock"
     _exit(0) // fin brutale : le système doit libérer le verrou
 }
 
+// Processus auxiliaire du test du journal d'activité : ajoute N événements dans le dossier CAIRN donné.
+if CommandLine.arguments.count >= 4 && CommandLine.arguments[1] == "--append-activity" {
+    let log = ActivityLog(paths: CairnPaths(root: URL(fileURLWithPath: CommandLine.arguments[2])))
+    for n in 0..<(Int(CommandLine.arguments[3]) ?? 0) { log.append(.init(kind: .check, count: n)) }
+    exit(0)
+}
+
 // Outil de comparaison avec scripts/backup.sh : liste d'exclusions de Cairn pour un dossier.
 if CommandLine.arguments.count >= 3 && CommandLine.arguments[1] == "--excludes" {
     for line in BackupExclusions.forFolder(CommandLine.arguments[2], userPatterns: [], destinations: []) { print(line) }
