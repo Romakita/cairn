@@ -187,7 +187,9 @@ let gitTests: [TestCase] = [
             // Limite de mémoire ridicule : le worker est arrêté, l'analyse continue sans planter.
             var p2: GitMaintenance.PoolProgress?
             let limited = GitMaintenance.analyzeAll(folders: [root], options: GitOptions(), memoryLimit: 1) { p2 = $0 }
-            try expect(limited.isEmpty || p2?.failed.isEmpty == false, "le worker trop gourmand doit être arrêté")
+            // Un worker rapide peut finir avant le premier contrôle (toutes les secondes) : chaque dépôt doit
+            // donc soit produire un rapport, soit être signalé en échec — jamais de blocage ni de plantage.
+            try expectEqual(limited.count + (p2?.failed.count ?? 0), p2?.total ?? -1)
         }
     },
 ]
