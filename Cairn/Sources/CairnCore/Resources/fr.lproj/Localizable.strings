@@ -227,6 +227,7 @@
 "hub.activity.disk_critical" = "Alerte : %@ presque saturé";
 "hub.activity.check_ok" = "Vérification complète : tout est en ordre";
 "hub.activity.check_issues" = "Vérification complète : %lld points à regarder";
+"shell.toggle_sidebar" = "Afficher ou masquer la barre latérale";
 "menu.open" = "Ouvrir Cairn";
 "menu.quit" = "Quitter Cairn";
 "placeholder.soon" = "Cette section arrive dans une prochaine version.";

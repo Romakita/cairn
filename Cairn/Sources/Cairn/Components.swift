@@ -415,13 +415,14 @@ struct FillBar: View {
 /// Logo de Cairn : trois pierres empilées.
 struct CairnLogo: View {
     var size: CGFloat = 22
+    var color: Color = Palette.text
     var body: some View {
         Canvas { ctx, s in
             let w = s.width
             let stones: [(CGFloat, CGFloat, CGFloat)] = [(0.77, 0.62, 0.22), (0.53, 0.45, 0.19), (0.30, 0.27, 0.16)]
             for (cy, rw, rh) in stones {
                 let rect = CGRect(x: w * (0.5 - rw / 2), y: w * cy - w * rh / 2, width: w * rw, height: w * rh)
-                ctx.stroke(Path(ellipseIn: rect), with: .color(Palette.text), lineWidth: max(1.2, w / 14))
+                ctx.stroke(Path(ellipseIn: rect), with: .color(color), lineWidth: max(1.2, w / 14))
             }
         }
         .frame(width: size, height: size)

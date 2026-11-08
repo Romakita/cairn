@@ -26,6 +26,13 @@ Git orange `#EA580C`, Outils IA violet `#7C3AED`, Restauration indigo `#4F46E5` 
 teintent la grande tuile d'icône des cartes (64 pt, fond à 13 %) et leurs mini-graphiques ; l'état d'un module
 reste dit par un `Badge` de ton (« À jour », « À regarder »…), et l'action principale reste noire.
 
+## Fenêtre (`MainShell`)
+
+Comme Codex : un cadre gris (`rail`) porte la barre du haut (48 pt : boutons de fenêtre, bascule de la barre
+latérale, logo de Cairn en pastille noire à droite) et le rail d'icônes. La barre latérale et le contenu partagent un
+corps blanc qui flotte dans ce cadre : rayon 14, bordure 1 pt `border`, ombre douce (noir 10 %, rayon 12, y 3),
+marge de 10 pt à droite et en bas. C'est la seule ombre d'un élément non flottant.
+
 ## Typographie
 
 Police système (SF Pro), graisses légères :
