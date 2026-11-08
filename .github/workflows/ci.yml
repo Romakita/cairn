@@ -44,7 +44,7 @@ jobs:
       - name: App runs outside the build folder
         run: Cairn/scripts/smoke-test-app.sh Cairn/build/Cairn.app
 
-  # Après un build réussi sur main : tag v<Cairn/VERSION> + release GitHub avec l'archive, si elle n'existe pas encore.
+  # Après un build réussi sur main : semantic-release calcule la version depuis les commits et publie la release.
   release:
     name: Release
     needs: test

@@ -12,8 +12,9 @@ versions follow [SemVer](https://semver.org/). The current version is in `Cairn/
   `[updates] check` setting to turn off the automatic check.
 
 ### Changed
-- Releases are automatic: after a successful build on `main`, CI creates the `v<VERSION>` tag and the GitHub release
-  with the app archive when `Cairn/VERSION` names a version not yet released. No more manual tagging.
+- Releases are automatic, with semantic-release: after a successful build on `main`, the version is computed from the
+  Conventional Commits since the last tag (breaking change → major, `feat` → minor, `fix`/`perf` → patch), then CI
+  commits the bump, tags it and publishes the GitHub release with the app archive. No more manual bump or tag.
 - Design system taken from Codex (`Cairn/DESIGN.md`): neutral palette, borderless cards, settings rows, black / gray /
   outlined buttons, segmented picker and page tabs, bordered menus, capsule text fields, dark tooltips in the icon bar.
 - The first-run wizard shows its steps across the top, as a clickable progress line, with animated transitions,

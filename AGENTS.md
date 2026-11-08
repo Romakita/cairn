@@ -10,7 +10,10 @@ Les anciens scripts bash ont été retirés (historique git). Voir [README.md](R
 
 - Langue du projet : français (docs, commentaires, artefacts OpenSpec) ; l'app est bilingue en-US / fr-FR.
 - Commits : [Conventional Commits](https://www.conventionalcommits.org/) en anglais (`feat(scope): …`, `fix: …`,
-  `docs: …`). Le `CHANGELOG.md`, publié tel quel comme note de release, est en anglais.
+  `docs: …`). Le type fixe la prochaine version (semantic-release, au merge sur `main`) : breaking change (`feat!:` ou
+  `BREAKING CHANGE:`) → majeure, `feat` → mineure, `fix`/`perf` → patch, les autres types → pas de release. Ne pas
+  toucher `Cairn/VERSION` à la main. Le `CHANGELOG.md` (section `[Unreleased]`), publié tel quel comme note de
+  release, est en anglais.
 - Branche de PR : la remettre à jour par rebase sur `main` (pas de commit de fusion), puis `git push --force-with-lease`.
 - Cairn touche au home et à des tokens : toute opération destructive (suppression, nettoyage git, restauration)
   doit rester explicite, confirmée et avoir un mode simulation.

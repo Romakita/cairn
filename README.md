@@ -260,17 +260,22 @@ editing `Sources/CairnCore/Resources/rules/rules.json`. Details in [Cairn/README
 Versioning follows [SemVer](https://semver.org/) and the number lives in `Cairn/VERSION` (`just version`,
 `cairn --version`).
 
-Releases are published by CI: branch → PR → review → merge on `main` → build → release.
+Releases are published by CI with [semantic-release](https://semantic-release.gitbook.io/): branch → PR → review →
+merge on `main` → build → release. The version comes from the [Conventional Commits](https://www.conventionalcommits.org/)
+merged since the last tag:
 
-```bash
-just bump 0.2.0                      # in the PR: VERSION, code constant, dated CHANGELOG section
-git commit -am "chore(release): 0.2.0"
-```
+| Commits since the last release | Next version |
+|---|---|
+| a breaking change (`feat!: …`, or `BREAKING CHANGE:` in the body) | major (`0.2.3` → `1.0.0`) |
+| a `feat` | minor (`0.2.3` → `0.3.0`) |
+| only `fix` / `perf` | patch (`0.2.3` → `0.2.4`) |
+| only `docs`, `ci`, `chore`, `refactor`, `test`… | no release |
 
-Once the PR is merged and the `main` build passes, CI creates the `v0.2.0` tag on that commit and a GitHub release
-with `Cairn-<version>-arm64.zip`, its SHA-256 checksum and the CHANGELOG notes (the archive is also kept with the
-workflow run). A merge that doesn't change `Cairn/VERSION` publishes nothing, since its tag already exists. Pushing a
-`vX.Y.Z` tag by hand still works; a tag that doesn't match `Cairn/VERSION` is rejected.
+After the `main` build passes, CI bumps `Cairn/VERSION`, the code constant and `CHANGELOG.md` (the `[Unreleased]`
+section becomes the dated version section), builds and smoke-tests the archive, pushes a `chore(release): X.Y.Z`
+commit to `main`, tags it `vX.Y.Z` and publishes a GitHub release with `Cairn-<version>-arm64.zip` and its SHA-256
+checksum. The release notes are the `[Unreleased]` section; when it is empty, the commit subjects are used instead.
+Config: [.releaserc.json](.releaserc.json).
 
 ## Roadmap
 

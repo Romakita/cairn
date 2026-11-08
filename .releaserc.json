@@ -1,0 +1,27 @@
+{
+  "branches": ["main"],
+  "tagFormat": "v${version}",
+  "plugins": [
+    ["@semantic-release/commit-analyzer", {
+      "preset": "conventionalcommits"
+    }],
+    ["@semantic-release/exec", {
+      "generateNotesCmd": "Cairn/scripts/release-notes.sh --footer '${lastRelease.gitHead}'",
+      "prepareCmd": "Cairn/scripts/release-prepare.sh '${nextRelease.version}' '${lastRelease.gitHead}'"
+    }],
+    ["@semantic-release/git", {
+      "assets": ["Cairn/VERSION", "Cairn/Sources/CairnCore/BackupEngine.swift", "CHANGELOG.md"],
+      "message": "chore(release): ${nextRelease.version} [skip ci]"
+    }],
+    ["@semantic-release/github", {
+      "assets": [
+        {"path": "Cairn/build/Cairn-*.zip"},
+        {"path": "Cairn/build/Cairn-*.zip.sha256"}
+      ],
+      "releaseNameTemplate": "Cairn ${nextRelease.version}",
+      "successComment": false,
+      "failComment": false,
+      "releasedLabels": false
+    }]
+  ]
+}
