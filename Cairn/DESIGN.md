@@ -54,6 +54,7 @@ Police système (SF Pro), graisses légères :
 | `IconButton` | icône discrète (corbeille) | corbeille des chats archivés |
 | `RailButton` + `.tooltip()` | rail d'icônes, actif sur fond gris sans ombre, infobulle sombre | rail de gauche |
 | `Badge`, `Banner`, `FillBar` | étiquette, bandeau, jauge | « 100 % restants » |
+| `DestinationForm` (+ `FolderBrowser`, `VerificationStatus`) | ajout d'une destination : type, connexion, navigateur à fil d'Ariane, état de vérification ; assistant et feuille de l'app | « Parcourir le répertoire » |
 
 ## Iconographie
 

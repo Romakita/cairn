@@ -76,6 +76,11 @@ final class AppModel: ObservableObject {
     @Published var section: AppSection = .home
     @Published var analysisTab: AnalysisTab = .explorer
     @Published var showOnboarding = false
+    /// Feuille « Ajouter une destination » (page Sauvegardes).
+    @Published var showAddDestination = false
+    /// Destination à ouvrir dans la restauration (« Restaurer cette sauvegarde » depuis l'assistant) et mot de passe
+    /// du partage saisi pour la session.
+    @Published var pendingRestore: (CairnConfig.Destination, String?)?
     @Published var languageRevision = 0
     let background = BackgroundController()
 
