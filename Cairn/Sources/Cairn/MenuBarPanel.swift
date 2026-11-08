@@ -243,7 +243,7 @@ struct MenuBarPanel: View {
                 Icon(model.isBackingUp ? "arrow.triangle.2.circlepath" : (waiting.isEmpty ? "checkmark.shield" : "clock"), size: 16)
                     .foregroundStyle(waiting.isEmpty ? Palette.foreground(.success) : Palette.foreground(.warning))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(model.isBackingUp ? T("backup.running", model.backupProgress?.1.part ?? "") :
+                    Text(model.isBackingUp ? (model.backupProgress.map { T("backup.running", $0.1.part) } ?? T("backup.preparing")) :
                             (last.map { T("menu.backed_up", Fmt.date($0)) } ?? T("home.no_backup")))
                         .font(.system(size: 13.5, weight: .semibold))
                     if let w = waiting.first { Text(T("menu.waiting", model.destinationLabel(w))).font(.system(size: 12)).foregroundStyle(Palette.secondary) }

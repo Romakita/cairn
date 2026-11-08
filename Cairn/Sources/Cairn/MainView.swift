@@ -129,11 +129,11 @@ struct Rail: View {
                 RailButton(icon: s.icon, label: s.title, selected: model.section == s) { model.section = s }
             }
             Spacer()
+            UpdateButton(updates: model.updates)
             RailButton(icon: AppSection.settings.icon, label: AppSection.settings.title, selected: model.section == .settings) {
                 model.section = .settings
             }
-            UpdateButton(updates: model.updates)
-            StatusDot(status: model.globalStatus)
+            StatusDot(status: model.globalStatus, backingUp: model.isBackingUp) { model.section = model.globalStatusSection }
         }
         .padding(.top, 8).padding(.bottom, 14)
         .frame(width: 56)
@@ -141,21 +141,34 @@ struct Rail: View {
     }
 }
 
-/// Pastille d'état global en bas du rail.
+/// Pastille d'état global en bas du rail : un clic ouvre la section où se trouve la cause. Pendant une
+/// sauvegarde (planifiée ou manuelle), elle tourne et mène à la page Sauvegarde.
 struct StatusDot: View {
     let status: AppModel.GlobalStatus
+    let backingUp: Bool
+    let action: () -> Void
     var body: some View {
         let (icon, tone): (String, Palette.Tone) = switch status {
         case .ok: ("checkmark", .success)
         case .attention: ("exclamationmark.triangle", .warning)
         case .error: ("xmark", .danger)
         }
-        Icon(icon, size: 15)
+        let label = backingUp ? T("status.backing_up") : T("status.\(status.rawValue)")
+        Button(action: action) {
+            Group {
+                if backingUp {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Icon(icon, size: 15).foregroundStyle(Palette.foreground(tone))
+                }
+            }
             .frame(width: 32, height: 32)
-            .foregroundStyle(Palette.foreground(tone))
-            .background(Palette.background(tone), in: Circle())
-            .help(T("status.\(status.rawValue)"))
-            .accessibilityLabel(T("status.\(status.rawValue)"))
+            .background(backingUp ? Palette.field : Palette.background(tone), in: Circle())
+            .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .help(label)
+        .accessibilityLabel(label)
     }
 }
 

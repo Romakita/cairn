@@ -47,6 +47,20 @@ extension AppModel {
         }
     }
 
+    /// Section où se trouve la cause de l'état global (cible du clic sur la pastille du rail).
+    var globalStatusSection: AppSection {
+        if isBackingUp { return .backup }
+        if configIssues.contains(where: { $0.severity == .error }) { return .settings }
+        let now = Date()
+        let schedule = config?.schedule ?? CairnConfig.Schedule()
+        let backupIssue = (config?.destinations ?? []).contains {
+            Health.destination(runState[$0.id], waiting: destinationWaiting[$0.id] == true, schedule: schedule, now: now) != .ok
+        }
+        if backupIssue { return .backup }
+        if diskAlert != nil || !activeAlerts.isEmpty || trackedFolders.contains(where: { !$0.isAvailable }) { return .analysis }
+        return .home
+    }
+
     /// Symbole de la barre des menus : animé pendant une sauvegarde, distinct pour l'attention et l'erreur.
     var menuBarSymbol: String {
         if isBackingUp { return menuBarFrame == 0 ? "arrow.triangle.2.circlepath" : "arrow.triangle.2.circlepath.circle" }
