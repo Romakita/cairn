@@ -12,11 +12,18 @@ versions follow [SemVer](https://semver.org/). The current version is in `Cairn/
   `[updates] check` setting to turn off the automatic check.
 
 ### Changed
+- Design system taken from Codex (`Cairn/DESIGN.md`): neutral palette, borderless cards, settings rows, black / gray /
+  outlined buttons, segmented picker and page tabs, bordered menus, capsule text fields, dark tooltips in the icon bar.
+- The first-run wizard shows its steps across the top, as a clickable progress line, with animated transitions,
+  switch rows, destination tiles and a sticky Back / Continue bar.
+- Home items (`~/…`) get path completion in the wizard and in Settings.
+- Settings are laid out as Codex sections and rows.
 - New icon: a cairn of shaded pebbles on a ridge at dusk.
 - README rewritten for an open-source project, in English (`README.md`) and French (`README.fr.md`).
 - The project is released under the MIT license.
 
 ### Fixed
+- The wizard's button to pick a destination folder was labelled "Analyze".
 - No more crash when the resource bundle cannot be found: `Bundle.module` (which asserts) is no longer called, and
   the app starts with untranslated strings.
 - The smoke test also launches the GUI and checks that it is still running after a few seconds: the 0.1.0 crash

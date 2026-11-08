@@ -200,6 +200,7 @@
 "settings.general" = "Général";
 "settings.language" = "Langue";
 "settings.language.auto" = "Comme macOS";
+"settings.language.text" = "Langue de l’interface et des notifications.";
 "settings.home" = "Éléments du home à sauvegarder";
 "settings.folder.backup" = "Sauvegarder";
 "settings.schedule" = "Planification";
@@ -243,7 +244,7 @@
 "onboarding.home.heading" = "Que sauvegarder de votre home ?";
 "onboarding.home.text" = "Seuls les éléments cochés sont copiés. Les caches et outils réinstallables sont toujours exclus.";
 "onboarding.home.none" = "Aucun fichier de configuration habituel trouvé.";
-"onboarding.home.add_placeholder" = "Chemin relatif à ~ (ex. .config/starship.toml)";
+"onboarding.home.add_placeholder" = "ex. .config/starship.toml";
 "onboarding.ai.title" = "Outils IA";
 "onboarding.ai.heading" = "Garder vos conversations IA";
 "onboarding.ai.text" = "Choisissez ce qu'il faut sauvegarder pour chaque outil. Les plugins et paquets sont listés pour être réinstallés, pas copiés.";
@@ -288,6 +289,14 @@
 "onboarding.need_folder" = "Sélectionnez au moins un dossier.";
 "onboarding.need_path" = "Choisissez un dossier de destination.";
 "onboarding.keychain_error" = "Impossible d'enregistrer le mot de passe dans le Trousseau : %@";
+"onboarding.selected_count" = "%1$lld sur %2$lld sélectionné(s)";
+"action.select_none" = "Tout désélectionner";
+"onboarding.destination.later.text" = "À configurer plus tard dans les réglages.";
+"onboarding.destination.local.text" = "Un disque externe ou un dossier de ce Mac.";
+"onboarding.destination.smb.text" = "Un NAS Synology ou tout autre partage réseau.";
+"onboarding.destination.url_label" = "Adresse du partage";
+"onboarding.destination.encrypted.text" = "Protège les clés SSH, les jetons et les identifiants des outils IA.";
+"onboarding.edit" = "Modifier";
 "cli.report.big_objects" = "Gros objets :";
 "cli.report.kind_file" = "fichier";
 "cli.report.kind_folder" = "dossier";

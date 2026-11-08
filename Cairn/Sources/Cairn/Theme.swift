@@ -18,20 +18,28 @@ extension Color {
     }
 }
 
-/// Jetons de couleur de Cairn (un seul accent, couleurs de catégories réservées aux graphiques).
+/// Jetons de couleur de Cairn, alignés sur le design de Codex (voir DESIGN.md) :
+/// gris neutres, un seul accent bleu, noir pour l'action principale, couleurs de catégories réservées aux graphiques.
 enum Palette {
-    static let content = Color(light: 0xFFFFFF, dark: 0x141416)
-    static let sidebar = Color(light: 0xF7F7F8, dark: 0x1C1C20)
-    static let rail = Color(light: 0xEFEFF2, dark: 0x18181B)
-    static let railSelected = Color(light: 0xFFFFFF, dark: 0x2C2C32)
-    static let rowSelected = Color(light: 0xE9E9EE, dark: 0x2A2A30)
-    static let border = Color(light: 0xECECF1, dark: 0x2C2C32)
-    static let field = Color(light: 0xF0F0F3, dark: 0x232328)
-    static let text = Color(light: 0x0D0D0D, dark: 0xF4F4F5)
-    static let secondary = Color(light: 0x6E6E80, dark: 0xA1A1AA)
-    static let tertiary = Color(light: 0x3F3F4A, dark: 0xD4D4D8)
-    static let accent = Color(light: 0x2563EB, dark: 0x3B82F6)
-    static let primaryButton = Color(light: 0x0D0D0D, dark: 0xF4F4F5)
+    static let content = Color(light: 0xFFFFFF, dark: 0x181818)
+    static let sidebar = Color(light: 0xF9F9F9, dark: 0x1F1F1F)
+    static let rail = Color(light: 0xF2F2F2, dark: 0x1B1B1B)
+    static let railSelected = Color(light: 0xFFFFFF, dark: 0x2E2E2E)
+    static let rowSelected = Color(light: 0xEDEDED, dark: 0x2C2C2C)
+    /// Survol d'une ligne cliquable.
+    static let rowHover = Color(light: 0xF6F6F6, dark: 0x222222)
+    static let border = Color(light: 0xE6E6E6, dark: 0x2F2F2F)
+    /// Bordure d'un champ ou d'un menu déroulant (un peu plus marquée que celle des cartes).
+    static let fieldBorder = Color(light: 0xDCDCDC, dark: 0x3A3A3A)
+    /// Fond gris des boutons secondaires, de l'onglet sélectionné et des pistes de jauge.
+    static let field = Color(light: 0xF2F2F2, dark: 0x2A2A2A)
+    static let fieldPressed = Color(light: 0xE6E6E6, dark: 0x333333)
+    static let text = Color(light: 0x0D0D0D, dark: 0xF2F2F2)
+    static let secondary = Color(light: 0x6B6B6B, dark: 0x9B9B9B)
+    static let tertiary = Color(light: 0x3D3D3D, dark: 0xD0D0D0)
+    static let placeholder = Color(light: 0x9A9A9A, dark: 0x6E6E6E)
+    static let accent = Color(light: 0x3B6FE0, dark: 0x5B8DEF)
+    static let primaryButton = Color(light: 0x0D0D0D, dark: 0xF2F2F2)
     static let primaryButtonText = Color(light: 0xFFFFFF, dark: 0x0D0D0D)
 
     enum Tone { case neutral, success, warning, danger, info }

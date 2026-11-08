@@ -93,7 +93,7 @@ struct RestoreView: View {
                         Text(T(askImagePassword ? "restore.password.image" : "restore.password.share")).font(.system(size: 14, weight: .medium))
                         Text(T("restore.password.hint")).font(.system(size: 12.5)).foregroundStyle(Palette.secondary)
                         HStack {
-                            SecureField("", text: $passwordInput).textFieldStyle(.roundedBorder).frame(maxWidth: 280)
+                            SecureField("", text: $passwordInput).cairnField().frame(maxWidth: 280)
                                 .onSubmit { submitPassword(d) }
                             Button(T("restore.password.submit")) { submitPassword(d) }.buttonStyle(.pillPrimary)
                                 .disabled(passwordInput.isEmpty || busy)
@@ -105,8 +105,8 @@ struct RestoreView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(T("restore.nas.title")).font(.system(size: 14, weight: .medium))
                     HStack {
-                        TextField(T("restore.nas.url"), text: $nasURL).textFieldStyle(.roundedBorder)
-                        TextField(T("restore.nas.user"), text: $nasUser).textFieldStyle(.roundedBorder).frame(width: 140)
+                        TextField(T("restore.nas.url"), text: $nasURL).cairnField()
+                        TextField(T("restore.nas.user"), text: $nasUser).cairnField().frame(width: 140)
                         Button(T("restore.nas.connect")) {
                             sharePassword = nil; imagePassword = nil
                             openDestination(CairnConfig.Destination(id: "restore", provider: .smb, url: nasURL, username: nasUser))

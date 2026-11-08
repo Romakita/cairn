@@ -41,7 +41,7 @@ enum Snapshot {
                 model.storage.check()
                 render(MenuBarPanel().environmentObject(model).background(Palette.content), size: CGSize(width: 360, height: 640),
                        dark: dark, to: "\(outDir)/menubar-\(suffix).png")
-                for step in [0, 2, 4] {
+                for step in OnboardingView.steps.indices {
                     render(OnboardingView(step: step).environmentObject(model).frame(width: size.width, height: size.height)
                             .background(Palette.content),
                            size: size, dark: dark, to: "\(outDir)/onboarding\(step + 1)-\(suffix).png")

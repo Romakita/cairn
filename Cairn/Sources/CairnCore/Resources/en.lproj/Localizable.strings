@@ -200,6 +200,7 @@
 "settings.general" = "General";
 "settings.language" = "Language";
 "settings.language.auto" = "Same as macOS";
+"settings.language.text" = "Language for the interface and notifications.";
 "settings.home" = "Home items to back up";
 "settings.folder.backup" = "Back up";
 "settings.schedule" = "Schedule";
@@ -243,7 +244,7 @@
 "onboarding.home.heading" = "What should be backed up from your home?";
 "onboarding.home.text" = "Only the items you select are copied. Caches and reinstallable tools are always left out.";
 "onboarding.home.none" = "No usual configuration file found.";
-"onboarding.home.add_placeholder" = "Path relative to ~ (e.g. .config/starship.toml)";
+"onboarding.home.add_placeholder" = "e.g. .config/starship.toml";
 "onboarding.ai.title" = "AI tools";
 "onboarding.ai.heading" = "Keep your AI conversations";
 "onboarding.ai.text" = "Choose what to back up for each tool. Plugins and packages are listed for reinstallation, not copied.";
@@ -288,6 +289,14 @@
 "onboarding.need_folder" = "Select at least one folder.";
 "onboarding.need_path" = "Choose a destination folder.";
 "onboarding.keychain_error" = "Could not store the password in the Keychain: %@";
+"onboarding.selected_count" = "%1$lld of %2$lld selected";
+"action.select_none" = "Deselect all";
+"onboarding.destination.later.text" = "Set it up later in Settings.";
+"onboarding.destination.local.text" = "An external drive or a folder on this Mac.";
+"onboarding.destination.smb.text" = "A Synology NAS or any other network share.";
+"onboarding.destination.url_label" = "Share address";
+"onboarding.destination.encrypted.text" = "Protects SSH keys, tokens and AI tool credentials.";
+"onboarding.edit" = "Edit";
 "cli.report.big_objects" = "Big objects:";
 "cli.report.kind_file" = "file  ";
 "cli.report.kind_folder" = "folder";

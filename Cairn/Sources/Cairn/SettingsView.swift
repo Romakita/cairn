@@ -8,129 +8,169 @@ struct SettingsView: View {
 
     var body: some View {
         let c = model.config ?? CairnConfig()
+        let blocked = model.configIssues.contains { $0.severity == .error }
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                Text(T("section.settings")).font(.system(size: 26, weight: .medium)).padding(.top, 24)
+            VStack(alignment: .leading, spacing: 12) {
+                Text(T("section.settings")).font(.system(size: 28, weight: .medium)).padding(.top, 28).padding(.bottom, 8)
                 if let e = model.configIssues.first(where: { $0.severity == .error }) {
                     // Erreur de syntaxe ou de schéma : rien n'est enregistré tant que le fichier n'est pas corrigé.
                     Banner(icon: "exclamationmark.octagon", text: e.description + "\n" + T("settings.blocked"), tone: .danger)
                 }
 
-                section(T("settings.general")) {
-                    Picker(T("settings.language"), selection: Binding(get: { c.language }, set: { model.setLanguage($0) })) {
-                        Text(T("settings.language.auto")).tag("auto")
-                        Text(verbatim: "English (US)").tag("en-US")
-                        Text(verbatim: "Français").tag("fr-FR")
-                    }
-                    .frame(maxWidth: 360)
-                    HStack {
-                        Toggle(T("settings.updates.check"), isOn: Binding(get: { c.checkUpdates },
-                            set: { v in model.updateConfig { $0.checkUpdates = v } }))
-                        Spacer()
-                        Text(T("settings.updates.version", CairnVersion.current)).foregroundStyle(Palette.secondary)
-                        Button(T("update.check")) { model.updates.check(manual: true) }.buttonStyle(.pill)
-                    }
-                }
-
-                section(T("sidebar.folders")) {
-                    ForEach(Array(c.folders.enumerated()), id: \.offset) { i, f in
-                        HStack {
-                            Image(systemName: f.isAvailable ? "folder" : "externaldrive.badge.xmark")
-                            Text(f.path)
-                            if !f.isAvailable { Badge(text: T("folder.unavailable"), tone: .warning) }
-                            Spacer()
-                            Toggle(T("settings.folder.backup"), isOn: Binding(get: { f.backup },
-                                set: { v in model.updateConfig { $0.folders[i].backup = v } }))
-                                .toggleStyle(.checkbox)
-                            Button { model.updateConfig { $0.folders.remove(at: i) } } label: { Image(systemName: "minus.circle") }
-                                .buttonStyle(.plain).accessibilityLabel(T("action.remove"))
-                        }
-                    }
-                    Button { model.addFolder() } label: { Label(T("sidebar.add_folder"), systemImage: "plus") }.buttonStyle(.pill)
-                }
-
-                section(T("settings.home")) {
-                    ForEach(Array(c.home.include.enumerated()), id: \.offset) { i, item in
-                        HStack {
-                            Text("~/" + item).font(.system(size: 13, design: .monospaced))
-                            Spacer()
-                            Button { model.updateConfig { $0.home.include.remove(at: i) } } label: { Image(systemName: "minus.circle") }
-                                .buttonStyle(.plain).accessibilityLabel(T("action.remove"))
-                        }
-                    }
-                    HStack {
-                        TextField(T("onboarding.home.add_placeholder"), text: $newHomeItem).textFieldStyle(.roundedBorder)
-                            .onSubmit(addHomeItem)
-                        Button(T("action.add"), action: addHomeItem).buttonStyle(.pill)
-                    }
-                }
-
-                section(T("settings.schedule")) {
-                    Picker(T("settings.frequency"), selection: Binding(get: { c.schedule.frequency },
-                        set: { v in model.updateConfig { $0.schedule.frequency = v } })) {
-                        ForEach(CairnConfig.Frequency.allCases, id: \.self) { Text(T("frequency.\($0.rawValue)")).tag($0) }
-                    }
-                    .pickerStyle(.segmented).frame(maxWidth: 360)
-                    HStack {
-                        Text(T("settings.time"))
-                        TextField("12:30", text: Binding(get: { c.schedule.time }, set: { v in
-                            if v.range(of: #"^([01]\d|2[0-3]):[0-5]\d$"#, options: .regularExpression) != nil {
-                                model.updateConfig { $0.schedule.time = v }
+                // Le fichier sur disque est invalide : l'enregistrement serait refusé (ConfigStore.SaveError).
+                Group {
+                    SectionTitle(title: T("settings.general"))
+                    Card(padding: 0) {
+                        VStack(spacing: 0) {
+                            SettingsRow(title: T("settings.language"), subtitle: T("settings.language.text")) {
+                                DropdownMenu(options: [("auto", T("settings.language.auto")), ("en-US", "English (US)"), ("fr-FR", "Français")],
+                                             selection: Binding(get: { c.language }, set: { model.setLanguage($0) }))
                             }
-                        }))
-                        .textFieldStyle(.roundedBorder).frame(width: 72)
-                        Picker(T("onboarding.schedule.weekday"), selection: Binding(get: { c.schedule.weekday },
-                            set: { v in model.updateConfig { $0.schedule.weekday = v } })) {
-                            ForEach(CairnConfig.weekdays, id: \.self) { Text(T("weekday.\($0)")).tag($0) }
+                            RowDivider()
+                            SettingsRow(title: T("settings.updates.check"), subtitle: T("settings.updates.version", CairnVersion.current)) {
+                                Button(T("update.check")) { model.updates.check(manual: true) }.buttonStyle(.pill)
+                                Toggle("", isOn: Binding(get: { c.checkUpdates },
+                                    set: { v in model.updateConfig { $0.checkUpdates = v } }))
+                                    .labelsHidden().toggleStyle(.switch)
+                            }
                         }
-                        .frame(maxWidth: 260)
-                        .disabled(c.schedule.frequency != .weekly)
                     }
-                    Toggle(T("onboarding.schedule.background_toggle"), isOn: Binding(get: { c.schedule.background },
-                        set: { v in model.updateConfig { $0.schedule.background = v } }))
-                    Stepper(T("settings.battery", c.schedule.onBatteryMinPercent), value: Binding(
-                        get: { c.schedule.onBatteryMinPercent },
-                        set: { v in model.updateConfig { $0.schedule.onBatteryMinPercent = v } }), in: 0...100, step: 5)
-                }
 
-                section(T("settings.alerts")) {
-                    Stepper(T("settings.alerts.low", Fmt.number(c.alerts.lowPercent, digits: 0), Fmt.number(c.alerts.lowGB, digits: 0)),
-                            value: Binding(get: { c.alerts.lowPercent }, set: { v in model.updateConfig { $0.alerts.lowPercent = v } }),
-                            in: max(1, c.alerts.criticalPercent)...50, step: 1)
-                    Stepper(T("settings.alerts.critical", Fmt.number(c.alerts.criticalPercent, digits: 0), Fmt.number(c.alerts.criticalGB, digits: 0)),
-                            value: Binding(get: { c.alerts.criticalPercent }, set: { v in model.updateConfig { $0.alerts.criticalPercent = v } }),
-                            in: 1...max(1, c.alerts.lowPercent), step: 1)
-                }
+                    SectionTitle(title: T("sidebar.folders"))
+                    Card(padding: 0) {
+                        VStack(spacing: 0) {
+                            ForEach(Array(c.folders.enumerated()), id: \.offset) { i, f in
+                                if i > 0 { RowDivider() }
+                                SettingsRow(icon: f.isAvailable ? "folder" : "externaldrive.badge.xmark",
+                                            title: (f.path as NSString).lastPathComponent,
+                                            subtitle: (f.path as NSString).abbreviatingWithTildeInPath) {
+                                    if !f.isAvailable { Badge(text: T("folder.unavailable"), tone: .warning) }
+                                    Text(T("settings.folder.backup")).font(.system(size: 13)).foregroundStyle(Palette.secondary)
+                                    Toggle("", isOn: Binding(get: { f.backup },
+                                        set: { v in model.updateConfig { $0.folders[i].backup = v } }))
+                                        .labelsHidden().toggleStyle(.switch).controlSize(.small)
+                                    IconButton(systemName: "trash", label: T("action.remove")) {
+                                        model.updateConfig { $0.folders.remove(at: i) }
+                                    }
+                                }
+                            }
+                            CardTray {
+                                Button { model.addFolder() } label: { Label(T("sidebar.add_folder"), systemImage: "plus") }.buttonStyle(.pill)
+                            }
+                        }
+                    }
 
-                section(T("settings.maintenance")) {
-                    Stepper(T("settings.logs", c.logRetentionDays), value: Binding(get: { c.logRetentionDays },
-                        set: { v in model.updateConfig { $0.logRetentionDays = v } }), in: 1...3650, step: 15)
-                    Stepper(T("settings.stale_days", c.git.worktreeStaleDays), value: Binding(get: { c.git.worktreeStaleDays },
-                        set: { v in model.updateConfig { $0.git.worktreeStaleDays = v } }), in: 1...365)
-                    Toggle(T("settings.git_gc"), isOn: Binding(get: { c.git.gc }, set: { v in model.updateConfig { $0.git.gc = v } }))
-                }
+                    SectionTitle(title: T("settings.home"))
+                    Card(padding: 0) {
+                        VStack(spacing: 0) {
+                            ForEach(Array(c.home.include.enumerated()), id: \.offset) { i, item in
+                                if i > 0 { RowDivider() }
+                                SettingsRow(icon: OnboardingView.homeIcon(item), title: "~/" + item, monospaced: true) {
+                                    IconButton(systemName: "trash", label: T("action.remove")) {
+                                        model.updateConfig { $0.home.include.remove(at: i) }
+                                    }
+                                }
+                                .padding(.vertical, -4)
+                            }
+                            CardTray {
+                                PathField(placeholder: T("onboarding.home.add_placeholder"), text: $newHomeItem,
+                                          excluding: Set(c.home.include), onSubmit: addHomeItem)
+                                Button(action: addHomeItem) { Label(T("action.add"), systemImage: "plus") }
+                                    .buttonStyle(.pillPrimary)
+                                    .disabled(newHomeItem.trimmingCharacters(in: .whitespaces).isEmpty)
+                            }
+                        }
+                    }
 
-                HStack {
-                    Text(model.store.fileURL.path).font(.system(size: 12, design: .monospaced)).foregroundStyle(Palette.secondary)
-                    Button(T("settings.reveal_file")) { model.revealConfig() }.buttonStyle(.pill)
+                    SectionTitle(title: T("settings.schedule"))
+                    Card(padding: 0) {
+                        VStack(spacing: 0) {
+                            SettingsRow(title: T("settings.frequency")) {
+                                PillPicker(options: CairnConfig.Frequency.allCases.map { ($0, T("frequency.\($0.rawValue)")) },
+                                           selection: Binding(get: { c.schedule.frequency },
+                                                              set: { v in model.updateConfig { $0.schedule.frequency = v } }))
+                            }
+                            if c.schedule.frequency != .manual {
+                                RowDivider()
+                                SettingsRow(title: T("settings.time")) {
+                                    TextField("", text: Binding(get: { c.schedule.time }, set: { v in
+                                        if v.range(of: #"^([01]\d|2[0-3]):[0-5]\d$"#, options: .regularExpression) != nil {
+                                            model.updateConfig { $0.schedule.time = v }
+                                        }
+                                    }), prompt: Text(verbatim: "12:30"))
+                                    .cairnField().frame(width: 100)
+                                }
+                            }
+                            if c.schedule.frequency == .weekly {
+                                RowDivider()
+                                SettingsRow(title: T("onboarding.schedule.weekday")) {
+                                    DropdownMenu(options: CairnConfig.weekdays.map { ($0, T("weekday.\($0)")) },
+                                                 selection: Binding(get: { c.schedule.weekday },
+                                                                    set: { v in model.updateConfig { $0.schedule.weekday = v } }))
+                                }
+                            }
+                            RowDivider()
+                            SettingsRow(title: T("onboarding.schedule.background_toggle")) {
+                                Toggle("", isOn: Binding(get: { c.schedule.background },
+                                    set: { v in model.updateConfig { $0.schedule.background = v } }))
+                                    .labelsHidden().toggleStyle(.switch)
+                            }
+                            RowDivider()
+                            stepperRow(T("settings.battery", c.schedule.onBatteryMinPercent), value: Binding(
+                                get: { c.schedule.onBatteryMinPercent },
+                                set: { v in model.updateConfig { $0.schedule.onBatteryMinPercent = v } }), in: 0...100, step: 5)
+                        }
+                    }
+
+                    SectionTitle(title: T("settings.alerts"))
+                    Card(padding: 0) {
+                        VStack(spacing: 0) {
+                            stepperRow(T("settings.alerts.low", Fmt.number(c.alerts.lowPercent, digits: 0), Fmt.number(c.alerts.lowGB, digits: 0)),
+                                       value: Binding(get: { c.alerts.lowPercent }, set: { v in model.updateConfig { $0.alerts.lowPercent = v } }),
+                                       in: max(1, c.alerts.criticalPercent)...50, step: 1)
+                            RowDivider()
+                            stepperRow(T("settings.alerts.critical", Fmt.number(c.alerts.criticalPercent, digits: 0), Fmt.number(c.alerts.criticalGB, digits: 0)),
+                                       value: Binding(get: { c.alerts.criticalPercent }, set: { v in model.updateConfig { $0.alerts.criticalPercent = v } }),
+                                       in: 1...max(1, c.alerts.lowPercent), step: 1)
+                        }
+                    }
+
+                    SectionTitle(title: T("settings.maintenance"))
+                    Card(padding: 0) {
+                        VStack(spacing: 0) {
+                            stepperRow(T("settings.logs", c.logRetentionDays), value: Binding(get: { c.logRetentionDays },
+                                set: { v in model.updateConfig { $0.logRetentionDays = v } }), in: 1...3650, step: 15)
+                            RowDivider()
+                            stepperRow(T("settings.stale_days", c.git.worktreeStaleDays), value: Binding(get: { c.git.worktreeStaleDays },
+                                set: { v in model.updateConfig { $0.git.worktreeStaleDays = v } }), in: 1...365, step: 1)
+                            RowDivider()
+                            SettingsRow(title: T("settings.git_gc")) {
+                                Toggle("", isOn: Binding(get: { c.git.gc }, set: { v in model.updateConfig { $0.git.gc = v } }))
+                                    .labelsHidden().toggleStyle(.switch)
+                            }
+                        }
+                    }
+                }
+                .disabled(blocked)
+
+                SectionTitle(title: T("settings.file"))
+                Card(padding: 0) {
+                    SettingsRow(icon: "doc.text", title: (model.store.fileURL.path as NSString).abbreviatingWithTildeInPath, monospaced: true) {
+                        Button(T("settings.reveal_file")) { model.revealConfig() }.buttonStyle(.pill)
+                    }
                 }
             }
             .frame(maxWidth: 760, alignment: .leading)
-            .padding(.horizontal, 40).padding(.bottom, 32)
+            .padding(.horizontal, 40).padding(.bottom, 40)
             .frame(maxWidth: .infinity)
         }
     }
 
-    func section<C: View>(_ title: String, @ViewBuilder content: () -> C) -> some View {
-        Card {
-            VStack(alignment: .leading, spacing: 12) {
-                Text(title).font(.system(size: 15, weight: .semibold))
-                content()
-            }
-            .font(.system(size: 13.5))
+    /// Ligne de réglage numérique : le libellé affiche la valeur, petits boutons − / + à droite.
+    func stepperRow<V: Strideable>(_ title: String, value: Binding<V>, in range: ClosedRange<V>, step: V.Stride) -> some View {
+        SettingsRow(title: title) {
+            Stepper("", value: value, in: range, step: step).labelsHidden()
         }
-        // Le fichier sur disque est invalide : l'enregistrement serait refusé (ConfigStore.SaveError).
-        .disabled(model.configIssues.contains { $0.severity == .error })
     }
 
     func addHomeItem() {

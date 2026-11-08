@@ -37,6 +37,7 @@ struct RootView: View {
         .id(model.languageRevision)
         .frame(minWidth: 1100, minHeight: 720)
         .background(Palette.content)
+        .tint(Palette.accent)
         .ignoresSafeArea()
     }
 }
@@ -50,7 +51,7 @@ struct MainShell: View {
             VStack(spacing: 0) {
                 Color.clear.frame(height: 44) // place des boutons de fenêtre
                 HStack(alignment: .top, spacing: 0) {
-                    Rail()
+                    Rail().zIndex(1) // les infobulles débordent sur la barre latérale
                     SidebarView()
                         .frame(width: 248)
                 }
