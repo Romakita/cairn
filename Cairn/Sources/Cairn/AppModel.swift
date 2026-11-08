@@ -21,10 +21,17 @@ final class AppModel: ObservableObject {
     @Published var config: CairnConfig?
     @Published var configIssues: [ConfigIssue] = []
 
+    // Navigation et état de l'interface.
+    @Published var section: AppSection = .home
+    @Published var analysisTab: AnalysisTab = .explorer
+    @Published var showOnboarding = false
+    @Published var languageRevision = 0
+    let background = BackgroundController()
+
     private var ctx: ScanContext?
     private var timer: Timer?
-    private let paths = CairnPaths()
-    private lazy var store = ConfigStore(paths: paths)
+    let paths = CairnPaths()
+    lazy var store = ConfigStore(paths: paths)
     private var watcher: FileWatcher?
     private var janitorTimer: Timer?
     private lazy var appLog = RunLog(paths: paths, type: "app")
@@ -42,7 +49,10 @@ final class AppModel: ObservableObject {
 
     /// Charge `config.toml`. En cas d'erreur, la dernière configuration valide est gardée.
     func loadConfig(reloaded: Bool = false) {
-        guard store.exists else { return }
+        guard store.exists else {
+            showOnboarding = true
+            return
+        }
         do {
             let loaded = try store.load()
             configIssues = loaded.issues
@@ -52,8 +62,12 @@ final class AppModel: ObservableObject {
                 return
             }
             let previousFolders = config?.folders
+            let previousLanguage = config?.language
             config = loaded.config
+            showOnboarding = false
             L10n.configure(explicit: loaded.config.language)
+            if previousLanguage != nil && previousLanguage != loaded.config.language { languageRevision += 1 }
+            background.apply(enabled: loaded.config.schedule.background, log: appLog)
             if let first = loaded.config.folders.first(where: \.isAvailable) { rootPath = first.expandedPath }
             appLog.write(reloaded ? "config reloaded" : "config loaded")
             if reloaded {

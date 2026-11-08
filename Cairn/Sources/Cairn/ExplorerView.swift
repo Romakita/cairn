@@ -102,7 +102,7 @@ struct ExplorerView: View {
                         }
                         .padding(16)
                     }
-                    .frame(minWidth: 300, idealWidth: 340, maxWidth: 460)
+                    .frame(minWidth: 280, idealWidth: 300, maxWidth: 340)
                 }
             }
             .deletionConfirmation($pending, model: model)
@@ -158,17 +158,19 @@ struct NodeRow: View {
                 .frame(width: 18)
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 6) {
-                    Text(node.name).lineLimit(1).truncationMode(.middle)
-                    if node.category != .source { CategoryTag(category: node.category) }
-                    if node.isGitRepo { CategoryTag(category: .git).opacity(0.7).help(T("explorer.git_repo")) }
+                    Text(node.name).lineLimit(1).truncationMode(.middle).layoutPriority(1)
+                    if node.category != .source { CategoryTag(category: node.category).fixedSize() }
+                    if node.isGitRepo { CategoryTag(category: .git).fixedSize().opacity(0.7).help(T("explorer.git_repo")) }
                 }
                 if node.isDirectory && node.category == .source && node.regenerableBytes > 0 {
                     Text(T("explorer.of_regenerable", Fmt.bytes(node.regenerableBytes)))
-                        .font(.caption2).foregroundStyle(.secondary)
+                        .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 }
             }
+            .frame(minWidth: 160, alignment: .leading)
+            .layoutPriority(1)
             Spacer(minLength: 8)
-            BreakdownBar(node: node, scale: scale).frame(width: 170)
+            BreakdownBar(node: node, scale: scale).frame(minWidth: 60, idealWidth: 140, maxWidth: 140)
             Text(Fmt.bytes(node.size)).monospacedDigit().frame(width: 80, alignment: .trailing)
             Text(Fmt.percent(node.size, of: parentSize)).monospacedDigit().font(.caption)
                 .foregroundStyle(.secondary).frame(width: 52, alignment: .trailing)

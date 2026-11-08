@@ -3,12 +3,26 @@ import CairnCore
 import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    @MainActor static weak var model: AppModel?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+        NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated {
+                // Après la fermeture, plus aucune fenêtre principale visible : l'app passe en barre des menus.
+                DispatchQueue.main.async {
+                    if !NSApp.windows.contains(where: { $0.isVisible && $0.canBecomeMain }) {
+                        AppDelegate.model?.background.windowsClosed()
+                    }
+                }
+            }
+        }
     }
 
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        MainActor.assumeIsolated { !(AppDelegate.model?.background.enabled ?? false) }
+    }
 }
 
 struct CairnApp: App {
@@ -20,22 +34,52 @@ struct CairnApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
-            ContentView()
+        WindowGroup(id: "main") {
+            RootView()
                 .environmentObject(model)
                 .environment(\.locale, L10n.locale)
                 .onAppear {
-                    if model.root == nil && !model.isScanning && FileManager.default.fileExists(atPath: model.rootPath) {
+                    AppDelegate.model = model
+                    model.background.windowOpened()
+                    if !model.showOnboarding && model.root == nil && !model.isScanning
+                        && FileManager.default.fileExists(atPath: model.rootPath) {
                         model.scan()
                     }
                 }
         }
-        .defaultSize(width: 1240, height: 800)
+        .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: 1280, height: 800)
         .commands {
             CommandGroup(replacing: .newItem) {
-                Button(L10n.tr("action.choose_folder")) { model.chooseFolder() }.keyboardShortcut("o")
-                Button(L10n.tr("action.rescan")) { model.scan() }.keyboardShortcut("r")
+                Button(T("action.choose_folder")) { model.addFolder() }.keyboardShortcut("o")
+                Button(T("action.rescan")) { model.scan() }.keyboardShortcut("r")
+            }
+            CommandGroup(replacing: .appSettings) {
+                Button(T("section.settings")) { model.section = .settings }.keyboardShortcut(",")
             }
         }
+
+        // Icône dans la barre des menus (le panneau complet arrive avec la capacité menu-bar).
+        MenuBarExtra(isInserted: Binding(get: { model.config?.schedule.background ?? false }, set: { _ in })) {
+            MenuBarMenu().environmentObject(model)
+        } label: {
+            Image(systemName: model.globalStatus == .ok ? "square.stack.3d.up" : "exclamationmark.triangle")
+        }
+    }
+}
+
+struct MenuBarMenu: View {
+    @EnvironmentObject var model: AppModel
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button(T("menu.open")) {
+            openWindow(id: "main")
+            NSApp.setActivationPolicy(.regular)
+            NSApp.activate(ignoringOtherApps: true)
+        }
+        Button(T("action.analyze")) { model.scan() }
+        Divider()
+        Button(T("menu.quit")) { NSApp.terminate(nil) }.keyboardShortcut("q")
     }
 }
