@@ -392,6 +392,7 @@
 "git.done" = "%1$lld branch(es) and %2$lld worktree(s) deleted.";
 "backup.error.rsync" = "Copy failed for %1$@ (rsync code %2$lld)";
 "backup.error.cancelled" = "Backup cancelled";
+"backup.warning.ai_database" = "%1$@: a database was not saved (%2$@)";
 "backup.warning.partial" = "%1$@: some files could not be copied (rsync code %2$lld)";
 "destination.error.unreachable" = "Destination “%@” is unreachable";
 "destination.error.password" = "No password in the Keychain for “%@”";
