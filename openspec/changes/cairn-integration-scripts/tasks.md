@@ -13,13 +13,13 @@ Toute tâche qui ajoute un texte visible (interface, notification, aide, message
 
 ## 2. Configuration (`app-configuration`)
 
-- [ ] 2.1 Écrire le parseur et l'écrivain TOML sans perte (tables, tableaux de tables, scalaires, tableaux, tables en ligne simples) ; vérifier par des tests de bout en bout (lire puis réécrire donne un fichier identique, commentaires et clés inconnues compris) et par une erreur avec numéro de ligne sur les fonctionnalités non gérées
-- [ ] 2.2 Définir le modèle de configuration v1 (dossiers, home, destinations, planification, git, outils, analyse), ses valeurs par défaut et sa validation ; vérifier par des tests sur une clé inconnue, une erreur de type et un dossier absent signalé comme indisponible
-- [ ] 2.3 Mettre en place le chargement depuis `~/.cairn/config.toml` (création du dossier en `700`), l'option `--config`, la surveillance des changements avec rechargement, et la migration de version avec `config.toml.bak` ; vérifier par des tests de migration v0 vers v1 et par le rechargement observé dans l'app après une modification à la main
-- [ ] 2.4 Écrire l'accès au Trousseau (`fr.lenzotti.cairn.*` : mots de passe internet et génériques) ; vérifier par un test qui écrit, lit puis supprime une entrée, et en constatant qu'aucun secret n'apparaît dans `config.toml`
-- [ ] 2.5 Ajouter `cairn config show | path | validate` avec les codes de sortie 0, 1 et 2 ; vérifier que `cairn config validate` sur un fichier invalide renvoie 2 avec la ligne fautive
-- [ ] 2.6 Documenter le schéma de `config.toml` avec un exemple commenté dans `Cairn/README.md` ; vérifier que `cairn config validate --config` accepte l'exemple tel quel
-- [ ] 2.7 Écrire la rétention des journaux (`logs.retention_days`, 90 par défaut, journaux des versions gardées conservés), lancée au démarrage puis une fois par jour ; vérifier par un test avec des journaux datés de 120 jours (supprimé) et de 200 jours liés à une version gardée (conservé)
+- [x] 2.1 Écrire le parseur et l'écrivain TOML sans perte (tables, tableaux de tables, scalaires, tableaux, tables en ligne simples) ; vérifier par des tests de bout en bout (lire puis réécrire donne un fichier identique, commentaires et clés inconnues compris) et par une erreur avec numéro de ligne sur les fonctionnalités non gérées
+- [x] 2.2 Définir le modèle de configuration v1 (dossiers, home, destinations, planification, git, outils, analyse), ses valeurs par défaut et sa validation ; vérifier par des tests sur une clé inconnue, une erreur de type et un dossier absent signalé comme indisponible
+- [x] 2.3 Mettre en place le chargement depuis `~/.cairn/config.toml` (création du dossier en `700`), l'option `--config`, la surveillance des changements avec rechargement, et la migration de version avec `config.toml.bak` ; vérifier par des tests de migration v0 vers v1 et par le rechargement observé dans l'app après une modification à la main
+- [x] 2.4 Écrire l'accès au Trousseau (`fr.lenzotti.cairn.*` : mots de passe internet et génériques) ; vérifier par un test qui écrit, lit puis supprime une entrée, et en constatant qu'aucun secret n'apparaît dans `config.toml`
+- [x] 2.5 Ajouter `cairn config show | path | validate` avec les codes de sortie 0, 1 et 2 ; vérifier que `cairn config validate` sur un fichier invalide renvoie 2 avec la ligne fautive
+- [x] 2.6 Documenter le schéma de `config.toml` avec un exemple commenté dans `Cairn/README.md` ; vérifier que `cairn config validate --config` accepte l'exemple tel quel
+- [x] 2.7 Écrire la rétention des journaux (`logs.retention_days`, 90 par défaut, journaux des versions gardées conservés), lancée au démarrage puis une fois par jour ; vérifier par un test avec des journaux datés de 120 jours (supprimé) et de 200 jours liés à une version gardée (conservé)
 
 ## 3. Interface de base inspirée de Codex
 

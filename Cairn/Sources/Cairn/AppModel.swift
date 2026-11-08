@@ -17,8 +17,60 @@ final class AppModel: ObservableObject {
     @Published var isDeleting = false
     @Published var lastMessage: String?
 
+    /// Configuration valide en cours (`nil` avant le premier lancement complet).
+    @Published var config: CairnConfig?
+    @Published var configIssues: [ConfigIssue] = []
+
     private var ctx: ScanContext?
     private var timer: Timer?
+    private let paths = CairnPaths()
+    private lazy var store = ConfigStore(paths: paths)
+    private var watcher: FileWatcher?
+    private var janitorTimer: Timer?
+    private lazy var appLog = RunLog(paths: paths, type: "app")
+
+    init() {
+        loadConfig()
+        watcher = store.watch { [weak self] in
+            MainActor.assumeIsolated { self?.loadConfig(reloaded: true) }
+        }
+        pruneLogs()
+        janitorTimer = Timer.scheduledTimer(withTimeInterval: 86_400, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.pruneLogs() }
+        }
+    }
+
+    /// Charge `config.toml`. En cas d'erreur, la dernière configuration valide est gardée.
+    func loadConfig(reloaded: Bool = false) {
+        guard store.exists else { return }
+        do {
+            let loaded = try store.load()
+            configIssues = loaded.issues
+            if loaded.hasErrors {
+                lastMessage = T("config.banner.error", loaded.issues.first { $0.severity == .error }!.description)
+                appLog.write("config invalid: \(loaded.issues)")
+                return
+            }
+            let previousFolders = config?.folders
+            config = loaded.config
+            L10n.configure(explicit: loaded.config.language)
+            if let first = loaded.config.folders.first(where: \.isAvailable) { rootPath = first.expandedPath }
+            appLog.write(reloaded ? "config reloaded" : "config loaded")
+            if reloaded {
+                revision += 1
+                if previousFolders != loaded.config.folders && !isScanning { scan() }
+            }
+        } catch {
+            configIssues = []
+            lastMessage = T("config.banner.error", String(describing: error))
+            appLog.write("config unreadable: \(error)")
+        }
+    }
+
+    private func pruneLogs() {
+        let removed = LogJanitor.prune(paths: paths, retentionDays: config?.logRetentionDays ?? 90)
+        if !removed.isEmpty { appLog.write("logs pruned: \(removed.count)") }
+    }
 
     var root: Node? { result?.root }
     var current: Node? { path.last ?? root }
