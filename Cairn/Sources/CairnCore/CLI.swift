@@ -233,13 +233,14 @@ public enum CLI {
         if roots.isEmpty { roots = config.folders.map(\.expandedPath) }
         if roots.isEmpty { roots = ["/Volumes/workspaces"] }
 
+        let showProgress = !json && isatty(STDERR_FILENO) != 0
         let reports = GitMaintenance.analyzeAll(folders: roots, options: o) { p in
-            if !json, p.total > 0 {
+            if showProgress, p.total > 0 {
                 FileHandle.standardError.write(Data((L10n.tr("git.worker.progress", p.done, p.total, p.running.count,
                                                              Fmt.bytes(p.running.values.max() ?? 0)) + "\r").utf8))
             }
         }
-        if !json { FileHandle.standardError.write(Data("\n".utf8)) }
+        if showProgress { FileHandle.standardError.write(Data("\n".utf8)) }
         let root = roots.count == 1 ? roots[0] : ""
         func rel(_ p: String) -> String { !root.isEmpty && p.hasPrefix(root + "/") ? String(p.dropFirst(root.count + 1)) : p }
 
