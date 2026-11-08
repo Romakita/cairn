@@ -83,7 +83,8 @@ let inventoryTests: [TestCase] = [
         try expectEqual(byName["cowsay"]?.status, .unused)
         try expectEqual(byName["cowsay"]?.excluded, true)
         try expectEqual(byName["kubectl"]?.status, .missing)
-        try expectEqual(byName["kubectl"]?.reasons, ["~/.kube"])
+        try expectEqual(byName["kubectl"]?.reasons, [.home(".kube")])
+        try expectEqual(byName["kubectl"]?.reasonTexts, ["~/.kube"])
         try expectEqual(byName["just"]?.status, .missing)
         try expectEqual(inv.entries.first?.status, .missing, "les manquants d'abord")
     },

@@ -54,9 +54,10 @@ public struct OnboardingDraft: Equatable, Sendable {
         var seen = Set<String>()
         let candidates = ["/Volumes/workspaces", legacyRootPath].compactMap { $0 }
             + ["Projects", "Projets", "Developer", "workspace", "code"].map { home.appendingPathComponent($0).path }
-        for (i, path) in candidates.enumerated() where exists(path) && seen.insert(path).inserted {
-            // Présélection : /Volumes/workspaces et l'ancien dossier de l'app.
-            d.folders.append(.init(path: path, selected: i < 2))
+        // Présélection : /Volumes/workspaces et l'ancien dossier de l'app, repérés par leur chemin (pas leur rang).
+        let preselected = Set(["/Volumes/workspaces", legacyRootPath].compactMap { $0 })
+        for path in candidates where exists(path) && seen.insert(path).inserted {
+            d.folders.append(.init(path: path, selected: preselected.contains(path)))
         }
         if !d.folders.contains(where: \.selected), !d.folders.isEmpty { d.folders[0].selected = true }
 
@@ -98,8 +99,8 @@ public struct OnboardingDraft: Equatable, Sendable {
         case let .local(path):
             c.destinations = [.init(id: Self.destinationID, provider: .local, path: path, encrypted: encrypted)]
         case let .smb(url, username):
-            c.destinations = [.init(id: Self.destinationID, provider: .smb, url: url, username: username,
-                                    keychain: Self.destinationID, encrypted: encrypted)]
+            // Pas de clé `keychain` : l'entrée du Trousseau se déduit de l'hôte de `url` et de `username`.
+            c.destinations = [.init(id: Self.destinationID, provider: .smb, url: url, username: username, encrypted: encrypted)]
         }
         c.schedule.frequency = frequency
         c.schedule.time = time

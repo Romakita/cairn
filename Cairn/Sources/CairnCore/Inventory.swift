@@ -20,16 +20,46 @@ public struct CLITool: Identifiable, Hashable, Sendable {
     }
 }
 
+/// Raison pour laquelle un outil est considéré comme utilisé (ou requis). Codes stables en JSON, texte traduit à l'affichage.
+public enum InventoryReason: Hashable, Sendable {
+    /// Fichier de configuration du home (`.kube` → « ~/.kube »).
+    case home(String)
+    /// Fichier de projet dans un dossier suivi (`justfile`).
+    case project(String)
+    /// Commandes de l'outil lancées `uses` fois dans l'historique du shell.
+    case history(uses: Int)
+
+    /// Texte affiché, dans la langue active.
+    public var text: String {
+        switch self {
+        case let .home(marker): "~/" + marker
+        case let .project(marker): marker
+        case let .history(uses): L10n.tr("inventory.reason.history", uses)
+        }
+    }
+
+    /// Forme JSON, indépendante de la langue : `{"code":"history","uses":5}`, `{"code":"home","file":".kube"}`…
+    public var json: [String: Any] {
+        switch self {
+        case let .home(marker): ["code": "home", "file": marker]
+        case let .project(marker): ["code": "project", "file": marker]
+        case let .history(uses): ["code": "history", "uses": uses]
+        }
+    }
+}
+
 public struct InventoryEntry: Identifiable, Hashable, Sendable {
     public enum Status: String, Sendable { case used, unused, missing }
     public let name: String
     public let tool: CLITool?
     public let status: Status
-    public let reasons: [String]
+    public let reasons: [InventoryReason]
     public var excluded: Bool
     public var id: String { tool?.id ?? "missing:\(name)" }
+    /// Raisons affichées, dans la langue active.
+    public var reasonTexts: [String] { reasons.map(\.text) }
 
-    public init(name: String, tool: CLITool?, status: Status, reasons: [String], excluded: Bool) {
+    public init(name: String, tool: CLITool?, status: Status, reasons: [InventoryReason], excluded: Bool) {
         self.name = name; self.tool = tool; self.status = status; self.reasons = reasons; self.excluded = excluded
     }
 }
@@ -138,6 +168,42 @@ public enum InventoryParsers {
         return CLITool(name: name, source: .uv, version: nil, commands: commands, details: details)
     }
 
+    /// Version d'un outil uv lue dans son environnement : `lib/python*/site-packages/<nom>-<version>.dist-info`.
+    /// Les noms sont comparés normalisés (casse, `-`, `_` et `.` équivalents) : `serena-agent` → `serena_agent-1.5.3`.
+    public static func uvVersion(name: String, toolDir: URL) -> String? {
+        func norm(_ s: String) -> String {
+            s.lowercased().replacingOccurrences(of: #"[-_.]+"#, with: "_", options: .regularExpression)
+        }
+        let fm = FileManager.default
+        let lib = toolDir.appendingPathComponent("lib")
+        for py in ((try? fm.contentsOfDirectory(atPath: lib.path)) ?? []).sorted() where py.hasPrefix("python") {
+            let site = lib.appendingPathComponent("\(py)/site-packages")
+            for entry in (try? fm.contentsOfDirectory(atPath: site.path)) ?? [] where entry.hasSuffix(".dist-info") {
+                let stem = String(entry.dropLast(".dist-info".count))
+                // La version ne contient jamais de tiret : le dernier sépare le nom de la version.
+                guard let dash = stem.lastIndex(of: "-") else { continue }
+                if norm(String(stem[..<dash])) == norm(name) { return String(stem[stem.index(after: dash)...]) }
+            }
+        }
+        return nil
+    }
+
+    /// `go version -m <binaire>` : la ligne `mod <module> <version>` donne la version (rien pour `(devel)`).
+    public static func goVersion(_ text: String) -> String? {
+        for line in text.split(separator: "\n") {
+            let f = line.split(whereSeparator: { $0 == "\t" || $0 == " " })
+            if f.count >= 3, f[0] == "mod" { return f[2] == "(devel)" ? nil : String(f[2]) }
+        }
+        return nil
+    }
+
+    /// Version présente dans le chemin d'un lien (`~/.local/share/claude/versions/2.1.3` → « 2.1.3 »), sinon nil.
+    public static func versionInPath(_ path: String) -> String? {
+        path.split(separator: "/").reversed().map(String.init).first {
+            $0.range(of: #"^v?\d+(\.\d+)+([-+][0-9A-Za-z.]+)?$"#, options: .regularExpression) != nil
+        }
+    }
+
     /// `pipx list --short` : « nom version ».
     public static func pipx(_ text: String) -> [CLITool] {
         text.split(separator: "\n").compactMap { line in
@@ -170,7 +236,9 @@ public enum InventoryParsers {
             }
             var details: [String: String] = [:]
             if let t = e.linkTarget { details["link"] = t }
-            return CLITool(name: e.name, source: .localBin, version: nil, commands: [e.name], details: details)
+            // Pas d'exécution de `--version` sur un binaire inconnu : seule la cible du lien peut donner la version.
+            return CLITool(name: e.name, source: .localBin, version: e.linkTarget.flatMap(versionInPath),
+                           commands: [e.name], details: details)
         }
     }
 
@@ -231,7 +299,8 @@ public enum InventoryCollector {
                                  runner: CommandRunner = SystemRunner(), rules: InventoryRules = .bundled) -> (tools: [CLITool], taps: [String]) {
         var tools: [CLITool] = []
         var taps: [String] = []
-        let leaves = runner.run(["brew", "leaves"])
+        // Seules les formules installées à la demande : pas les dépendances devenues orphelines.
+        let leaves = runner.run(["brew", "leaves", "--installed-on-request"])
         if leaves.status == 0 {
             let names = String(decoding: leaves.output, as: UTF8.self).split(separator: "\n").map(String.init)
             if !names.isEmpty {
@@ -247,15 +316,23 @@ public enum InventoryCollector {
 
         let fm = FileManager.default
         let uvDir = home.appendingPathComponent(".local/share/uv/tools")
-        for d in (try? fm.contentsOfDirectory(atPath: uvDir.path)) ?? [] {
-            if let text = try? String(contentsOf: uvDir.appendingPathComponent("\(d)/uv-receipt.toml"), encoding: .utf8),
-               let t = InventoryParsers.uvReceipt(text) { tools.append(t) }
+        for d in ((try? fm.contentsOfDirectory(atPath: uvDir.path)) ?? []).sorted() {
+            let toolDir = uvDir.appendingPathComponent(d)
+            if let text = try? String(contentsOf: toolDir.appendingPathComponent("uv-receipt.toml"), encoding: .utf8),
+               let t = InventoryParsers.uvReceipt(text) {
+                tools.append(CLITool(name: t.name, source: t.source, version: InventoryParsers.uvVersion(name: t.name, toolDir: toolDir),
+                                     commands: t.commands, details: t.details))
+            }
         }
         let pipx = runner.run(["pipx", "list", "--short"])
         if pipx.status == 0 { tools += InventoryParsers.pipx(String(decoding: pipx.output, as: UTF8.self)) }
         if let data = try? Data(contentsOf: home.appendingPathComponent(".cargo/.crates2.json")) { tools += InventoryParsers.cargo(data) }
-        for name in (try? fm.contentsOfDirectory(atPath: home.appendingPathComponent("go/bin").path)) ?? [] where !name.hasPrefix(".") {
-            tools.append(CLITool(name: name, source: .go, version: nil, commands: [name]))
+        let goBin = home.appendingPathComponent("go/bin")
+        for name in ((try? fm.contentsOfDirectory(atPath: goBin.path)) ?? []).sorted() where !name.hasPrefix(".") {
+            // `go version -m` lit les informations de build sans lancer le binaire (nil si go est absent).
+            let info = runner.run(["go", "version", "-m", goBin.appendingPathComponent(name).path])
+            let version = info.status == 0 ? InventoryParsers.goVersion(String(decoding: info.output, as: UTF8.self)) : nil
+            tools.append(CLITool(name: name, source: .go, version: version, commands: [name]))
         }
         let localDir = home.appendingPathComponent(".local/bin")
         let local = ((try? fm.contentsOfDirectory(atPath: localDir.path)) ?? []).sorted().compactMap { name -> (String, String?)? in
@@ -303,26 +380,25 @@ public enum InventoryCollector {
     public static func classify(tools: [CLITool], taps: [String], homeMarkers: Set<String>, projectMarkers: Set<String>,
                                 history: [String: Int], excluded: Set<String>, rules: InventoryRules = .bundled,
                                 available: (String) -> Bool = isAvailable) -> Inventory {
-        var reasonsByCommand: [String: [String]] = [:]
+        var reasonsByCommand: [String: [InventoryReason]] = [:]
         for (marker, cmds) in rules.home where homeMarkers.contains(marker) {
-            for c in cmds { reasonsByCommand[c, default: []].append("~/" + marker) }
+            for c in cmds { reasonsByCommand[c, default: []].append(.home(marker)) }
         }
         for (marker, cmds) in rules.projects where projectMarkers.contains(marker) {
-            for c in cmds { reasonsByCommand[c, default: []].append(marker) }
+            for c in cmds { reasonsByCommand[c, default: []].append(.project(marker)) }
         }
         var entries: [InventoryEntry] = []
         var provided = Set<String>()
         for t in tools {
-            var reasons: [String] = []
+            var reasons: [InventoryReason] = []
             var uses = 0
             for c in t.commands {
                 provided.insert(c)
-                reasons += reasonsByCommand[c] ?? []
+                for r in reasonsByCommand[c] ?? [] where !reasons.contains(r) { reasons.append(r) }
                 uses += history[c] ?? 0
             }
-            reasons = Array(NSOrderedSet(array: reasons)) as? [String] ?? reasons
             // Une seule raison « historique » par outil, toutes commandes confondues.
-            if uses >= rules.historyMinUses { reasons.append(L10n.tr("inventory.reason.history", uses)) }
+            if uses >= rules.historyMinUses { reasons.append(.history(uses: uses)) }
             entries.append(InventoryEntry(name: t.name, tool: t, status: reasons.isEmpty ? .unused : .used, reasons: reasons,
                                           excluded: excluded.contains(t.name)))
         }
@@ -377,6 +453,23 @@ public enum InventoryExport {
         var lines = inv.taps.map { "tap \"\($0)\"" }
         lines += inv.retained.filter { $0.source == .brew }.map { "brew \"\($0.name)\"" }
         return lines.joined(separator: "\n") + "\n"
+    }
+
+    /// Sortie de `cairn tools --json` : identifiants et codes stables, identique quelle que soit la langue.
+    public static func json(_ inv: Inventory) -> String {
+        let list: [[String: Any]] = inv.entries.map { e in
+            var d: [String: Any] = ["name": e.name, "status": e.status.rawValue, "reasons": e.reasons.map(\.json), "excluded": e.excluded]
+            if let t = e.tool {
+                d["source"] = t.source.rawValue
+                d["version"] = t.version ?? NSNull()
+                d["commands"] = t.commands
+                d["details"] = t.details
+            }
+            return d
+        }
+        let obj: [String: Any] = ["tools": list, "taps": inv.taps]
+        guard let data = try? JSONSerialization.data(withJSONObject: obj, options: [.prettyPrinted, .sortedKeys]) else { return "{}" }
+        return String(decoding: data, as: UTF8.self)
     }
 
     public static func write(_ inv: Inventory, to dir: URL) throws {

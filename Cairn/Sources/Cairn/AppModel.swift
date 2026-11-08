@@ -87,6 +87,8 @@ final class AppModel: ObservableObject {
     private lazy var appLog = RunLog(paths: paths, type: "app")
 
     init() {
+        // `~/.cairn` en 700 avant le premier journal ou la surveillance de config.toml.
+        try? paths.ensure()
         loadConfig()
         watcher = store.watch { [weak self] in
             MainActor.assumeIsolated { self?.loadConfig(reloaded: true) }
@@ -140,8 +142,9 @@ final class AppModel: ObservableObject {
                 if previousFolders != loaded.config.folders && !isScanning { scan() }
             }
         } catch {
-            configIssues = []
-            lastMessage = T("config.banner.error", String(describing: error))
+            // Erreur de syntaxe : affichée avec sa ligne et bloquante pour les sauvegardes planifiées.
+            configIssues = ConfigStore.issues(for: error)
+            lastMessage = T("config.banner.error", configIssues.first?.description ?? String(describing: error))
             appLog.write("config unreadable: \(error)")
         }
     }

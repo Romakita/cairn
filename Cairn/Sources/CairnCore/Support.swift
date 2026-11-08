@@ -29,6 +29,13 @@ public struct CairnPaths: Sendable {
         }
         try fm.setAttributes([.posixPermissions: 0o700], ofItemAtPath: root.path)
     }
+
+    /// Crée un sous-dossier (`logs/`, `state/`…). Une racine absente est d'abord créée en 700 ; une racine existante
+    /// n'est pas modifiée (avec `--config`, c'est le dossier choisi par l'utilisateur).
+    public func prepare(_ dir: URL) throws {
+        if !FileManager.default.fileExists(atPath: root.path) { try ensure() }
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    }
 }
 
 /// Verrou exclusif partagé entre l'app et la commande `cairn` (flock).
@@ -84,7 +91,8 @@ public final class RunLog: @unchecked Sendable {
         f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "yyyyMMdd-HHmmss"
         url = paths.logs.appendingPathComponent("\(type)-\(f.string(from: now)).log")
-        try? FileManager.default.createDirectory(at: paths.logs, withIntermediateDirectories: true)
+        // `~/.cairn` en 700, même si le journal est le premier à le créer.
+        try? paths.prepare(paths.logs)
         FileManager.default.createFile(atPath: url.path, contents: nil)
         handle = try? FileHandle(forWritingTo: url)
     }

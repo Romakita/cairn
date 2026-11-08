@@ -561,3 +561,6 @@
 "git.branch.in_worktree" = "extraite dans %@";
 "git.confirm.risk_ack" = "Je comprends que le travail non commité ou non poussé de %lld worktree(s) sera perdu";
 
+/* Lot avertissements : configuration, langues, inventaire */
+"config.save.refused" = "config.toml contient une erreur : corrigez le fichier avant de modifier les réglages (%@)";
+"settings.blocked" = "Les réglages et les sauvegardes planifiées sont suspendus jusqu’à la correction de config.toml.";

@@ -561,3 +561,6 @@
 "git.branch.in_worktree" = "checked out in %@";
 "git.confirm.risk_ack" = "I understand that the uncommitted or unpushed work in %lld worktree(s) will be lost";
 
+/* Lot avertissements : configuration, langues, inventaire */
+"config.save.refused" = "config.toml contains an error: fix the file before changing settings (%@)";
+"settings.blocked" = "Settings and scheduled backups are paused until config.toml is fixed.";
