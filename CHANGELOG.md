@@ -29,6 +29,13 @@ versions follow [SemVer](https://semver.org/). The current version is in `Cairn/
   **Restore this backup** in the wizard.
 
 ### Changed
+- The home page is a hub: a global status with its causes, a read-only **Check everything** button (tracked folders,
+  git cleanup in simulation, destination reachability, backup state) that can be stopped, one card per module
+  (Storage, Backup, Git, AI tools, Restore) with its status and one action, a **Resolve** banner for the most urgent
+  problem, and recent activity (`~/.cairn/state/activity.jsonl`, 200 entries at most). The old search bar and the
+  outdated "Last backup" card are gone.
+- Codex-style window: translucent frame, Cairn logo centered in the top bar, Codex colors, and
+  [Lucide](https://lucide.dev) icons (ISC license, bundled with the app).
 - Releases are automatic, with semantic-release: after a successful build on `main`, the version is computed from the
   Conventional Commits since the last tag (breaking change → major, `feat` → minor, `fix`/`perf` → patch), then CI
   commits the bump, tags it and publishes the GitHub release with the app archive. No more manual bump or tag.
