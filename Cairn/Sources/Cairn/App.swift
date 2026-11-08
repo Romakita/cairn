@@ -62,6 +62,9 @@ struct CairnApp: App {
                 Button(T("action.choose_folder")) { model.addFolder() }.keyboardShortcut("o")
                 Button(T("action.rescan")) { model.scan() }.keyboardShortcut("r")
             }
+            CommandGroup(after: .appInfo) {
+                Button(T("update.check")) { model.updates.check(manual: true) }
+            }
             CommandGroup(replacing: .appSettings) {
                 Button(T("section.settings")) { model.section = .settings }.keyboardShortcut(",")
             }

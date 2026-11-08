@@ -55,6 +55,7 @@ jobs:
           **Installation:** unzip the archive and drag `Cairn.app` into `~/Applications`. The app is not notarized: on
           first launch, right-click → Open, or run `xattr -dr com.apple.quarantine ~/Applications/Cairn.app`.
           `cairn` command: `ln -sf ~/Applications/Cairn.app/Contents/MacOS/Cairn ~/.local/bin/cairn`.
+          Later updates install from the app (**Update available** button, or **Cairn → Check for Updates…**).
           NOTES
 
       - name: Publish

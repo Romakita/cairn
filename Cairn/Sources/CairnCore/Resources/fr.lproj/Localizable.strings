@@ -601,3 +601,22 @@
 "restore.detail.installed" = "installé";
 "restore.detail.failed" = "échec (code %lld)";
 "restore.detail.simulation" = "simulation";
+
+/* Mises à jour de l'app */
+"update.available" = "Mise à jour disponible";
+"update.title" = "Cairn %@ est disponible";
+"update.install" = "Installer et relancer";
+"update.release_page" = "Voir la release";
+"update.later" = "Plus tard";
+"update.downloading" = "Téléchargement…";
+"update.check" = "Rechercher les mises à jour…";
+"update.up_to_date" = "Cairn est à jour (%@).";
+"update.blocked.backup" = "Une sauvegarde est en cours : la mise à jour pourra être installée à la fin.";
+"update.blocked.not_installable" = "Cette copie de Cairn ne peut pas être remplacée automatiquement : téléchargez la mise à jour depuis la page de la release.";
+"update.error.network" = "Impossible de joindre GitHub : %@";
+"update.error.checksum" = "L'archive téléchargée ne correspond pas à son empreinte SHA-256. Rien n'a été modifié.";
+"update.error.archive" = "L'archive téléchargée n'a pas pu être extraite. Rien n'a été modifié.";
+"update.error.bundle" = "L'app téléchargée n'est pas la version de Cairn attendue (%@). Rien n'a été modifié.";
+"update.error.not_installable" = "Cette copie de Cairn ne peut pas être remplacée automatiquement.";
+"settings.updates.check" = "Rechercher automatiquement les mises à jour";
+"settings.updates.version" = "Version %@";

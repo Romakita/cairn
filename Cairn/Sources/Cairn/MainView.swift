@@ -97,6 +97,7 @@ struct Rail: View {
             RailButton(icon: AppSection.settings.icon, label: AppSection.settings.title, selected: model.section == .settings) {
                 model.section = .settings
             }
+            UpdateButton(updates: model.updates)
             StatusDot(status: model.globalStatus)
         }
         .padding(.top, 8).padding(.bottom, 14)
@@ -122,6 +123,92 @@ struct StatusDot: View {
             .background(Palette.background(tone), in: Circle())
             .help(T("status.\(status.rawValue)"))
             .accessibilityLabel(T("status.\(status.rawValue)"))
+    }
+}
+
+/// Bouton « Mise à jour disponible » du rail, comme dans Codex : visible seulement quand une release plus récente existe.
+struct UpdateButton: View {
+    @ObservedObject var updates: UpdateController
+
+    var body: some View {
+        if let r = updates.available {
+            Button { updates.showPanel.toggle() } label: {
+                Image(systemName: "arrow.down.to.line")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 30, height: 30)
+                    .background(Palette.accent, in: Circle())
+                    .frame(width: 40, height: 40)
+                    .background(updates.showPanel ? Palette.railSelected : .clear, in: RoundedRectangle(cornerRadius: 10))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(T("update.available"))
+            .accessibilityLabel(T("update.available"))
+            .popover(isPresented: $updates.showPanel, arrowEdge: .trailing) { UpdatePanel(updates: updates, release: r) }
+        }
+    }
+}
+
+/// Panneau de la mise à jour : versions, notes et actions.
+struct UpdatePanel: View {
+    @ObservedObject var updates: UpdateController
+    let release: AppRelease
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(T("update.title", release.version)).font(.system(size: 15, weight: .semibold))
+            Text(verbatim: "\(CairnVersion.current) → \(release.version)")
+                .font(.system(size: 12.5, design: .monospaced)).foregroundStyle(Palette.secondary)
+            if !release.notes.isEmpty {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(Array(noteLines.enumerated()), id: \.offset) { _, l in
+                            if l.heading {
+                                Text(verbatim: l.text).font(.system(size: 12.5, weight: .semibold)).padding(.top, 4)
+                            } else {
+                                Text(LocalizedStringKey(l.text)).font(.system(size: 12.5))
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+                }
+                .frame(maxHeight: 220)
+            }
+            if case let .failed(msg) = updates.phase {
+                Banner(icon: "exclamationmark.triangle", text: msg, tone: .danger)
+            } else if let b = updates.blocker {
+                Text(b).font(.system(size: 12)).foregroundStyle(Palette.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            HStack {
+                Button(T("update.later")) { updates.showPanel = false }.buttonStyle(.pill)
+                Button(T("update.release_page")) { updates.openReleasePage() }.buttonStyle(.pill)
+                Spacer()
+                if updates.phase == .downloading {
+                    ProgressView().controlSize(.small)
+                    Text(T("update.downloading")).font(.system(size: 12)).foregroundStyle(Palette.secondary)
+                } else {
+                    Button(T("update.install")) { updates.install() }
+                        .buttonStyle(.pillPrimary)
+                        .disabled(updates.blocker != nil)
+                }
+            }
+        }
+        .padding(18)
+        .frame(width: 400)
+    }
+
+    /// Notes du CHANGELOG : titres `#` en gras, puces `-` en `•`, liens et gras Markdown conservés.
+    var noteLines: [(heading: Bool, text: String)] {
+        release.notes.components(separatedBy: .newlines).compactMap { raw in
+            let line = raw.trimmingCharacters(in: .whitespaces)
+            if line.isEmpty || line == "---" { return nil }
+            if line.hasPrefix("#") { return (true, line.drop { $0 == "#" }.trimmingCharacters(in: .whitespaces)) }
+            if line.hasPrefix("- ") || line.hasPrefix("* ") { return (false, "• " + line.dropFirst(2)) }
+            return (false, line)
+        }
     }
 }
 

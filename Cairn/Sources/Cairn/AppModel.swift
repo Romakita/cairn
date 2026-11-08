@@ -54,6 +54,7 @@ final class AppModel: ObservableObject {
     var pendingRetentionDestination: String?
     let backups = BackupController()
     let storage = StorageMonitor()
+    let updates = UpdateController()
     @Published var summary: AnalysisSummary?
     @Published var activeAlerts: [StorageAlerts.Alert] = []
     @Published var aiStats: [AIBackup.ToolStats]?
@@ -110,6 +111,7 @@ final class AppModel: ObservableObject {
         servicesStarted = true
         backups.start(model: self)
         storage.start(model: self)
+        updates.start(model: self)
     }
 
     /// Charge `config.toml`. En cas d'erreur, la dernière configuration valide est gardée.

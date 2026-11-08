@@ -98,6 +98,8 @@ public struct CairnConfig: Equatable, Sendable {
     public var schedule = Schedule()
     public var alerts = Alerts()
     public var logRetentionDays = 90
+    /// Recherche automatique des mises à jour de l'app (`[updates] check`).
+    public var checkUpdates = true
     public var git = Git()
     public var excludedTools: [String] = []
 
@@ -134,7 +136,7 @@ public enum ConfigDecoder {
         var c = CairnConfig()
 
         r.known(t, "", ["version", "language", "analysis", "folders", "home", "ai", "destinations", "schedule",
-                        "alerts", "logs", "git", "tools"])
+                        "alerts", "logs", "git", "tools", "updates"])
         c.version = r.int(t, "version") ?? 0
         if c.version > CairnConfig.currentVersion {
             r.error("version", t.valueLine("version"), L10n.tr("config.issue.version_unsupported", c.version))
@@ -251,6 +253,11 @@ public enum ConfigDecoder {
             if let d = r.int(l, "retention_days", key: "logs.retention_days") {
                 if d >= 1 { c.logRetentionDays = d } else { r.error("logs.retention_days", l.valueLine("retention_days"), L10n.tr("config.issue.positive")) }
             }
+        }
+
+        if let u = r.table(t, "updates") {
+            r.known(u, "updates", ["check"])
+            c.checkUpdates = r.bool(u, "check", key: "updates.check") ?? true
         }
 
         if let g = r.table(t, "git") {
@@ -389,6 +396,8 @@ public enum ConfigWriter {
         doc.set(.double(c.alerts.criticalGB), section: ["alerts"], key: ["critical_gb"])
 
         doc.set(.integer(Int64(c.logRetentionDays)), section: ["logs"], key: ["retention_days"])
+
+        doc.set(.bool(c.checkUpdates), section: ["updates"], key: ["check"])
 
         doc.set(.bool(c.git.fetchBefore), section: ["git"], key: ["fetch_before"])
         doc.set(.bool(c.git.gc), section: ["git"], key: ["gc"])

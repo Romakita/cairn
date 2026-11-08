@@ -126,6 +126,7 @@ public enum CLI {
             "alerts": ["low_percent": c.alerts.lowPercent, "low_gb": c.alerts.lowGB,
                        "critical_percent": c.alerts.criticalPercent, "critical_gb": c.alerts.criticalGB],
             "logs": ["retention_days": c.logRetentionDays],
+            "updates": ["check": c.checkUpdates],
             "git": ["fetch_before": c.git.fetchBefore, "gc": c.git.gc, "worktree_stale_days": c.git.worktreeStaleDays] as [String: Any],
             "tools": ["excluded": c.excludedTools],
         ]
