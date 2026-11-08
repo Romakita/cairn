@@ -44,9 +44,10 @@ Police système (SF Pro), graisses légères :
 | `Card` + `SettingsRow` + `RowDivider` | panneau de réglages : titre, description, contrôle à droite | « Autorisations », « Général » |
 | `SectionTitle` | titre au-dessus d'une carte | « Autorisations » |
 | `CardTray` | plateau gris en bas de carte pour ajouter un élément | barre sous la zone de saisie |
-| `.buttonStyle(.pillPrimary / .pill / .pillOutline)` | noir / gris plein / bordé | « Ajouter », « Gérer », « Parcourir le répertoire » |
-| `PillPicker` | bascule segmentée en capsule | « Chat / Work » |
-| `TabBar` | onglets de page, choisi sur fond gris | « Aperçu  Statistiques » |
+| `.buttonStyle(.pillPrimary / .pill / .pillOutline / .pillDanger)` | noir / gris plein / bordé / rouge | « Ajouter », « Gérer », « Parcourir le répertoire », confirmation d'une suppression |
+| `PillPicker` | bascule segmentée en capsule (réservée à l'accueil) | « Chat / Work » |
+| `TabBar` | groupe de boutons : texte gris, choix courant dans une pilule grise, sans conteneur ; onglets de page et choix d'option (rétention, fréquence) | « Public  Personnel » |
+| Menu « … » | bouton rond gris avant « Gérer » ; action destructive en rouge, en dernier | « Copier le lien / Désinstaller » |
 | `DropdownMenu` | menu déroulant bordé avec chevron | « Terminal ⌄ » |
 | `.cairnField(icon:prefix:)` | champ capsule (remplace `.roundedBorder`) | « Rechercher des dépôts » |
 | `PathField` | champ `~/` avec complétion (↑ ↓, Tab, Entrée, Échap) | menu « Choisir un projet » |

@@ -32,3 +32,10 @@ Une entrée après chaque correction de l'utilisateur. À relire au début de ch
   Conventional Commits : un `feat` mergé (PR #3) aurait dû produire la 0.2.0 sans autre geste.
 - Règle : quand les commits suivent une convention, la version en découle (semantic-release) ; ne pas ajouter d'étape
   manuelle au flux branche → PR → revue → merge → build → release. Préférer un outil standard à un script maison.
+
+## 2026-11-08 — Boutons d'action et groupes de boutons
+- Erreur : boutons « Vérifier l'intégrité » / « Vérification complète » actifs alors que rien ne peut être vérifié ;
+  sélecteur de rétention laissé en `Picker(.segmented)` natif (bleu) au lieu du style Codex.
+- Règle : tout bouton d'action est désactivé quand son action ne peut pas aboutir, avec la raison en `.help`
+  (règle pure et testée dans CairnCore). Aucun `Picker(.segmented)` : les groupes de boutons utilisent `TabBar`
+  (« Public  Personnel ») ; en-tête de détail = menu « … » (destructif en rouge, en dernier), « Gérer », action principale.

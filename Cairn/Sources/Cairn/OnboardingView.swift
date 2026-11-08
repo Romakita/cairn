@@ -183,7 +183,7 @@ struct OnboardingView: View {
             Card(padding: 0) {
                 VStack(spacing: 0) {
                     SettingsRow(title: T("onboarding.schedule.backup")) {
-                        PillPicker(options: CairnConfig.Frequency.allCases.map { ($0, T("frequency.\($0.rawValue)")) },
+                        TabBar(options: CairnConfig.Frequency.allCases.map { ($0, T("frequency.\($0.rawValue)")) },
                                    selection: $draft.frequency)
                     }
                     if draft.frequency != .manual {

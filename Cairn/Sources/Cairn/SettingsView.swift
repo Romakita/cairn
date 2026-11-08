@@ -86,7 +86,7 @@ struct SettingsView: View {
                     Card(padding: 0) {
                         VStack(spacing: 0) {
                             SettingsRow(title: T("settings.frequency")) {
-                                PillPicker(options: CairnConfig.Frequency.allCases.map { ($0, T("frequency.\($0.rawValue)")) },
+                                TabBar(options: CairnConfig.Frequency.allCases.map { ($0, T("frequency.\($0.rawValue)")) },
                                            selection: Binding(get: { c.schedule.frequency },
                                                               set: { v in model.updateConfig { $0.schedule.frequency = v } }))
                             }
