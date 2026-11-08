@@ -1,43 +1,50 @@
-# Lance les scripts depuis la racine du projet : `just` liste les commandes.
+# Cairn depuis la racine du projet : `just` liste les commandes.
 set positional-arguments
+
+cairn := "Cairn/cairn.sh"
 
 # Liste les commandes
 default:
     @just --list
 
-# Sauvegarde home + workspace vers DEST (options : --mirror, --no-home, --no-workspace)
-backup dest *args:
-    scripts/backup.sh "$@"
+# Sauvegarde vers les destinations de ~/.cairn/config.toml (options : --destination ID, --only folders|home|tools|ai)
+backup *args:
+    {{cairn}} backup "$@"
 
-# Simulation de la sauvegarde (rien n'est copié, seul le manifest est écrit)
-backup-dry dest *args:
-    scripts/backup.sh "$@" --dry-run
+# Simulation de la sauvegarde (rien n'est écrit)
+backup-dry *args:
+    {{cairn}} backup --dry-run "$@"
 
-# Redéploie la sauvegarde DIR sur ce Mac (options : --yes, --apps, --skip-home, --skip-workspace…)
-restore dir *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    dir="$1"; shift
-    "$dir/restore.sh" "$@"
+# Restaure une sauvegarde (simulation sans --apply ; --from DOSSIER ou --destination ID)
+restore *args:
+    {{cairn}} restore "$@"
 
-# Vérifie seulement les outils requis listés dans la sauvegarde DIR
-check dir:
-    "$1/restore.sh" --check
+# Vérifie seulement les outils requis listés dans la sauvegarde
+check *args:
+    {{cairn}} restore --check "$@"
 
-# Simulation du nettoyage git (options : --root, --only, --fetch)
+# Contrôle d'intégrité des sauvegardes (--full : tout)
+verify *args:
+    {{cairn}} verify "$@"
+
+# Simulation du nettoyage git : branches gone et worktrees obsolètes (options : --root, --only, --fetch)
 git-clean *args:
-    scripts/git-cleanup.sh "$@"
+    {{cairn}} git "$@"
 
-# Nettoyage git réel : branches "gone" fusionnées + git gc (options : --include-unmerged, --prune-now, --fetch)
+# Nettoyage git réel, après confirmation (options : --include-unmerged, --prune-now, --worktrees-only)
 git-clean-apply *args:
-    scripts/git-cleanup.sh --apply "$@"
+    {{cairn}} git --apply "$@"
 
-# Lance les tests de Cairn (exécutable cairn-selftest ; FILTRE optionnel sur le nom des tests)
+# Outils CLI installés à réinstaller (--export DOSSIER)
+tools *args:
+    {{cairn}} tools "$@"
+
+# Lance les tests de Cairn (FILTRE optionnel sur le nom des tests)
 test *filter:
-    swift build --package-path Cairn --product cairn-selftest
+    swift build --package-path Cairn
     Cairn/.build/debug/cairn-selftest {{filter}}
 
-# Construit l'app Cairn et l'installe dans ~/Applications
+# Construit l'app Cairn, l'installe dans ~/Applications et relie ~/.local/bin/cairn
 storage-install:
     Cairn/build-app.sh
 
@@ -49,9 +56,6 @@ storage:
     [[ -d "$app" ]] || Cairn/build-app.sh
     open "$app"
 
-# Résumé de l'occupation disque dans le terminal (DIR par défaut : /Volumes/workspaces)
-storage-report dir="/Volumes/workspaces":
-    #!/usr/bin/env bash
-    set -euo pipefail
-    swift build -c release --package-path Cairn --product Cairn >/dev/null 2>&1
-    "$(swift build -c release --package-path Cairn --show-bin-path)/Cairn" analyze "$1"
+# Résumé de l'occupation disque dans le terminal (par défaut : dossiers suivis de config.toml)
+storage-report *args:
+    {{cairn}} analyze "$@"

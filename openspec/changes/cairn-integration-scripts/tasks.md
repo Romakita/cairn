@@ -91,8 +91,8 @@ Toute tâche qui ajoute un texte visible (interface, notification, aide, message
 
 ## 11. Bascule et retrait des scripts
 
-- [ ] 11.1 Faire passer les recettes `just` sur `cairn` (`backup`, `backup-dry`, `restore`, `check`, `git-clean`, `git-clean-apply`, `storage*`, `test`) et installer le lien `~/.local/bin/cairn` depuis `build-app.sh` ; vérifier que chaque recette de `just --list` s'exécute en mode simulation
-- [ ] 11.2 Supprimer `scripts/backup.sh`, `scripts/restore.sh` et `scripts/git-cleanup.sh` après les comparaisons des tâches 6.2 et 7.8, et mettre à jour `README.md` et `AGENTS.md` (vérifications avec `just test` et `cairn … --dry-run`, contraintes de Cairn) ; vérifier que `grep -rn "scripts/" README.md AGENTS.md justfile` ne renvoie plus de référence aux scripts supprimés
+- [x] 11.1 Faire passer les recettes `just` sur `cairn` (`backup`, `backup-dry`, `restore`, `check`, `git-clean`, `git-clean-apply`, `storage*`, `test`) et installer le lien `~/.local/bin/cairn` depuis `build-app.sh` ; vérifier que chaque recette de `just --list` s'exécute en mode simulation
+- [x] 11.2 Supprimer `scripts/backup.sh`, `scripts/restore.sh` et `scripts/git-cleanup.sh` après les comparaisons des tâches 6.2 et 7.8, et mettre à jour `README.md` et `AGENTS.md` (vérifications avec `just test` et `cairn … --dry-run`, contraintes de Cairn) ; vérifier que `grep -rn "scripts/" README.md AGENTS.md justfile` ne renvoie plus de référence aux scripts supprimés
 - [ ] 11.3 Vérification de bout en bout : premier lancement sur un compte vierge, analyse de deux dossiers, sauvegarde chiffrée sur le NAS (outils IA compris) interrompue puis reprise, NAS éteint puis rallumé (mise en attente puis départ), vérification d'intégrité, nettoyage des worktrees obsolètes en simulation, panneau de la barre des menus, nettoyage git en simulation puis en application sur un dépôt de test, restauration de la version sur le compte de test ; refaire le parcours principal en en-US et en fr-FR, comparer `cairn git --json` dans les deux langues (sorties identiques) ; consigner le résultat dans la section « Revue » de `tasks/todo.md`
 
 ## Workflow follow-up

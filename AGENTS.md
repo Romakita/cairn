@@ -4,13 +4,13 @@ Instructions pour les agents IA (Claude Code, Codex, etc.) qui travaillent dans 
 
 ## Projet
 
-Scripts bash de sauvegarde et de redéploiement d'un Mac (`scripts/backup.sh`, `scripts/restore.sh`,
-`scripts/git-cleanup.sh`), lancés via `just` depuis la racine, et une app macOS d'analyse de l'occupation disque du workspace
-(`Cairn/`, SwiftUI + SwiftPM). Voir [README.md](README.md).
+**Cairn** (`Cairn/`) : app macOS et commande `cairn` (même binaire) pour analyser l'occupation disque, sauvegarder
+(dossiers, home, outils IA, inventaire des CLI), restaurer et nettoyer les dépôts git. Lancée via `just` depuis la racine.
+Les anciens scripts bash ont été retirés (historique git). Voir [README.md](README.md) et [Cairn/README.md](Cairn/README.md).
 
-- Langue du projet : français (docs, commentaires, messages des scripts, artefacts OpenSpec).
-- Les scripts touchent au home et à des tokens : toute opération destructive (`--mirror`, `--apply`,
-  restauration) doit rester explicite et avoir un mode simulation.
+- Langue du projet : français (docs, commentaires, artefacts OpenSpec) ; l'app est bilingue en-US / fr-FR.
+- Cairn touche au home et à des tokens : toute opération destructive (suppression, nettoyage git, restauration)
+  doit rester explicite, confirmée et avoir un mode simulation.
 
 ## OpenSpec (développement piloté par les specs)
 
@@ -62,8 +62,8 @@ Après une mise à jour d'OpenSpec : `openspec update` pour régénérer les ski
 - Comparer le comportement entre `main` et les changements quand c'est pertinent.
 - Se demander : « Est-ce qu'un Staff engineer validerait ça ? »
 - Lancer les vérifications, lire les logs, démontrer que c'est correct. Dans ce repo :
-  - `bash -n scripts/*.sh` (syntaxe) et `shellcheck scripts/*.sh` si disponible ;
-  - les modes simulation : `just backup-dry <dest>`, `just git-clean`, `restore.sh --check` ;
+  - `just test` (exécutable `cairn-selftest`, à faire passer à chaque lot) ;
+  - les modes simulation : `just backup-dry`, `just git-clean`, `just restore`, `just check` ;
   - pour un changement OpenSpec : `openspec validate <change>` puis `/opsx:verify`.
   - pour `Cairn/` : `just test` (exécutable `cairn-selftest`), `just storage-report` (totaux à comparer à
     `du -sk <dossier>`), puis `just storage-install` pour reconstruire l'app.
@@ -103,7 +103,11 @@ Pour le travail qui ne passe pas par un changement OpenSpec :
   (`Sources/CairnCore/Resources`) ; le test `L10n.no_untranslated_ui_strings` échoue sinon.
 - L'analyse (`Scanner.swift`) ne doit jamais rien modifier sur le disque ; les suppressions passent
   uniquement par l'interface, après confirmation, et la corbeille est proposée par défaut.
-- Les règles de « régénérable » suivent celles des exclusions de `scripts/backup.sh` : garder les deux cohérentes.
+- Les règles de « régénérable » sont communes à l'analyse et à la sauvegarde (`Scanner.alwaysRegenerable`,
+  `BackupExclusions`) : toute nouvelle règle va dans les deux.
+- Les notifications passent par `Notifier` (UNUserNotificationCenter plante hors d'un bundle .app).
+- Les analyses git lourdes passent par le pool de workers (`GitWorkerPool`) : ne jamais charger un diff ou un
+  historique entier en mémoire (`Git.pipe`).
 
 ## Principes
 

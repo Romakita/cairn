@@ -51,4 +51,8 @@ if [[ "${1:-}" != "--no-install" ]]; then
   rm -rf "$HOME/Applications/$APP_NAME.app"
   cp -R "$BUNDLE" "$HOME/Applications/"
   echo "✔ installé dans ~/Applications/$APP_NAME.app"
+  # Commande `cairn` (même binaire, mode ligne de commande).
+  mkdir -p "$HOME/.local/bin"
+  ln -sf "$HOME/Applications/$APP_NAME.app/Contents/MacOS/Cairn" "$HOME/.local/bin/cairn"
+  echo "✔ commande cairn : ~/.local/bin/cairn"
 fi
