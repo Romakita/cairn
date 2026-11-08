@@ -20,7 +20,7 @@ Options : `--dry-run` (simulation), `--mirror` (supprime dans la sauvegarde ce q
 | Dossier       | Contenu |
 |---------------|---------|
 | `home/`       | `~` sauf Desktop, Documents, Downloads, Library, Movies, Music, Pictures, Public, Applications, la corbeille, les caches (`.cache`, `.npm`, bun, pnpm), les installations reconstructibles (mise, uv, pipx, modèles Ollama) et tous les `node_modules` |
-| `workspaces/` | `/Volumes/workspaces` sans `node_modules`, `.pnpm-store`, `dist`, `coverage`, `.turbo`, `.nx`, `.next`, `.nuxt`, `.angular`, `.vite`, `.cache`, `.venv`, `__pycache__`, `*.tsbuildinfo`… Les dossiers `lib/`, `build/`, `out/`, `target/`, `tmp/`, `vendor/` ne sont exclus que s'ils sont générés (ignorés par le `.gitignore` du repo, ou à côté d'un `package.json`/`Cargo.toml`/`composer.lock` hors git) |
+| `workspaces/` | `/Volumes/workspaces` sans `node_modules`, `Pods` (CocoaPods), `DerivedData`, `.pnpm-store`, `dist`, `coverage`, `.turbo`, `.nx`, `.next`, `.nuxt`, `.angular`, `.vite`, `.cache`, `.venv`, `__pycache__`, `*.tsbuildinfo`… Les dossiers `lib/`, `build/`, `out/`, `target/`, `tmp/`, `vendor/` ne sont exclus que s'ils sont générés (ignorés par le `.gitignore` du repo, ou à côté d'un `package.json`/`Cargo.toml`/`composer.lock` hors git) |
 | `ai/`         | Copies cohérentes des bases SQLite de `~/.claude` et `~/.codex` + sessions et config de Claude Desktop (seule chose prise dans Library) |
 | `manifest/`   | `Brewfile`, `Brewfile.apps`, outils mise, paquets npm globaux, outils uv/pipx, modèles Ollama, `required-tools.txt` (outils requis repérés dans les projets et l'historique zsh), listes d'exclusion |
 

@@ -371,6 +371,9 @@ node_modules/
 .pnpm-store/
 bower_components/
 jspm_packages/
+# Dépendances iOS (CocoaPods, recréées par pod install) et build Xcode
+Pods/
+DerivedData/
 dist/
 coverage/
 .nyc_output/
