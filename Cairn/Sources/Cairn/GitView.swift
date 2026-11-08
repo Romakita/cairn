@@ -30,7 +30,7 @@ struct GitView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            PillPicker(options: [(GitTab.repos, T("git.tab.repos")), (.branches, T("git.tab.branches")), (.worktrees, T("git.tab.worktrees"))],
+            TabBar(options: [(GitTab.repos, T("git.tab.repos")), (.branches, T("git.tab.branches")), (.worktrees, T("git.tab.worktrees"))],
                        selection: $tab)
                 .frame(height: 64)
             if model.isAnalyzingGit {
