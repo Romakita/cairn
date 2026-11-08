@@ -55,7 +55,7 @@ struct SettingsView: View {
                                 }
                             }
                             CardTray {
-                                Button { model.addFolder() } label: { Label(T("sidebar.add_folder"), systemImage: "plus") }.buttonStyle(.pill)
+                                Button { model.addFolder() } label: { Label { Text(T("sidebar.add_folder")) } icon: { Icon("plus", size: 15) } }.buttonStyle(.pill)
                             }
                         }
                     }
@@ -75,7 +75,7 @@ struct SettingsView: View {
                             CardTray {
                                 PathField(placeholder: T("onboarding.home.add_placeholder"), text: $newHomeItem,
                                           excluding: Set(c.home.include), onSubmit: addHomeItem)
-                                Button(action: addHomeItem) { Label(T("action.add"), systemImage: "plus") }
+                                Button(action: addHomeItem) { Label { Text(T("action.add")) } icon: { Icon("plus", size: 15) } }
                                     .buttonStyle(.pillPrimary)
                                     .disabled(newHomeItem.trimmingCharacters(in: .whitespaces).isEmpty)
                             }

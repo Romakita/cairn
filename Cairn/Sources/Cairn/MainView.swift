@@ -76,8 +76,8 @@ struct MainShell: View {
                 .padding(.trailing, 6).padding(.bottom, 6)
             }
         }
-        // Cadre translucide (matériau de barre latérale de macOS), comme le cadre de Codex.
-        .background(WindowMaterial())
+        // Cadre gris uni de Codex (#F3F3F3).
+        .background(Palette.rail)
     }
 
     @ViewBuilder var content: some View {
@@ -150,8 +150,7 @@ struct StatusDot: View {
         case .attention: ("exclamationmark.triangle", .warning)
         case .error: ("xmark", .danger)
         }
-        Image(systemName: icon)
-            .font(.system(size: 12, weight: .semibold))
+        Icon(icon, size: 15)
             .frame(width: 32, height: 32)
             .foregroundStyle(Palette.foreground(tone))
             .background(Palette.background(tone), in: Circle())
@@ -252,10 +251,10 @@ struct MessageBar: View {
     let close: () -> Void
     var body: some View {
         HStack {
-            Image(systemName: "info.circle").foregroundStyle(Palette.secondary)
+            Icon("info.circle", size: 16).foregroundStyle(Palette.secondary)
             Text(text).font(.callout).foregroundStyle(Palette.secondary).textSelection(.enabled)
             Spacer()
-            Button(action: close) { Image(systemName: "xmark") }
+            Button(action: close) { Icon("xmark", size: 16) }
                 .buttonStyle(.plain)
                 .accessibilityLabel(T("action.close"))
         }
@@ -417,7 +416,7 @@ struct AnalysisSection: View {
                 .id(model.revision)
             } else {
                 VStack(spacing: 14) {
-                    Image(systemName: "internaldrive").font(.system(size: 34)).foregroundStyle(Palette.secondary)
+                    Icon("internaldrive", size: 39).foregroundStyle(Palette.secondary)
                     Text(T("empty.title")).font(.title3.weight(.semibold))
                     Text(model.rootPath).foregroundStyle(Palette.secondary)
                     Button(T("action.analyze")) { model.scan() }.buttonStyle(.pillPrimary)
@@ -440,7 +439,7 @@ struct ComingSoonView: View {
     let section: AppSection
     var body: some View {
         VStack(spacing: 14) {
-            Image(systemName: section.icon).font(.system(size: 34)).foregroundStyle(Palette.secondary)
+            Icon(section.icon, size: 39).foregroundStyle(Palette.secondary)
             Text(section.title).font(.system(size: 24, weight: .medium))
             Text(T("placeholder.soon")).foregroundStyle(Palette.secondary)
         }

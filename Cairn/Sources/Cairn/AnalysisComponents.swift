@@ -48,7 +48,7 @@ struct BreakdownBar: View {
 struct CategoryTag: View {
     let category: Category
     var body: some View {
-        Label(category.shortLabel, systemImage: category.icon)
+        Label { Text(category.shortLabel) } icon: { Icon(category.icon, size: 15) }
             .lineLimit(1)
             .font(.caption2.weight(.medium))
             .padding(.horizontal, 6).padding(.vertical, 2)

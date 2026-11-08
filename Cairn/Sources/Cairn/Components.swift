@@ -16,10 +16,7 @@ struct RailButton: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: icon)
-                .resizable().scaledToFit()
-                .fontWeight(.light)
-                .frame(width: 19, height: 19)
+            Icon(icon, size: 20)
                 .frame(width: 40, height: 40)
                 .foregroundStyle(selected || hover ? Palette.text : Palette.secondary)
                 .background(selected ? Palette.rowSelected : (hover ? Palette.rowHover : .clear), in: RoundedRectangle(cornerRadius: 10))
@@ -56,7 +53,7 @@ struct SidebarRow: View {
     var body: some View {
         let row = HStack(spacing: 10) {
             if let dot { Circle().fill(dot).frame(width: 8, height: 8) }
-            if let icon { Image(systemName: icon).font(.system(size: 13)).frame(width: 16) }
+            if let icon { Icon(icon, size: 16) }
             Text(title).lineLimit(1).truncationMode(.middle)
             Spacer(minLength: 4)
             if let meta { Text(meta).font(.system(size: 12)).foregroundStyle(Palette.secondary).monospacedDigit() }
@@ -197,9 +194,7 @@ struct IconTile: View {
     let systemName: String
     var size: CGFloat = 32
     var body: some View {
-        Image(systemName: systemName)
-            .font(.system(size: size * 0.44))
-            .fontWeight(.light)
+        Icon(systemName, size: size * 0.52)
             .foregroundStyle(Palette.tertiary)
             .frame(width: size, height: size)
             .background(Palette.content, in: RoundedRectangle(cornerRadius: size * 0.28))
@@ -228,7 +223,7 @@ struct DropdownMenu<Value: Hashable>: View {
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
-            Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold)).foregroundStyle(Palette.secondary)
+            Icon("chevron.down", size: 13).foregroundStyle(Palette.secondary)
                 .allowsHitTesting(false)
         }
         .padding(.horizontal, 12).frame(height: 32)
@@ -247,7 +242,7 @@ struct IconButton: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: systemName).font(.system(size: 13))
+            Icon(systemName, size: 16)
                 .foregroundStyle(hover ? Palette.text : Palette.secondary)
                 .frame(width: 28, height: 28)
                 .background(hover ? Palette.field : .clear, in: RoundedRectangle(cornerRadius: 8))
@@ -335,7 +330,7 @@ struct CairnFieldModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         HStack(spacing: 8) {
-            if let icon { Image(systemName: icon).font(.system(size: 13)).foregroundStyle(Palette.secondary) }
+            if let icon { Icon(icon, size: 15).foregroundStyle(Palette.secondary) }
             if let prefix { Text(verbatim: prefix).font(.system(size: 13.5, design: .monospaced)).foregroundStyle(Palette.secondary) }
             content
                 .textFieldStyle(.plain)
@@ -381,7 +376,7 @@ struct Banner<Trailing: View>: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: icon)
+            Icon(icon, size: 17)
             Text(text).font(.system(size: 13.5)).fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 8)
             trailing
@@ -413,16 +408,41 @@ struct FillBar: View {
     }
 }
 
-/// Matériau translucide de macOS derrière la fenêtre (cadre gris de Codex : barre du haut et rail).
-struct WindowMaterial: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSVisualEffectView {
-        let v = NSVisualEffectView()
-        v.material = .sidebar
-        v.blendingMode = .behindWindow
-        v.state = .followsWindowActiveState
-        return v
+/// Icône de Cairn : Lucide (SVG embarqué, teinté comme le texte) pour un nom de symbole SF de la table
+/// `LucideIcons.map`, sinon le symbole SF. `size` est la boîte de l'icône en points.
+struct Icon: View {
+    let name: String
+    var size: CGFloat = 16
+
+    init(_ name: String, size: CGFloat = 16) {
+        self.name = name
+        self.size = size
     }
-    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
+
+    var body: some View {
+        if let image = Self.image(name) {
+            Image(nsImage: image)
+                .renderingMode(.template)
+                .resizable()
+                .interpolation(.high)
+                .scaledToFit()
+                .frame(width: size, height: size)
+        } else {
+            Image(systemName: name)
+                .font(.system(size: size * 0.8))
+                .frame(width: size, height: size)
+        }
+    }
+
+    @MainActor private static var cache: [String: NSImage] = [:]
+
+    @MainActor static func image(_ name: String) -> NSImage? {
+        if let i = cache[name] { return i }
+        guard let url = LucideIcons.url(symbol: name), let i = NSImage(contentsOf: url) else { return nil }
+        i.isTemplate = true
+        cache[name] = i
+        return i
+    }
 }
 
 /// Logo de Cairn : trois pierres empilées.
@@ -571,7 +591,7 @@ private struct SuggestionRow: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 10) {
-                Image(systemName: item.isDirectory ? "folder" : "doc").font(.system(size: 13)).fontWeight(.light)
+                Icon(item.isDirectory ? "folder" : "doc", size: 15).fontWeight(.light)
                     .foregroundStyle(Palette.secondary).frame(width: 16)
                 Text(verbatim: "~/" + item.path).font(.system(size: 13, design: .monospaced)).foregroundStyle(Palette.text)
                     .lineLimit(1).truncationMode(.middle)

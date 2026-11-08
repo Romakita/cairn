@@ -127,7 +127,7 @@ struct MenuBarPanel: View {
                 Text(verbatim: "Cairn").font(.system(size: 15, weight: .semibold))
                 if model.globalStatus != .ok { Badge(text: T("status.\(model.globalStatus.rawValue)"), tone: model.globalStatus == .error ? .danger : .warning) }
                 Spacer()
-                Button { open(.settings) } label: { Image(systemName: "slider.horizontal.3") }
+                Button { open(.settings) } label: { Icon("slider.horizontal.3", size: 16) }
                     .buttonStyle(.plain).foregroundStyle(Palette.secondary).accessibilityLabel(T("section.settings"))
             }
             gauges
@@ -160,8 +160,7 @@ struct MenuBarPanel: View {
             if !model.isScanning, Health.analysisIsStale(model.summary?.date, now: Date()) {
                 tile {
                     HStack(spacing: 10) {
-                        Label(model.summary.map { T("menu.analysis_stale", Fmt.date($0.date)) } ?? T("menu.no_analysis"),
-                              systemImage: "clock.arrow.circlepath")
+                        Label { Text(model.summary.map { T("menu.analysis_stale", Fmt.date($0.date)) } ?? T("menu.no_analysis")) } icon: { Icon("clock.arrow.circlepath", size: 15) }
                             .font(.system(size: 13, weight: .medium)).foregroundStyle(Palette.foreground(.warning))
                         Spacer()
                         Button(T("action.analyze")) { model.scan() }.buttonStyle(.bordered)
@@ -170,9 +169,8 @@ struct MenuBarPanel: View {
             }
             ForEach(model.activeAlerts, id: \.volume) { a in
                 tile {
-                    Label(a.daysToFull.map { T("alerts.forecast_short", a.volume, Fmt.number($0, digits: 0)) }
-                          ?? T(a.level == .critical ? "alerts.critical_title" : "alerts.low_title", a.volume),
-                          systemImage: "exclamationmark.triangle")
+                    Label { Text(a.daysToFull.map { T("alerts.forecast_short", a.volume, Fmt.number($0, digits: 0)) }
+                          ?? T(a.level == .critical ? "alerts.critical_title" : "alerts.low_title", a.volume)) } icon: { Icon("exclamationmark.triangle", size: 15) }
                         .font(.system(size: 13, weight: .medium)).foregroundStyle(Palette.foreground(a.level == .critical ? .danger : .warning))
                 }
             }
@@ -192,7 +190,7 @@ struct MenuBarPanel: View {
                     Button(T("section.settings")) { open(.settings) }
                     Divider()
                     Button(T("menu.quit")) { NSApp.terminate(nil) }
-                } label: { Image(systemName: "ellipsis") }
+                } label: { Icon("ellipsis", size: 16) }
                 .menuIndicator(.hidden)
                 .fixedSize()
                 .accessibilityLabel(T("menu.more"))
@@ -242,7 +240,7 @@ struct MenuBarPanel: View {
         let waiting = dests.filter { model.destinationWaiting[$0.id] == true }
         return tile {
             HStack(spacing: 10) {
-                Image(systemName: model.isBackingUp ? "arrow.triangle.2.circlepath" : (waiting.isEmpty ? "checkmark.shield" : "clock"))
+                Icon(model.isBackingUp ? "arrow.triangle.2.circlepath" : (waiting.isEmpty ? "checkmark.shield" : "clock"), size: 16)
                     .foregroundStyle(waiting.isEmpty ? Palette.foreground(.success) : Palette.foreground(.warning))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(model.isBackingUp ? T("backup.running", model.backupProgress?.1.part ?? "") :
