@@ -5,6 +5,8 @@ versions follow [SemVer](https://semver.org/). The current version is in `Cairn/
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-08
+
 ### Added
 - Destination page: **Edit** (connection, password stored in the Keychain, verified again before saving) and
   **Delete destination** in the **…** menu, keeping the backups on the destination (default) or deleting them after a
