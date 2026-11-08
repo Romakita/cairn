@@ -43,6 +43,28 @@ Corrections après `/opsx:verify` (7 manques bloquants, chacun avec un test, 108
 - [x] Sauvegardes `backup.sh` : `mise-config.toml` est relu, et la copie du home ne recopie plus les dossiers IA
   (ils passent par la fusion).
 
+Avertissements de `/opsx:verify` (environ 45 points, 4 lots en parallèle puis fusion, 160 tests au total) :
+
+- [x] Sauvegarde et CLI : résultat de simulation affiché, `hdiutil verify` mensuel, notification d'un fichier abîmé,
+  vérification complète depuis l'app, accès au journal depuis la notification d'échec, confirmation pour désactiver le
+  chiffrement, rétention plus courte refusée si la destination est illisible, `--json` pour restore/verify/config,
+  `--yes` partout, vraie version dans le manifest, rsync arrêté quand l'app quitte, icône de barre des menus toujours
+  visible, état d'intégrité tenu à jour.
+- [x] Git, analyse, alertes, barre des menus : confirmation dédiée des worktrees à risque, prune sans gc, export TSV,
+  branche fusionnée d'un worktree proposée, présélection de Nettoyable, corbeille par défaut, lien Projets → Git, points
+  de montage, relevé après sauvegarde/nettoyage, démarrage au lancement, icône animée et états, prochaine sauvegarde et
+  analyse ancienne dans le panneau, alertes à l'accueil.
+- [x] Outils IA et restauration : outils décrits par leurs seuls profils (nom, exclusions du home), outils ouverts
+  notés au journal, plugins déclarés listés, taille sauvegardée et dernière sauvegarde, cible `/Volumes/<nom>` absente
+  détectée, étape Command Line Tools, vérification finale et bouton Vérifier, identifiants ignorés si une destination
+  n'est pas chiffrée.
+- [x] Configuration, langues, inventaire : `~/.cairn` en 700, erreur de syntaxe bloquante, pas d'écrasement d'un fichier
+  invalide, plus de clé `keychain` écrite (entrée déduite de `url` + `username`), outil IA retiré du fichier, `tools
+  --json` stable, versions uv/go/local-bin, pluriels (`.stringsdict`), durées localisées.
+- [x] Après fusion : `-H` avec rsync GNU, simulation comparée à la version de base (openrsync échouait avec `-n` et
+  `--link-dest`), snapshot SQLite retenté si l'outil ferme sa base, simulation de restauration sans créer la cible,
+  design et spec alignés.
+
 Reste à faire à la main (impossible ici : NAS, veille réelle, compte vierge) :
 
 - [ ] 7.4 : sauvegarde chiffrée sur le NAS Synology ; NAS éteint (sauvegarde en attente, autres destinations

@@ -350,4 +350,19 @@ let backupTests: [TestCase] = [
             try expectEqual(RestoreSource.versions(onDestinationRoot: root).map(\.machine), ["OldMac"])
         }
     },
+    TestCase("dry_run_after_a_backup_lists_only_changes") {
+        try withTempDir { dir in
+            let src = dir.appendingPathComponent("src"), dest = dir.appendingPathComponent("dest")
+            for i in 0..<5 { try writeFile(src.appendingPathComponent("f\(i).bin"), size: 10_000) }
+            let part = BackupPart(kind: .folder, target: "folders/src", source: src.path)
+            let e = BackupEngine()
+            _ = try e.run(parts: [part], root: dest, retention: .recommended, dryRun: false, machine: "m", now: date("2026-11-01T120000"))
+            try writeFile(src.appendingPathComponent("new.bin"), size: 1234)
+            let before = try FileManager.default.subpathsOfDirectory(atPath: dest.path).sorted()
+            let sim = try e.run(parts: [part], root: dest, retention: .recommended, dryRun: true, machine: "m", now: date("2026-11-02T120000"))
+            try expectEqual(sim.filesTransferred, 1)
+            try expectEqual(sim.bytesTransferred, 1234)
+            try expectEqual(try FileManager.default.subpathsOfDirectory(atPath: dest.path).sorted(), before, "rien d'écrit")
+        }
+    },
 ]

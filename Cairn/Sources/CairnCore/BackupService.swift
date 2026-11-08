@@ -119,6 +119,7 @@ public final class BackupService: @unchecked Sendable {
             throw error
         }
         log.write("parts: " + parts.map(\.target).joined(separator: ", "))
+        if request.only?.contains(.ai) ?? true, let line = AIBackup.openToolsLogLine(config: config) { log.write(line) }
         var state = RunState.load(paths)
         var results: [Result] = []
         let dests = config.destinations.filter { request.destinationIDs?.contains($0.id) ?? true }

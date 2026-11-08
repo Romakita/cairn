@@ -409,7 +409,7 @@ public enum CLI {
         }
         for s in stats {
             let selected = config.ai.first { $0.id == s.profile.id }?.categories ?? []
-            out(L10n.tr("ai.\(s.profile.id)") + " — " + (s.detected ? Fmt.bytes(s.totalBytes) : L10n.tr("onboarding.ai.not_detected")))
+            out(s.profile.displayName + " — " + (s.detected ? Fmt.bytes(s.totalBytes) : L10n.tr("onboarding.ai.not_detected")))
             guard s.detected else { continue }
             for cat in CairnConfig.AITool.categories where !(s.profile.categories[cat] ?? []).isEmpty {
                 out("  " + (selected.contains(cat) ? "✓ " : "  ") + L10n.tr("ai.category.\(cat)").padding(toLength: 18, withPad: " ", startingAt: 0)
@@ -546,7 +546,7 @@ public enum CLI {
             RestoreService.openInTerminal(cmd)
             return RestoreService.waitAfterAdmin(cmd)
         }, waitForQuit: { tool in
-            err(L10n.tr("restore.quit_tool", L10n.tr("ai.\(tool.id)")))
+            err(L10n.tr("restore.quit_tool", tool.displayName))
             return RestoreService.waitUntilQuit(tool)
         })
         if json {

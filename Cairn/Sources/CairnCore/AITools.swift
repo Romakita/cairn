@@ -121,7 +121,19 @@ public enum AIBackup {
     }
 
     /// Copie cohérente d'une base SQLite (API de sauvegarde en ligne), même si l'outil est en train d'écrire.
+    /// L'outil peut fermer sa base ou faire un checkpoint pendant la copie : on réessaie quelques fois.
     public static func snapshot(_ source: String, to dest: String) throws {
+        var lastError: Error?
+        for attempt in 0..<5 {
+            do { return try snapshotOnce(source, to: dest) } catch {
+                lastError = error
+                usleep(useconds_t(100_000 * (attempt + 1)))
+            }
+        }
+        throw lastError ?? AIError.sqlite(source)
+    }
+
+    static func snapshotOnce(_ source: String, to dest: String) throws {
         try FileManager.default.createDirectory(atPath: (dest as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
         try? FileManager.default.removeItem(atPath: dest)
         var src: OpaquePointer?, dst: OpaquePointer?
@@ -129,6 +141,7 @@ public enum AIBackup {
             sqlite3_close(src); throw AIError.sqlite(source)
         }
         defer { sqlite3_close(src) }
+        sqlite3_busy_timeout(src, 2000)
         guard sqlite3_open(dest, &dst) == SQLITE_OK else { sqlite3_close(dst); throw AIError.sqlite(dest) }
         defer { sqlite3_close(dst) }
         guard let b = sqlite3_backup_init(dst, "main", src, "main") else { throw AIError.sqlite(source) }

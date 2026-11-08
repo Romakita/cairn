@@ -56,7 +56,7 @@ Les mots de passe (NAS, image chiffrée, jetons de fournisseurs) MUST être stoc
 
 #### Scenario: Ajout d'une destination NAS avec mot de passe
 - **WHEN** l'utilisateur saisit le mot de passe du NAS dans l'app
-- **THEN** le mot de passe est enregistré dans le Trousseau et `config.toml` ne contient que l'identifiant de l'entrée
+- **THEN** le mot de passe est enregistré dans le Trousseau et `config.toml` ne contient que l'adresse et le nom d'utilisateur (`url`, `username`), qui désignent l'entrée du Trousseau
 
 ### Requirement: Écran de réglages
 Cairn SHALL proposer un écran de réglages qui modifie les mêmes clés que `config.toml` et réécrit le fichier en conservant les commentaires et les clés inconnues.

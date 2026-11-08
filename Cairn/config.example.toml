@@ -1,6 +1,6 @@
 # Configuration de Cairn — ~/.cairn/config.toml
 # Modifiable à la main ou depuis les réglages de l'app (les commentaires sont conservés).
-# Les mots de passe ne sont jamais écrits ici : `keychain` ne fait que référencer une entrée du Trousseau.
+# Les mots de passe ne sont jamais écrits ici : ils sont dans le Trousseau.
 
 version = 1
 language = "auto"                 # auto (langue de macOS), en-US ou fr-FR
@@ -33,7 +33,7 @@ id = "nas"
 provider = "smb"
 url = "smb://nas.local/backups"
 username = "romain"
-keychain = "nas"                  # mot de passe dans le Trousseau (fr.lenzotti.cairn.nas)
+# mot de passe dans le Trousseau, entrée déduite de url + username (jamais dans ce fichier)
 encrypted = true
 retention = { mode = "tiered", days = 30, weeks = 48 }   # ou { mode = "count", count = 12 }
 

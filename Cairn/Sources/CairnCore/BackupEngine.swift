@@ -286,11 +286,17 @@ public final class BackupEngine: @unchecked Sendable {
     func rsync(part: BackupPart, dest: URL, linkDest: URL?, dryRun: Bool, forceRecopy: [String],
                progress: @escaping (Int, Int64, String) -> Void) throws -> ([String], Int32) {
         let fm = FileManager.default
+        // Simulation : openrsync échoue avec -n et --link-dest vers un dossier absent. On compare donc directement
+        // à la version de base : la liste obtenue est exactement ce qui serait copié, et -n n'écrit rien.
+        var dest = dest, linkDest = linkDest
+        if dryRun, let base = linkDest, fm.fileExists(atPath: base.path) { dest = base; linkDest = nil }
         let tmp = fm.temporaryDirectory.appendingPathComponent("cairn-\(UUID().uuidString)")
         try fm.createDirectory(at: tmp, withIntermediateDirectories: true)
         defer { try? fm.removeItem(at: tmp) }
 
         var args = ["-a", "--out-format=%i|%n", "--partial-dir=.cairn-partial", "--delete", "--delete-excluded"]
+        // rsync GNU (Homebrew) : liens physiques de la source conservés (décision 3 du design).
+        if Self.rsyncPath == "/opt/homebrew/bin/rsync" { args.insert("-H", at: 1) }
         if dryRun { args.append("-n") }
         if !part.excludes.isEmpty {
             let f = tmp.appendingPathComponent("exclude.txt")

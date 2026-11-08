@@ -251,7 +251,8 @@ public final class RestoreService: @unchecked Sendable {
 
     /// Copie avec rsync ; les fichiers remplacés sont gardés avec le suffixe .pre-restore.
     func copy(_ from: URL, to: String, dryRun: Bool, excludes: [String] = []) -> (Bool, String) {
-        try? FileManager.default.createDirectory(atPath: to, withIntermediateDirectories: true)
+        // Une simulation ne crée pas le dossier cible (rsync -n vers un dossier absent liste tout).
+        if !dryRun { try? FileManager.default.createDirectory(atPath: to, withIntermediateDirectories: true) }
         let r = runner.run(["/usr/bin/rsync", "-a", "--backup", "--suffix=.pre-restore"] + (dryRun ? ["-n"] : [])
                            + excludes.map { "--exclude=/" + $0 }
                            + [from.path + "/", to.hasSuffix("/") ? to : to + "/"])

@@ -73,7 +73,7 @@ id = "nas"
 provider = "smb"
 url = "smb://nas.local/backups"
 username = "romain"
-keychain = "cairn.nas"        # référence du Trousseau, jamais le secret
+# entrée du Trousseau déduite de url + username, jamais le secret dans le fichier
 encrypted = true
 retention = { mode = "tiered", days = 30, weeks = 48 }   # ou { mode = "count", count = 12 }
 
@@ -127,7 +127,7 @@ excluded = ["cowsay"]
 ### 5. Secrets : services du Trousseau `fr.lenzotti.cairn.*`
 - Mots de passe SMB : `kSecClassInternetPassword`, en reprenant l'entrée existante de macOS si l'utilisateur l'autorise.
 - Mots de passe des images chiffrées : `kSecClassGenericPassword`. Ils sont générés aléatoirement à la création et affichés une fois avec une invitation à les noter (indispensables pour restaurer sur un Mac neuf).
-- `config.toml` ne contient que la clé de l'entrée.
+- `config.toml` ne contient jamais de secret : l'entrée SMB se déduit de l'hôte de `url` et de `username` (celle du Finder est reprise), celle d'une image de l'identifiant de la destination et de la machine. L'ancienne clé `keychain` est encore lue, mais plus écrite.
 
 ### 6. Outils IA : profils déclaratifs et snapshots SQLite
 - **Profils** : chaque outil est décrit dans une ressource `ai-tools/<id>.json` versionnée, avec la racine, les chemins par catégorie (`conversations`, `config`, `memories`, `credentials`), les bases SQLite, les exclusions et les éléments à réinstaller. Profils fournis, d'après ce qu'on trouve sur la machine :
