@@ -97,7 +97,11 @@ final class DestinationFormModel: ObservableObject {
     func open(_ url: URL?, verify: Bool = true) {
         browserFolder = url
         refreshListing()
-        guard let url else { if kind == .local { setLocalPath("") }; return }
+        guard let url else {
+            // Retour à la liste des emplacements : plus aucun dossier choisi, la vérification précédente ne vaut plus.
+            if kind == .local { invalidate(); setLocalPath("") }
+            return
+        }
         if kind == .local { setLocalPath(url.path) } else { status = .unverified }
         if verify { self.verify() }
     }
@@ -673,22 +677,23 @@ extension AppModel {
         let provider: CairnConfig.Provider = form.kind == .smb ? .smb : .local
         let id = CairnConfig.newDestinationID(provider: provider, existing: (config?.destinations ?? []).map(\.id))
         guard let d = form.destination(id: id) else { return false }
+        // config.toml d'abord : si l'écriture échoue, la feuille reste ouverte et rien n'est écrit au Trousseau.
+        guard updateConfig({ $0.destinations.append(d) }) else { return false }
+        selectedDestination = id
         if d.provider == .smb, !form.password.isEmpty, let host = d.url.flatMap(OnboardingDraft.smbHost) {
             do { try Keychain.setInternetPassword(form.password, server: host, account: form.smbUser) } catch {
+                // La destination est enregistrée ; le mot de passe sera redemandé à la première sauvegarde.
                 lastMessage = T("onboarding.keychain_error", String(describing: error))
-                return false
             }
         }
-        updateConfig { $0.destinations.append(d) }
-        selectedDestination = id
         return true
     }
 
     /// « Restaurer cette sauvegarde » depuis l'assistant : la restauration s'ouvre sur cette destination.
-    func restoreFromOnboarding(_ form: DestinationFormModel) {
+    func restoreFromOnboarding(_ form: DestinationFormModel, image: ExistingImage) {
         if var d = form.destination(id: "restore") {
             d.encrypted = true // l'image est lue telle quelle, chiffrée ou non
-            pendingRestore = (d, form.kind == .smb && !form.password.isEmpty ? form.password : nil)
+            pendingRestore = (d, form.kind == .smb && !form.password.isEmpty ? form.password : nil, (image.path as NSString).lastPathComponent)
         }
         form.close()
         restoreInsteadOfOnboarding()

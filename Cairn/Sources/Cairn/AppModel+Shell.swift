@@ -87,14 +87,18 @@ extension AppModel {
     }
 
     /// Modifie la configuration et l'enregistre (commentaires et clés inconnues conservés).
-    func updateConfig(_ change: (inout CairnConfig) -> Void) {
+    /// Applique et enregistre une modification de `config.toml` ; `false` si l'écriture a échoué.
+    @discardableResult
+    func updateConfig(_ change: (inout CairnConfig) -> Void) -> Bool {
         var c = config ?? CairnConfig()
         change(&c)
         do {
             try store.save(c)
             loadConfig(reloaded: true)
+            return true
         } catch {
             lastMessage = T("config.banner.error", String(describing: error))
+            return false
         }
     }
 

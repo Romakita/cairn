@@ -23,6 +23,8 @@ struct RestoreView: View {
     @ViewState private var error: String?
     @ViewState private var results: [RestoreService.StepResult]?
     @ViewState private var confirming = false
+    /// Image choisie dans l'assistant (« Restaurer cette sauvegarde ») : ouverte à la place de celle de ce Mac.
+    @ViewState private var preferredImage: String?
     // Mac neuf : mots de passe saisis pour cette restauration seulement.
     @ViewState private var pending: CairnConfig.Destination?
     @ViewState private var askImagePassword = false
@@ -74,11 +76,12 @@ struct RestoreView: View {
         }
         .onAppear {
             // Arrivée depuis l'assistant (« Restaurer cette sauvegarde ») : destination présélectionnée.
-            guard let (d, pw) = model.pendingRestore else { return }
+            guard let request = model.pendingRestore else { return }
             model.pendingRestore = nil
-            sharePassword = pw
+            sharePassword = request.password
             imagePassword = nil
-            openDestination(d)
+            preferredImage = request.image
+            openDestination(request.destination)
         }
         .onDisappear { session?.close() }
     }
@@ -89,7 +92,7 @@ struct RestoreView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(T("restore.source.text")).foregroundStyle(Palette.tertiary)
             ForEach(model.config?.destinations ?? [], id: \.id) { d in
-                Button { openDestination(d) } label: {
+                Button { preferredImage = nil; openDestination(d) } label: {
                     Label(model.destinationLabel(d), systemImage: d.provider == .smb ? "server.rack" : "externaldrive")
                 }
                 .buttonStyle(.pill)
@@ -116,7 +119,7 @@ struct RestoreView: View {
                         TextField(T("restore.nas.url"), text: $nasURL).cairnField()
                         TextField(T("restore.nas.user"), text: $nasUser).cairnField().frame(width: 140)
                         Button(T("restore.nas.connect")) {
-                            sharePassword = nil; imagePassword = nil
+                            sharePassword = nil; imagePassword = nil; preferredImage = nil
                             openDestination(CairnConfig.Destination(id: "restore", provider: .smb, url: nasURL, username: nasUser))
                         }
                         .buttonStyle(.pill).disabled(!nasURL.hasPrefix("smb://") || busy)
@@ -260,13 +263,13 @@ struct RestoreView: View {
     func openDestination(_ d: CairnConfig.Destination) {
         busy = true; error = nil
         session?.close(); session = nil
-        let (sharePW, imagePW) = (sharePassword, imagePassword)
+        let (sharePW, imagePW, image) = (sharePassword, imagePassword, preferredImage)
         Task.detached(priority: .userInitiated) {
             let s = DestinationSession(d)
             s.sharePassword = sharePW
             s.imagePassword = imagePW
             do {
-                let root = try s.open(createIfMissing: false)
+                let root = try s.open(createIfMissing: false, preferredImage: image)
                 let list = RestoreSource.versions(onDestinationRoot: root)
                     .map { RestoreVersion(machine: $0.machine, version: $0.version, url: $0.url, partial: $0.partial) }
                 await MainActor.run { session = s; versions = list; pending = nil; step = 1; busy = false }

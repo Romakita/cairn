@@ -336,10 +336,16 @@ public final class DestinationSession: @unchecked Sendable {
     /// Ouvre la destination. `createIfMissing: false` (simulation, restauration) n'écrit rien : sans image ni
     /// dossier, l'erreur est `notCreated`. En restauration, l'image d'une autre machine est reprise si celle de ce Mac
     /// n'existe pas.
-    public func open(createIfMissing: Bool = true) throws -> URL {
+    /// `preferredImage` : nom de l'image (`cairn-<machine>.sparsebundle`) choisie par l'utilisateur pour une
+    /// restauration ; prise si elle existe (le point de montage d'un NAS change d'une session à l'autre).
+    public func open(createIfMissing: Bool = true, preferredImage: String? = nil) throws -> URL {
         let base = try provider.prepare(create: createIfMissing)
         imageBase = base
         guard usesImage else { root = base; return base }
+        if let name = preferredImage,
+           let chosen = SparseImage.images(at: base).first(where: { ($0 as NSString).lastPathComponent == name }) {
+            return try attach(SparseImage(existing: chosen, destinationID: destination.id))
+        }
         var img = SparseImage(root: base, destinationID: destination.id, encrypted: destination.encrypted)
         if !img.exists {
             guard !createIfMissing else {

@@ -166,7 +166,7 @@ struct OnboardingView: View {
     }
 
     var destinationStep: some View {
-        DestinationForm(form: form, allowsLater: true) { _ in model.restoreFromOnboarding(form) }
+        DestinationForm(form: form, allowsLater: true) { image in model.restoreFromOnboarding(form, image: image) }
     }
 
     var scheduleStep: some View {
@@ -298,6 +298,10 @@ struct OnboardingView: View {
                 .buttonStyle(.pillPrimary).disabled(validationProblem(at: step) != nil)
             } else {
                 Button {
+                    // Une étape devenue invalide depuis (disque débranché après vérification…) : on y retourne.
+                    if let invalid = Self.steps.indices.first(where: { validationProblem(at: $0) != nil }) {
+                        go(to: invalid); return
+                    }
                     syncDestination()
                     let password = form.kind == .smb ? form.password : ""
                     form.close()
