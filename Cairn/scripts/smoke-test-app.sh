@@ -22,4 +22,14 @@ VERSION="$(tr -d '[:space:]' < "$CAIRN/VERSION")"
 "$APP" --lang en-US help | grep -q "Commands"
 "$APP" ai --json > /dev/null
 "$APP" tools --json > /dev/null
+# Interface : l'app 0.1.0 plantait dès la construction des menus (ressources introuvables), chemin que les
+# commandes ci-dessus ne parcourent pas. On la lance et on vérifie qu'elle tourne encore après quelques secondes.
+"$APP" > "$WORK/gui.log" 2>&1 &
+GUI=$!
+for _ in 1 2 3 4 5 6 7 8; do kill -0 $GUI 2>/dev/null || break; sleep 1; done
+if ! kill -0 $GUI 2>/dev/null; then
+  wait $GUI; code=$?
+  echo "l'interface s'est arrêtée au lancement (code $code)" >&2; cat "$WORK/gui.log" >&2; exit 1
+fi
+kill $GUI; wait $GUI 2>/dev/null || true
 echo "✔ app OK hors du dossier de build ($VERSION)"
