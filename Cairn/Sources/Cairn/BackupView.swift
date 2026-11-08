@@ -399,10 +399,12 @@ struct BackupView: View {
 
 extension AppModel {
     /// Lit l'historique à l'ouverture de la page : destination pas connue injoignable, rien de déjà lu ou en cours,
-    /// aucune sauvegarde en cours (elle tient l'image montée). Rien en mode `--snapshot`.
+    /// aucune sauvegarde en cours (elle tient l'image montée). Rien en mode `--snapshot`. Une erreur précédente ne
+    /// bloque pas : l'appel vient du `.task(id:)` de la page, relancé seulement à l'ouverture, quand la destination
+    /// redevient joignable ou après une sauvegarde, donc sans boucle de nouvelles tentatives.
     func autoLoadVersions(_ d: CairnConfig.Destination) {
         guard !Self.offline, !isBackingUp, destinationWaiting[d.id] != true, versions[d.id] == nil,
-              versionsError[d.id] == nil, !versionsLoading.contains(d.id) else { return }
+              !versionsLoading.contains(d.id) else { return }
         loadVersions(d)
     }
 

@@ -23,8 +23,6 @@ public enum DestinationRemoval {
         case configuration(id: String)
         /// État des sauvegardes (`runs.json`).
         case state(id: String)
-        /// Mot de passe de l'image chiffrée, dans le Trousseau.
-        case imagePassword(service: String, account: String)
         /// Image ou dossier de ce Mac sur la destination.
         case backups(path: String, bytes: Int64)
     }
@@ -75,9 +73,6 @@ public enum DestinationRemoval {
         } catch {
             plan.backupsUnavailable = String(describing: error)
         }
-        if d.encrypted && DestinationSession(d).usesImage {
-            plan.items.append(.imagePassword(service: Keychain.servicePrefix + "image." + d.id, account: machine))
-        }
         return plan
     }
 
@@ -92,11 +87,11 @@ public enum DestinationRemoval {
         }
     }
 
-    /// Exécute un plan sous le verrou d'opération : sauvegardes d'abord, puis mot de passe de l'image et état.
-    /// Si la suppression sur la destination échoue, rien d'autre n'est retiré. L'appelant retire ensuite la
-    /// destination de `config.toml`.
-    public static func execute(_ plan: Plan, paths: CairnPaths,
-                               deletePassword: (String, String) -> Void = Keychain.deletePassword) throws {
+    /// Exécute un plan sous le verrou d'opération : sauvegardes d'abord, puis état. Si la suppression sur la
+    /// destination échoue, rien d'autre n'est retiré. Le mot de passe de l'image reste dans le Trousseau : il ouvre
+    /// peut-être aussi une image laissée à un ancien emplacement de la destination, et une image recréée le reprend.
+    /// L'appelant retire la destination de `config.toml` avant l'exécution, et la remet si elle échoue.
+    public static func execute(_ plan: Plan, paths: CairnPaths) throws {
         guard plan.canExecute else { throw Failure.backupsUnavailable(plan.backupsUnavailable ?? "") }
         let lock = OperationLock(url: paths.operationLock)
         try lock.acquire(operation: "remove-destination")
@@ -116,7 +111,6 @@ public enum DestinationRemoval {
                 throw Failure.removal(error.localizedDescription)
             }
         }
-        for case let .imagePassword(service, account) in plan.items { deletePassword(service, account) }
         var state = RunState.load(paths)
         if state.destinations.removeValue(forKey: plan.destination.id) != nil { try state.save(paths) }
     }

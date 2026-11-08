@@ -754,7 +754,10 @@ extension AppModel {
                 return false
             }
         }
-        updateConfig { c in if let i = c.destinations.firstIndex(where: { $0.id == d.id }) { c.destinations[i] = d } }
+        // Écriture refusée : la feuille reste ouverte avec l'erreur (`lastMessage`).
+        guard updateConfig({ c in if let i = c.destinations.firstIndex(where: { $0.id == d.id }) { c.destinations[i] = d } }) else {
+            return false
+        }
         versions[d.id] = nil
         versionsError[d.id] = nil
         destinationWaiting[d.id] = false // vient d'être vérifiée

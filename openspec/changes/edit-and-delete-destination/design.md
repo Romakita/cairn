@@ -83,3 +83,8 @@ Voir proposal.md pour la motivation. Points de départ dans le code :
   « Public  Personnel » de Codex).
 - La feuille de modification réutilise `AddDestinationSheet(editing:)` au lieu d'une feuille séparée.
 - Le rendu `--snapshot` ne démarre plus le planificateur ni la surveillance (il pouvait lancer une vraie sauvegarde).
+- Revue de la PR : le mot de passe de l'image n'est plus jamais supprimé (il peut ouvrir une image laissée à un
+  ancien emplacement) et une image recréée reprend le mot de passe du Trousseau au lieu d'en générer un autre ; la
+  suppression retire d'abord la destination de `config.toml` (rien n'est effacé si l'écriture échoue) et la remet si
+  la suppression des sauvegardes échoue ; une erreur de lecture de l'historique ne bloque plus le rechargement
+  automatique.

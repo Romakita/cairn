@@ -102,7 +102,6 @@ enum Snapshot {
         let plan = DestinationRemoval.Plan(destination: nas, includeBackups: true, machine: BackupEngine.machineName(), items: [
             .configuration(id: nas.id), .state(id: nas.id),
             .backups(path: "/Volumes/backups/mac/cairn-\(BackupEngine.machineName()).sparsebundle", bytes: 48_300_000_000),
-            .imagePassword(service: Keychain.servicePrefix + "image.main", account: BackupEngine.machineName()),
         ])
         render(DeleteDestinationSheet(destination: nas, includeBackups: true, simulated: plan).environmentObject(model),
                size: CGSize(width: 640, height: 620), dark: dark, to: "\(outDir)/delete-destination-\(suffix).png")
