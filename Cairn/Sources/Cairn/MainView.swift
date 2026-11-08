@@ -283,10 +283,11 @@ struct HomeView: View {
                 .frame(height: 64)
             ScrollView {
                 VStack(spacing: 26) {
-                    if let alert = model.diskAlert {
-                        Banner(icon: "exclamationmark.triangle", text: alert.text, tone: alert.critical ? .danger : .warning) {
+                    // Tous les volumes suivis, avec la prévision de remplissage (relevés de StorageMonitor).
+                    ForEach(model.activeAlerts, id: \.volume) { a in
+                        Banner(icon: "exclamationmark.triangle", text: model.alertText(a), tone: a.level == .critical ? .danger : .warning) {
                             if model.root != nil {
-                                Button(T("action.clean")) { model.section = .analysis; model.analysisTab = .cleanable }
+                                Button(T("action.clean")) { model.pendingCleanupPreselection = true; model.section = .analysis; model.analysisTab = .cleanable }
                                     .buttonStyle(.pill)
                             }
                         }

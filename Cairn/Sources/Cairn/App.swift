@@ -8,6 +8,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+        // Le modèle démarre aussi ses services de lui-même ; ici on s'assure qu'ils tournent au lancement.
+        MainActor.assumeIsolated { AppDelegate.model?.startServices() }
         NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: nil, queue: .main) { _ in
             MainActor.assumeIsolated {
                 // Après la fermeture, plus aucune fenêtre principale visible : l'app passe en barre des menus.
@@ -39,10 +41,7 @@ struct CairnApp: App {
                 .environmentObject(model)
                 .environment(\.locale, L10n.locale)
                 .onAppear {
-                    if AppDelegate.model == nil {
-                        model.backups.start(model: model)
-                        model.storage.start(model: model)
-                    }
+                    model.startServices() // déjà fait au lancement : sans effet
                     AppDelegate.model = model
                     model.background.windowOpened()
                     if !model.showOnboarding && model.root == nil && !model.isScanning
@@ -67,8 +66,7 @@ struct CairnApp: App {
         MenuBarExtra(isInserted: Binding(get: { model.config?.schedule.background ?? false }, set: { _ in })) {
             MenuBarPanel().environmentObject(model)
         } label: {
-            Image(systemName: model.isBackingUp ? "arrow.triangle.2.circlepath"
-                  : (model.globalStatus == .ok ? "square.stack.3d.up" : "exclamationmark.triangle"))
+            Image(systemName: model.menuBarSymbol)
         }
         .menuBarExtraStyle(.window)
     }

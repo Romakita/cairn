@@ -536,3 +536,19 @@
 "restore.nas.user" = "Nom d'utilisateur";
 "restore.nas.connect" = "Se connecter";
 "restore.version.partial" = "partielle";
+
+/* Lot avertissements : git, analyse, alertes, barre des menus */
+"menu.analysis_stale" = "Dernière analyse le %@ : plus de 7 jours";
+"menu.next_backup" = "Prochaine sauvegarde : %@";
+"menu.next_backup_due" = "Prochaine sauvegarde : à faire maintenant";
+"menu.next_backup_manual" = "Sauvegardes manuelles";
+"action.git_maintenance" = "Maintenance git";
+"git.filter.repo" = "Dépôt : %@";
+"git.filter.all" = "Tous les dépôts";
+"git.stat.git_total" = "Total .git";
+"git.recap" = "Branches : %1$lld supprimée(s), %2$lld gardée(s) · Worktrees : %3$lld retiré(s), %4$lld gardé(s)";
+"git.export_ellipsis" = "Exporter…";
+"git.exported" = "Rapport exporté dans %@";
+"git.branch.in_worktree" = "extraite dans %@";
+"git.confirm.risk_ack" = "Je comprends que le travail non commité ou non poussé de %lld worktree(s) sera perdu";
+

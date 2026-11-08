@@ -536,3 +536,19 @@
 "restore.nas.user" = "User name";
 "restore.nas.connect" = "Connect";
 "restore.version.partial" = "partial";
+
+/* Lot avertissements : git, analyse, alertes, barre des menus */
+"menu.analysis_stale" = "Last analysis on %@: more than 7 days ago";
+"menu.next_backup" = "Next backup: %@";
+"menu.next_backup_due" = "Next backup: due now";
+"menu.next_backup_manual" = "Backups are manual";
+"action.git_maintenance" = "Git maintenance";
+"git.filter.repo" = "Repository: %@";
+"git.filter.all" = "All repositories";
+"git.stat.git_total" = ".git total";
+"git.recap" = "Branches: %1$lld deleted, %2$lld kept · Worktrees: %3$lld removed, %4$lld kept";
+"git.export_ellipsis" = "Export…";
+"git.exported" = "Report exported to %@";
+"git.branch.in_worktree" = "checked out in %@";
+"git.confirm.risk_ack" = "I understand that the uncommitted or unpushed work in %lld worktree(s) will be lost";
+
