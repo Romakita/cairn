@@ -50,7 +50,10 @@ public enum Integrity {
             autoreleasepool {
                 let v = try? url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey, .contentModificationDateKey])
                 guard v?.isRegularFile == true else { return }
-                let rel = String(url.resolvingSymlinksInPath().path.dropFirst(base))
+                // L'énumérateur part de la racine résolue : ses chemins ont déjà le bon préfixe (résolution coûteuse
+                // seulement en dernier recours, pour chaque composant du chemin).
+                let p = url.path
+                let rel = String((p.hasPrefix(resolved.path + "/") ? p : url.resolvingSymlinksInPath().path).dropFirst(base))
                 if [checksumsFile, damagedFile, "manifest.json"].contains(rel) || rel.contains("/.cairn-partial/") { return }
                 out.append((rel, Int64(v?.fileSize ?? 0), Int64(v?.contentModificationDate?.timeIntervalSince1970 ?? 0)))
             }

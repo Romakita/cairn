@@ -345,19 +345,30 @@ extension AppModel {
         let branches = selectedBranchRefs
         let worktrees = selectedWorktreeRefs
         let options = gitOptions
+        let paths = self.paths
         isAnalyzingGit = true
         Task.detached(priority: .userInitiated) {
             var deleted = 0, removed = 0, failures: [String] = []
-            for repo in Set(branches.map(\.repo) + worktrees.map(\.repo)).sorted() {
-                let res = GitMaintenance.apply(repo: repo, branches: branches.filter { $0.repo == repo }.map(\.name),
-                                               worktrees: worktrees.filter { $0.repo == repo }, options: options)
-                deleted += res.deletedBranches.count
-                removed += res.removedWorktrees.count
-                failures += res.failures
+            // Même verrou que la sauvegarde : gc et prune ne doivent pas réécrire un .git en cours de copie.
+            let lock = OperationLock(url: paths.operationLock)
+            var busy = false
+            do { try lock.acquire(operation: "git-clean") } catch { busy = true }
+            if !busy {
+                for repo in Set(branches.map(\.repo) + worktrees.map(\.repo)).sorted() {
+                    let mine = branches.filter { $0.repo == repo }
+                    let res = GitMaintenance.apply(repo: repo, branches: mine.map(\.name),
+                                                   worktrees: worktrees.filter { $0.repo == repo }, options: options,
+                                                   expectedSHAs: Dictionary(mine.map { ($0.name, $0.sha) }, uniquingKeysWith: { a, _ in a }))
+                    deleted += res.deletedBranches.count
+                    removed += res.removedWorktrees.count
+                    failures += res.failures
+                }
+                lock.release()
             }
-            let (d, r, f) = (deleted, removed, failures)
+            let (d, r, f, wasBusy) = (deleted, removed, failures, busy)
             await MainActor.run {
-                self.lastMessage = T("git.done", d, r) + (f.isEmpty ? "" : "\n" + T("remove.failures", f.joined(separator: ", ")))
+                self.lastMessage = wasBusy ? T("cli.busy")
+                    : T("git.done", d, r) + (f.isEmpty ? "" : "\n" + T("remove.failures", f.joined(separator: ", ")))
                 self.storage.check()
                 self.analyzeGit()
             }

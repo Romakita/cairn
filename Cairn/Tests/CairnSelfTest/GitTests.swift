@@ -192,4 +192,19 @@ let gitTests: [TestCase] = [
             try expectEqual(limited.count + (p2?.failed.count ?? 0), p2?.total ?? -1)
         }
     },
+    TestCase("apply_skips_branch_moved_since_analysis") {
+        try withTempDir { dir in
+            let repo = try makeFixture(dir)
+            let sha = try git(repo, "rev-parse", "refs/heads/feat-merged")
+            var o = GitOptions()
+            o.gc = false
+            let res = GitMaintenance.apply(repo: repo.path, branches: ["feat-merged"], worktrees: [], options: o,
+                                           expectedSHAs: ["feat-merged": "0000000"])
+            try expectEqual(res.failures, ["feat-merged"])
+            try expectEqual(try git(repo, "rev-parse", "refs/heads/feat-merged"), sha, "branche gardée")
+            let ok = GitMaintenance.apply(repo: repo.path, branches: ["feat-merged"], worktrees: [], options: o,
+                                          expectedSHAs: ["feat-merged": String(sha.prefix(7))])
+            try expectEqual(ok.deletedBranches, ["feat-merged"])
+        }
+    },
 ]

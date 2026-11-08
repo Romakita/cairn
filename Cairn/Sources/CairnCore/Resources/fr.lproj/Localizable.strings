@@ -595,3 +595,9 @@
 "cli.version" = "cairn %@";
 "ai.restore.rename_failed" = "Claude Code : le dossier de projet « %1$@ » est resté en place, il n'a pas pu être renommé (%2$@).";
 "cli.restore.unknown_tool" = "Pas d'outil IA « %1$@ » dans cette sauvegarde (disponibles : %2$@).";
+"restore.detail.present" = "présent";
+"restore.detail.would_install" = "serait installé : %@";
+"restore.detail.manual" = "réinstallation manuelle";
+"restore.detail.installed" = "installé";
+"restore.detail.failed" = "échec (code %lld)";
+"restore.detail.simulation" = "simulation";

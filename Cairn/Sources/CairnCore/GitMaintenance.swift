@@ -200,11 +200,18 @@ public enum GitMaintenance {
         guard let main else { return .unmerged }
         if git.ok(["merge-base", "--is-ancestor", ref, main]) { return .merged }
         guard let base = git.line(["merge-base", ref, main]) else { return .unmerged }
+        // Branche sans aucun changement : seul `diff --quiet` (code 0) le prouve. Un échec de git (code ≠ 0 et ≠ 1)
+        // ne doit jamais faire passer la branche pour fusionnée.
+        switch git.run(["diff", "--quiet", base, ref]).status {
+        case 0: return .merged
+        case 1: break
+        default: return .unmerged
+        }
         // Empreinte du diff complet de la branche ; un commit de la principale avec la même → squash merge.
         // Les diffs passent de git à git par un tuyau : rien n'est chargé en mémoire.
         guard let pid = git.pipe(["diff", base, ref], into: ["patch-id", "--stable"])
             .split(separator: " ").first.map(String.init) else {
-            return .merged // la branche n'apporte aucun changement
+            return .unmerged // empreinte illisible : prudence
         }
         let ids = git.pipe(["log", "-p", "--no-merges", "--format=commit %H", "\(base)..\(main)"], into: ["patch-id", "--stable"])
         return ids.split(separator: "\n").contains { $0.hasPrefix(pid + " ") } ? .squash : .unmerged
@@ -434,7 +441,10 @@ public enum GitMaintenance {
     }
 
     /// Supprime les worktrees puis les branches choisis ; le journal est écrit avant chaque suppression.
-    public static func apply(repo: String, branches: [String], worktrees: [WorktreeInfo], options: GitOptions) -> ApplyResult {
+    /// `expectedSHAs` (branche → SHA vu à l'analyse, court ou complet) : une branche qui a bougé depuis n'est pas
+    /// supprimée (nouveaux commits) et compte comme un échec.
+    public static func apply(repo: String, branches: [String], worktrees: [WorktreeInfo], options: GitOptions,
+                             expectedSHAs: [String: String] = [:]) -> ApplyResult {
         let git = Git(repo)
         var result = ApplyResult()
         for w in worktrees {
@@ -450,6 +460,9 @@ public enum GitMaintenance {
         git.run(["worktree", "prune"])
         for b in branches {
             guard let sha = git.line(["rev-parse", "refs/heads/\(b)"]) else { continue }
+            if let expected = expectedSHAs[b], !expected.isEmpty, !sha.hasPrefix(expected) {
+                result.failures.append(b); continue
+            }
             logDeletion(git, [b, sha])
             if git.ok(["branch", "-D", b]) { result.deletedBranches.append(b) } else { result.failures.append(b) }
         }
