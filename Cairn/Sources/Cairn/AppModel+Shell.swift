@@ -37,19 +37,14 @@ extension AppModel {
     }
 
     /// Erreur : configuration invalide ou dernière sauvegarde en échec. Attention : disque presque plein, dossier
-    /// indisponible, versions abîmées, destination en attente depuis plus d'un jour.
+    /// indisponible, versions abîmées, destination en attente depuis plus d'un jour. Calculé par `HubState` (CairnCore)
+    /// pour que l'icône de la barre des menus et l'accueil disent la même chose.
     var globalStatus: GlobalStatus {
-        if configIssues.contains(where: { $0.severity == .error }) { return .error }
-        let now = Date()
-        let schedule = config?.schedule ?? CairnConfig.Schedule()
-        let backup = (config?.destinations ?? []).map {
-            Health.destination(runState[$0.id], waiting: destinationWaiting[$0.id] == true, schedule: schedule, now: now)
-        }.max() ?? .ok
-        if backup == .error { return .error }
-        if backup == .attention || diskAlert != nil || !activeAlerts.isEmpty || trackedFolders.contains(where: { !$0.isAvailable }) {
-            return .attention
+        switch HubState.overall(of: hubInputs) {
+        case .ok: .ok
+        case .attention: .attention
+        case .error: .error
         }
-        return .ok
     }
 
     /// Symbole de la barre des menus : animé pendant une sauvegarde, distinct pour l'attention et l'erreur.
@@ -111,24 +106,6 @@ extension AppModel {
 
     func revealConfig() {
         reveal(store.fileURL.path)
-    }
-
-    /// Recherche depuis l'accueil : ouvre le premier dossier dont le nom correspond.
-    func search(_ query: String) {
-        let q = query.trimmingCharacters(in: .whitespaces)
-        section = .analysis
-        analysisTab = .explorer
-        guard !q.isEmpty, let root else { return }
-        var found: Node?
-        func visit(_ n: Node, depth: Int) {
-            guard found == nil, depth <= 3 else { return }
-            for c in n.children where c.isDirectory {
-                if c.name.localizedCaseInsensitiveContains(q) { found = c; return }
-            }
-            for c in n.children where c.isDirectory && c.category == .source { visit(c, depth: depth + 1) }
-        }
-        visit(root, depth: 0)
-        if let found { open(found) }
     }
 
     // MARK: - Assistant

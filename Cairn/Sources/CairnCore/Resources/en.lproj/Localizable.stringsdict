@@ -214,5 +214,165 @@
 			<string>%lld AI tools</string>
 		</dict>
 	</dict>
+	<key>hub.title.attention</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>One thing to look at</string>
+			<key>other</key>
+			<string>%lld things to look at</string>
+		</dict>
+	</dict>
+	<key>hub.title.error</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>One problem to fix</string>
+			<key>other</key>
+			<string>%lld problems to fix</string>
+		</dict>
+	</dict>
+	<key>hub.more_causes</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>and %lld more</string>
+			<key>other</key>
+			<string>and %lld more</string>
+		</dict>
+	</dict>
+	<key>hub.figure.git_candidates</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld removable item</string>
+			<key>other</key>
+			<string>%lld removable items</string>
+		</dict>
+	</dict>
+	<key>hub.figure.ai_tools</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld tool detected</string>
+			<key>other</key>
+			<string>%lld tools detected</string>
+		</dict>
+	</dict>
+	<key>hub.figure.versions</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld version</string>
+			<key>other</key>
+			<string>%lld versions</string>
+		</dict>
+	</dict>
+	<key>hub.detail.destinations</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld destination</string>
+			<key>other</key>
+			<string>%lld destinations</string>
+		</dict>
+	</dict>
+	<key>hub.detail.damaged</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld damaged version</string>
+			<key>other</key>
+			<string>%lld damaged versions</string>
+		</dict>
+	</dict>
+	<key>hub.activity.git_cleanup</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>Git cleanup: %lld item removed</string>
+			<key>other</key>
+			<string>Git cleanup: %lld items removed</string>
+		</dict>
+	</dict>
+	<key>hub.activity.check_issues</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>Full check: one thing to look at</string>
+			<key>other</key>
+			<string>Full check: %lld things to look at</string>
+		</dict>
+	</dict>
 </dict>
 </plist>

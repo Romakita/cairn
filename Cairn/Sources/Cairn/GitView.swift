@@ -316,15 +316,21 @@ extension AppModel {
     }
 
     /// Analyse en lecture seule de tous les dépôts des dossiers suivis.
-    func analyzeGit() {
+    /// `cancel` : résultats ignorés et analyse arrêtée (vérification complète) ; `onDone(false)` dans ce cas.
+    func analyzeGit(cancel: CancelToken? = nil, onDone: ((Bool) -> Void)? = nil) {
         isAnalyzingGit = true
         var options = gitOptions
         options.staleDays = config?.git.worktreeStaleDays ?? 30
         options.fetch = config?.git.fetchBefore ?? false
         let folders = trackedFolders.filter(\.isAvailable).map(\.expandedPath)
         Task.detached(priority: .userInitiated) {
-            let reports = GitMaintenance.analyzeAll(folders: folders, options: options)
+            let reports = GitMaintenance.analyzeAll(folders: folders, options: options, cancel: cancel)
             await MainActor.run {
+                if cancel?.isCancelled == true {
+                    self.isAnalyzingGit = false
+                    onDone?(false)
+                    return
+                }
                 self.gitReports = reports
                 // Présélection : branches fusionnées/squashées, worktrees obsolètes sans travail en cours,
                 // et la branche fusionnée de chaque worktree présélectionné.
@@ -337,6 +343,7 @@ extension AppModel {
                 // Les worktrees obsolètes comptent dans le résumé (barre des menus).
                 self.refreshSummary()
                 self.updateGitEstimate()
+                onDone?(true)
             }
         }
     }
@@ -367,6 +374,7 @@ extension AppModel {
             }
             let (d, r, f, wasBusy) = (deleted, removed, failures, busy)
             await MainActor.run {
+                if !wasBusy && d + r > 0 { self.logActivity(.init(kind: .gitCleanup, count: d + r)) }
                 self.lastMessage = wasBusy ? T("cli.busy")
                     : T("git.done", d, r) + (f.isEmpty ? "" : "\n" + T("remove.failures", f.joined(separator: ", ")))
                 self.storage.check()

@@ -199,7 +199,15 @@ public final class BackupService: @unchecked Sendable {
             }
             state[d.id] = ds
         }
-        if !request.dryRun { try? state.save(paths) }
+        if !request.dryRun {
+            try? state.save(paths)
+            // Activité récente de l'accueil : réussite ou échec par destination (sans le message d'erreur).
+            let activity = ActivityLog(paths: paths)
+            for r in results where !r.waiting {
+                activity.append(.init(kind: r.error == nil ? .backupSucceeded : .backupFailed, subject: r.destination,
+                                      bytes: r.outcome?.bytesTransferred))
+            }
+        }
         return results
     }
 

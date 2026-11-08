@@ -405,17 +405,19 @@ public enum GitMaintenance {
 
     /// Analyse tous les dépôts. Avec `workerExecutable`, chaque dépôt est analysé dans un processus séparé
     /// (au plus `parallel` à la fois) : la mémoire est rendue à la fin de chaque worker, et le pool surveille
-    /// la durée et la mémoire de chacun (arrêt au-delà des limites).
+    /// la durée et la mémoire de chacun (arrêt au-delà des limites). `cancel` arrête l'analyse (lecture seule) :
+    /// plus aucun worker n'est lancé et ceux en cours sont arrêtés.
     public static func analyzeAll(folders: [String], options: GitOptions, parallel: Int = 4,
                                   timeout: TimeInterval = 300, memoryLimit: Int64 = 1_500_000_000,
+                                  cancel: CancelToken? = nil,
                                   progress: @escaping (PoolProgress) -> Void = { _ in }) -> [RepoReport] {
         var repos = discover(in: folders)
         if let only = options.only { repos = repos.filter { $0.contains(only) } }
         guard let exe = workerExecutable else {
-            return repos.map { analyze(repo: $0, options: options) }
+            return repos.compactMap { cancel?.isCancelled == true ? nil : analyze(repo: $0, options: options) }
         }
         let pool = GitWorkerPool(executable: exe, options: options, parallel: parallel, timeout: timeout, memoryLimit: memoryLimit)
-        return pool.run(repos, progress: progress)
+        return pool.run(repos, cancel: cancel, progress: progress)
     }
 
     // MARK: Application

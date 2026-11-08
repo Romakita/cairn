@@ -42,6 +42,7 @@ enum Snapshot {
                 render(MenuBarPanel().environmentObject(model).background(Palette.content), size: CGSize(width: 360, height: 640),
                        dark: dark, to: "\(outDir)/menubar-\(suffix).png")
                 renderDestinationStates(model: model, outDir: outDir, suffix: suffix, size: size, dark: dark)
+                renderHubStates(model, sample: sample, dark: dark, suffix: suffix, outDir: outDir)
                 for step in OnboardingView.steps.indices {
                     render(OnboardingView(step: step).environmentObject(model).frame(width: size.width, height: size.height)
                             .background(Palette.content),
@@ -85,6 +86,46 @@ enum Snapshot {
         render(AddDestinationSheet(form: sheet).environmentObject(model), size: CGSize(width: 760, height: 720), dark: dark,
                to: "\(outDir)/add-destination-\(suffix).png")
         for f in [local, auth, unreachable, sheet] { f.close() }
+    }
+
+    /// Accueil dans ses trois états : en ordre, points à regarder, problème à corriger (données simulées, rien
+    /// n'est écrit dans `~/.cairn`).
+    static func renderHubStates(_ model: AppModel, sample: String, dark: Bool, suffix: String, outDir: String) {
+        let now = Date()
+        var c = CairnConfig()
+        c.alerts.lowPercent = 0; c.alerts.lowGB = 0; c.alerts.criticalPercent = 0; c.alerts.criticalGB = 0
+        c.folders = [.init(path: sample)]
+        c.destinations = [.init(id: "syno", provider: .local, path: "/Volumes/syno", encrypted: false)]
+        model.config = c
+        model.configIssues = []
+        var ds = RunState.Destination()
+        ds.lastSuccess = now.addingTimeInterval(-3 * 3600)
+        model.runState = RunState()
+        model.runState["syno"] = ds
+        model.destinationWaiting = ["syno": false]
+        model.activeAlerts = []
+        model.volume = nil
+        model.lastCheck = now.addingTimeInterval(-2 * 3600)
+        model.activity = [
+            .init(date: now.addingTimeInterval(-2 * 3600), kind: .check, count: 0),
+            .init(date: now.addingTimeInterval(-3 * 3600), kind: .backupSucceeded, subject: "syno", bytes: 1_200_000_000),
+            .init(date: now.addingTimeInterval(-26 * 3600), kind: .cleanup, count: 4, bytes: 12_000_000_000),
+        ]
+        model.section = .home
+        let size = CGSize(width: 1280, height: 1000)
+        render(RootView().environmentObject(model), size: size, dark: dark, to: "\(outDir)/home-ok-\(suffix).png")
+
+        model.activeAlerts = [.init(volume: "Macintosh HD", level: .low, available: 18_000_000_000, percentFree: 7.2, daysToFull: nil)]
+        ds.waitingSince = now.addingTimeInterval(-30 * 3600)
+        model.runState["syno"] = ds
+        model.destinationWaiting = ["syno": true]
+        render(RootView().environmentObject(model), size: size, dark: dark, to: "\(outDir)/home-attention-\(suffix).png")
+
+        model.configIssues = [ConfigIssue(severity: .error, key: "", line: 12, message: "syntax")]
+        ds.lastError = "rsync"
+        model.runState["syno"] = ds
+        render(RootView().environmentObject(model), size: size, dark: dark, to: "\(outDir)/home-error-\(suffix).png")
+        model.lastMessage = nil
     }
 
     static func render<V: View>(_ view: V, size: CGSize, dark: Bool, to path: String) {
