@@ -64,6 +64,7 @@ enum Scanner {
         "target": (.build, ["Cargo.toml", "pom.xml"]),
         ".gradle": (.build, ["build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts", "gradlew"]),
         "vendor": (.deps, ["composer.json", "Gemfile", "go.mod"]),
+        ".build": (.build, ["Package.swift"]),
     ]
 
     static func classify(name: String, parentPath: String) -> Category {

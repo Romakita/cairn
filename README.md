@@ -14,6 +14,9 @@ just            # liste les commandes
 | `just check <dossier-de-sauvegarde>` | vérifie seulement les outils requis |
 | `just git-clean` | simulation du nettoyage des repos git |
 | `just git-clean-apply` | nettoyage réel des repos git |
+| `just storage-install` | construit et installe l'app Workspace Storage |
+| `just storage` | ouvre l'app Workspace Storage |
+| `just storage-report [dossier]` | résumé de l'occupation disque dans le terminal |
 
 Les options des scripts passent à la suite : `just backup /Volumes/MonDisque/mac-backup --mirror`.
 
@@ -80,3 +83,34 @@ elle est fusionnée dans la branche principale (merge classique ou squash merge)
 
 Les SHA des branches supprimées sont notés dans `.git/cleanup-deleted-branches.log` de chaque repo :
 `git branch <nom> <sha>` les recrée tant que l'espace n'a pas été libéré.
+
+## Analyser l'occupation du disque (app Workspace Storage)
+
+`WorkspaceStorage/` contient une app macOS (SwiftUI, construite avec SwiftPM : les Command Line Tools suffisent,
+pas besoin de Xcode) qui montre ce qui occupe `/Volumes/workspaces`. Utile pour choisir quoi nettoyer avant une
+sauvegarde ou quand le volume est plein.
+
+```bash
+just storage-install           # construit « Workspace Storage.app » et l'installe dans ~/Applications
+just storage                   # ouvre l'app (l'analyse démarre toute seule)
+just storage-report            # même analyse dans le terminal, sans interface
+just storage-report ~/Projets  # sur un autre dossier
+```
+
+L'espace est réparti par type : sources, historique `.git`, et dossiers régénérables — dépendances (`node_modules`,
+`.pnpm-store`, `vendor`…), builds (`dist`, `coverage`, `.next`, `.build` de SwiftPM…), iOS (`Pods`, `DerivedData`), Python (`.venv`,
+`__pycache__`…) et caches. Comme pour la sauvegarde, `build/`, `out/`, `target/` et `vendor/` ne sont comptés comme
+régénérables qu'à côté d'un fichier de projet (`package.json`, `Cargo.toml`, `composer.json`…). Les fichiers à
+liens physiques multiples (pnpm) ne sont comptés qu'une fois.
+
+| Onglet | Contenu |
+|---|---|
+| Explorateur | navigation dossier par dossier, barre de répartition par type, graphique du dossier sélectionné |
+| Nettoyable | tous les dossiers régénérables, filtrables par type ; mise à la corbeille ou suppression définitive après confirmation |
+| Dépôts git | taille de chaque repo : sources, `.git`, régénérable |
+| Gros fichiers | fichiers de plus de 50 Mo |
+
+Raccourcis : `⌘R` relance l'analyse, `⌘O` choisit un autre dossier, `⌘↑` remonte d'un niveau.
+
+> La corbeille d'un volume externe ne libère l'espace qu'une fois vidée.
+> Pour supprimer des branches git inutiles plutôt que des fichiers, voir `just git-clean`.
