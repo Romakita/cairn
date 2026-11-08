@@ -30,7 +30,7 @@ reste dit par un `Badge` de ton (« À jour », « À regarder »…), et l'acti
 
 Comme Codex : un cadre translucide (`WindowMaterial`, matériau `.sidebar` de macOS, sans couleur propre) porte la
 barre du haut (44 pt : boutons de fenêtre, bascule de la barre latérale, logo de Cairn centré en pastille noire) et le
-rail d'icônes. La barre latérale et le contenu partagent un corps blanc qui flotte dans ce cadre : rayon 12, bordure
+rail d'icônes. La barre latérale (fond `sidebar`, gris clair distinct du cadre) et le contenu (blanc) partagent un corps qui flotte dans ce cadre : rayon 12, bordure
 1 pt `border`, ombre douce (noir 10 %, rayon 10, y 2), marge de 6 pt à droite et en bas. C'est la seule ombre d'un
 élément non flottant.
 
