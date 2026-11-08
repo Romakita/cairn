@@ -43,3 +43,10 @@ Une entrée après chaque correction de l'utilisateur. À relire au début de ch
 ## 2026-11-08 — Noms de branche générés
 - Erreur : branches laissées avec le nom généré par l'app (`claude/wonderful-varahamihira-8cbf34`), illisible.
 - Règle : renommer la branche en `<type>/<description-courte>` (types Conventional Commits) avant le premier commit.
+
+## 2026-11-08 — Boutons d'action et groupes de boutons
+- Erreur : boutons « Vérifier l'intégrité » / « Vérification complète » actifs alors que rien ne peut être vérifié ;
+  sélecteur de rétention laissé en `Picker(.segmented)` natif (bleu) au lieu du style Codex.
+- Règle : tout bouton d'action est désactivé quand son action ne peut pas aboutir, avec la raison en `.help`
+  (règle pure et testée dans CairnCore). Aucun `Picker(.segmented)` : les groupes de boutons utilisent `TabBar`
+  (« Public  Personnel ») ; en-tête de détail = menu « … » (destructif en rouge, en dernier), « Gérer », action principale.
