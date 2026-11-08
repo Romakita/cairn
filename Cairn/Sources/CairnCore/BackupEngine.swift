@@ -1,5 +1,15 @@
 import Foundation
 
+/// Version de Cairn écrite dans les manifests.
+public enum CairnVersion {
+    /// Version du code (à garder égale à `CFBundleShortVersionString` dans `build-app.sh`).
+    public static let fallback = "0.1"
+    /// Version du bundle .app si disponible, sinon la constante.
+    public static var current: String {
+        (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? fallback
+    }
+}
+
 /// Une partie copiée dans une version (`folders/<nom>`, `home`, `ai/<outil>`, `tools`…).
 public struct BackupPart: Sendable {
     public enum Kind: String, Sendable { case folder, home, ai, tools }

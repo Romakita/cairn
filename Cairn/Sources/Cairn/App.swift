@@ -20,6 +20,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// Fin de l'app : la sauvegarde en cours est annulée et rsync arrêté avant de quitter.
+    func applicationWillTerminate(_ notification: Notification) {
+        MainActor.assumeIsolated { AppDelegate.model?.backups.terminate() }
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         MainActor.assumeIsolated { !(AppDelegate.model?.background.enabled ?? false) }
     }
@@ -63,8 +68,9 @@ struct CairnApp: App {
             }
         }
 
-        // Icône dans la barre des menus (seulement avec l'accord pour la tâche de fond).
-        MenuBarExtra(isInserted: Binding(get: { model.config?.schedule.background ?? false }, set: { _ in })) {
+        // Icône dans la barre des menus tant que l'app est ouverte (état « en attente du NAS » visible). L'accord pour
+        // la tâche de fond ne décide que de l'ouverture à la connexion et du maintien sans fenêtre.
+        MenuBarExtra {
             MenuBarPanel().environmentObject(model)
         } label: {
             Image(systemName: model.isBackingUp ? "arrow.triangle.2.circlepath"

@@ -33,6 +33,7 @@ var suites: [(String, [TestCase])] = [
     ("Alerts", alertTests),
     ("AI", aiTests),
     ("Restore", restoreTests),
+    ("BackupWarnings", backupWarningTests),
 ]
 
 let filter = CommandLine.arguments.dropFirst().first { !$0.hasPrefix("-") }

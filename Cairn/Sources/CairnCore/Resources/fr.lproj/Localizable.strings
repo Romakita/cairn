@@ -536,3 +536,30 @@
 "restore.nas.user" = "Nom d'utilisateur";
 "restore.nas.connect" = "Se connecter";
 "restore.version.partial" = "partielle";
+
+/* Lot avertissements : sauvegarde et ligne de commande */
+"cli.verify.unknown_version" = "Version inconnue : %@";
+"cli.backup.unknown_tool" = "Outil IA inconnu : %1$@ (connus : %2$@)";
+"cli.backup.damaged" = "Contrôle mensuel : %lld fichier(s) abîmé(s), recopié(s) depuis la source à la prochaine sauvegarde";
+"cli.backup.image_check_failed" = "%1$@ : échec du contrôle de l'image disque : %2$@";
+"backup.notify.view_log" = "Voir le journal";
+"backup.notify.damaged_title" = "Fichiers abîmés dans la sauvegarde sur %@";
+"backup.notify.damaged_body" = "%lld fichier(s) abîmé(s) trouvé(s) ; ils seront recopiés depuis votre Mac à la prochaine sauvegarde.";
+"backup.notify.image_failed_title" = "Échec du contrôle de l'image disque sur %@";
+"backup.image_check.failed" = "Échec du contrôle de l'image disque : %@";
+"backup.view_log" = "Voir le journal";
+"backup.result.simulation" = "Résultat de la simulation";
+"backup.result.backup" = "Dernière sauvegarde";
+"backup.result.dismiss" = "Masquer";
+"backup.result.total" = "Total pour %@";
+"backup.result.files" = "%1$@ · %2$@ fichiers";
+"backup.verify_full" = "Vérification complète";
+"backup.verify_full.title" = "Vérification complète de toutes les versions";
+"backup.verify_full.running" = "Lecture de tous les fichiers…";
+"backup.verify_full.pending" = "Empreintes en attente";
+"backup.verify_full.result" = "%1$@ fichiers vérifiés, %2$lld abîmé(s)";
+"backup.verify_full.summary" = "Vérification complète : %1$lld version(s), %2$lld fichier(s) abîmé(s)";
+"backup.retention.unreachable" = "La destination n'a pas pu être lue : une rétention plus courte n'est pas enregistrée, car elle supprimerait des versions sans confirmation. Connectez la destination puis réessayez.";
+"onboarding.destination.disable_encryption.title" = "Sauvegarder sans chiffrement ?";
+"onboarding.destination.disable_encryption.message" = "Toute personne ayant accès à la destination pourra lire vos fichiers, y compris les clés SSH et les jetons.";
+"onboarding.destination.disable_encryption.confirm" = "Désactiver le chiffrement";

@@ -84,38 +84,109 @@ public enum CLI {
         return try? doc.tree().value("language")?.string
     }
 
+    /// Sortie JSON commune (clés triées, lisible).
+    static func printJSON(_ obj: Any, _ out: (String) -> Void) {
+        if let data = try? JSONSerialization.data(withJSONObject: obj, options: [.prettyPrinted, .sortedKeys]),
+           let s = String(data: data, encoding: .utf8) { out(s) }
+    }
+
+    static func iso(_ d: Date?) -> Any { d.map { ISO8601DateFormatter().string(from: $0) } ?? NSNull() }
+
+    /// Problèmes de configuration en JSON (le message est celui affiché, les autres champs sont des identifiants).
+    static func issuesJSON(_ issues: [ConfigIssue]) -> [[String: Any]] {
+        issues.map { ["severity": $0.severity.rawValue, "key": $0.key, "line": $0.line ?? NSNull(), "message": $0.message] }
+    }
+
+    static func retentionJSON(_ r: CairnConfig.Retention) -> [String: Any] {
+        switch r {
+        case let .tiered(days, weeks): ["kind": "tiered", "days": days, "weeks": weeks]
+        case let .count(n): ["kind": "count", "versions": n]
+        }
+    }
+
+    /// Configuration complète en JSON (mêmes noms que config.toml).
+    static func configJSON(_ c: CairnConfig) -> [String: Any] {
+        [
+            "version": c.version, "language": c.language,
+            "analysis": ["big_file_threshold_mb": c.analysis.bigFileThresholdMB, "big_folder_threshold_gb": c.analysis.bigFolderThresholdGB],
+            "folders": c.folders.map { ["path": $0.path, "backup": $0.backup, "exclude": $0.exclude] as [String: Any] },
+            "home": ["include": c.home.include, "exclude": c.home.exclude],
+            "ai": c.ai.map { ["id": $0.id, "categories": $0.categories] as [String: Any] },
+            "destinations": c.destinations.map { d in
+                ["id": d.id, "provider": d.provider.rawValue, "path": d.path ?? NSNull(), "url": d.url ?? NSNull(),
+                 "username": d.username ?? NSNull(), "keychain": d.keychain ?? NSNull(), "encrypted": d.encrypted,
+                 "retention": retentionJSON(d.retention)] as [String: Any]
+            },
+            "schedule": ["frequency": c.schedule.frequency.rawValue, "time": c.schedule.time, "weekday": c.schedule.weekday,
+                         "background": c.schedule.background, "on_battery_min_percent": c.schedule.onBatteryMinPercent] as [String: Any],
+            "alerts": ["low_percent": c.alerts.lowPercent, "low_gb": c.alerts.lowGB,
+                       "critical_percent": c.alerts.criticalPercent, "critical_gb": c.alerts.criticalGB],
+            "logs": ["retention_days": c.logRetentionDays],
+            "git": ["fetch_before": c.git.fetchBefore, "gc": c.git.gc, "worktree_stale_days": c.git.worktreeStaleDays] as [String: Any],
+            "tools": ["excluded": c.excludedTools],
+        ]
+    }
+
     static func config(_ args: [String], store: ConfigStore, out: (String) -> Void, err: (String) -> Void) -> Exit {
         guard let sub = args.first, !["-h", "--help"].contains(sub) else { out(L10n.tr("cli.config.help")); return .ok }
+        var json = false
+        for a in args.dropFirst() {
+            switch a {
+            case "--json": json = true
+            case "--yes", "-y": break   // rien à confirmer
+            case "-h", "--help": out(L10n.tr("cli.config.help")); return .ok
+            default: err(L10n.tr("cli.unknown_option", a)); return .usage
+            }
+        }
         switch sub {
         case "path":
-            out(store.fileURL.path)
+            if json { printJSON(["path": store.fileURL.path, "exists": store.exists], out) } else { out(store.fileURL.path) }
             return .ok
         case "show":
             var config = CairnConfig()
+            var issues: [ConfigIssue] = []
             if store.exists {
                 do {
                     let loaded = try store.load()
                     config = loaded.config
-                    loaded.issues.forEach { err($0.description) }
+                    issues = loaded.issues
+                    if !json { loaded.issues.forEach { err($0.description) } }
                 } catch {
                     err(String(describing: error)); return .usage
                 }
-            } else {
+            } else if !json {
                 err(L10n.tr("cli.config.defaults"))
             }
-            out(ConfigWriter.newDocument(config).render())
+            if json {
+                printJSON(["path": store.fileURL.path, "exists": store.exists, "config": configJSON(config),
+                           "issues": issuesJSON(issues)], out)
+            } else {
+                out(ConfigWriter.newDocument(config).render())
+            }
             return .ok
         case "validate":
-            guard store.exists else { err(L10n.tr("cli.config.missing", store.fileURL.path)); return .usage }
+            guard store.exists else {
+                if json { printJSON(["path": store.fileURL.path, "exists": false, "valid": false, "issues": []], out) }
+                else { err(L10n.tr("cli.config.missing", store.fileURL.path)) }
+                return .usage
+            }
             do {
                 let loaded = try store.load()
+                if json {
+                    printJSON(["path": store.fileURL.path, "exists": true, "valid": !loaded.hasErrors, "migrated": loaded.migrated,
+                               "backup": loaded.migrated ? store.fileURL.appendingPathExtension("bak").path : NSNull(),
+                               "issues": issuesJSON(loaded.issues)], out)
+                    return loaded.hasErrors ? .usage : .ok
+                }
                 if loaded.migrated { err(L10n.tr("cli.config.migrated", store.fileURL.appendingPathExtension("bak").path)) }
                 loaded.issues.forEach { err($0.description) }
                 if loaded.hasErrors { return .usage }
                 out(L10n.tr("cli.config.valid", store.fileURL.path))
                 return .ok
             } catch {
-                err(String(describing: error)); return .usage
+                if json { printJSON(["path": store.fileURL.path, "exists": true, "valid": false, "error": String(describing: error)], out) }
+                else { err(String(describing: error)) }
+                return .usage
             }
         default:
             err(L10n.tr("cli.unknown_command", "config " + sub))
@@ -139,6 +210,7 @@ public enum CLI {
         while i < args.count {
             switch args[i] {
             case "--json": json = true
+            case "--yes", "-y": break   // rien à confirmer
             case "--export":
                 guard i + 1 < args.count else { err(L10n.tr("cli.missing_value", "--export")); return .usage }
                 exportDir = (args[i + 1] as NSString).expandingTildeInPath
@@ -322,7 +394,14 @@ public enum CLI {
 
     static func ai(_ args: [String], store: ConfigStore, out: (String) -> Void, err: (String) -> Void) -> Exit {
         if args.contains("-h") || args.contains("--help") { out(L10n.tr("cli.ai.help")); return .ok }
-        let json = args.contains("--json")
+        var json = false
+        for a in args {
+            switch a {
+            case "--json": json = true
+            case "--yes", "-y": break   // rien à confirmer
+            default: err(L10n.tr("cli.unknown_option", a)); return .usage
+            }
+        }
         let config = readConfig(store)
         let stats = AIProfiles.bundled.map { AIBackup.stats($0) }
         if json {
@@ -359,11 +438,12 @@ public enum CLI {
         var from: String?, destID: String?, version: String?
         var parts: Set<String>?
         var targets: [String: String] = [:]
-        var apply = false, yes = false, check = false, replaceDB = false
+        var apply = false, yes = false, check = false, replaceDB = false, json = false
         var i = 0
         func value() -> String? { i += 1; return i < args.count ? args[i] : nil }
         while i < args.count {
             switch args[i] {
+            case "--json": json = true
             case "--from": guard let v = value() else { return .usage }; from = (v as NSString).expandingTildeInPath
             case "--destination": guard let v = value() else { return .usage }; destID = v
             case "--version": guard let v = value() else { return .usage }; version = v
@@ -408,6 +488,10 @@ public enum CLI {
                     }
                 }
                 let all = RestoreSource.versions(onDestinationRoot: root!)
+                // Version demandée absente : erreur d'usage, jamais de repli silencieux sur une autre version.
+                if let version, !all.contains(where: { $0.version == version }) {
+                    err(L10n.tr("cli.verify.unknown_version", version)); return .usage
+                }
                 guard let pick = version.flatMap({ v in all.first { $0.version == v }?.url }) ?? RestoreSource.defaultVersion(all) else {
                     err(L10n.tr("cli.restore.no_version")); return .failure
                 }
@@ -416,12 +500,24 @@ public enum CLI {
         }
         guard let source = RestoreSource.open(sourceURL) else { err(L10n.tr("cli.restore.unknown_format", sourceURL.path)); return .failure }
         let service = RestoreService(source: source)
-        out(L10n.tr("cli.restore.source", source.kind == .legacy ? L10n.tr("cli.restore.legacy") : "Cairn",
-                    source.date.map(Fmt.date) ?? "—", source.machine, source.arch))
+        // En JSON, la sortie standard ne reçoit qu'un objet ; les messages restent sur la sortie d'erreur.
+        func human(_ s: String) { if !json { out(s) } }
+        var report: [String: Any] = [
+            "source": ["kind": source.kind == .legacy ? "legacy" : "cairn", "path": source.root.path, "date": iso(source.date),
+                       "machine": source.machine, "arch": source.arch, "arch_matches": source.archMatches] as [String: Any],
+            "apply": apply,
+        ]
+        human(L10n.tr("cli.restore.source", source.kind == .legacy ? L10n.tr("cli.restore.legacy") : "Cairn",
+                      source.date.map(Fmt.date) ?? "—", source.machine, source.arch))
         if !source.archMatches { err(L10n.tr("cli.restore.arch_warning", source.arch, BackupEngine.arch())) }
 
         if check {
             let (present, missing) = service.check()
+            if json {
+                report["check"] = ["present": present, "missing": missing]
+                printJSON(report, out)
+                return .ok
+            }
             out(L10n.tr("cli.restore.check", present.count, missing.count))
             missing.forEach { out("  ✗ " + $0) }
             out(L10n.tr("cli.restore.manual"))
@@ -442,8 +538,11 @@ public enum CLI {
                 err(L10n.tr("cli.restore.missing_target", name, target))
             }
         }
-        for (part, bytes) in service.sizes(plan).sorted(by: { $0.key < $1.key }) {
-            out("  " + part.padding(toLength: 28, withPad: " ", startingAt: 0) + " " + Fmt.bytes(bytes))
+        let sizes = service.sizes(plan)
+        report["bytes_by_part"] = sizes
+        report["folders"] = plan.folders
+        for (part, bytes) in sizes.sorted(by: { $0.key < $1.key }) {
+            human("  " + part.padding(toLength: 28, withPad: " ", startingAt: 0) + " " + Fmt.bytes(bytes))
         }
         if apply && !yes && !confirm(L10n.tr("cli.restore.confirm")) { err(L10n.tr("cli.cancelled")); return .failure }
         let lock = OperationLock(url: store.paths.operationLock)
@@ -459,6 +558,12 @@ public enum CLI {
             err(L10n.tr("restore.quit_tool", L10n.tr("ai.\(tool.id)")))
             return RestoreService.waitUntilQuit(tool)
         })
+        if json {
+            report["steps"] = results.map { ["step": $0.step, "ok": $0.ok, "detail": $0.detail] as [String: Any] }
+            report["ok"] = results.allSatisfy(\.ok)
+            printJSON(report, out)
+            return results.allSatisfy(\.ok) ? .ok : .failure
+        }
         for r in results { (r.ok ? out : err)("  " + (r.ok ? "✓ " : "✗ ") + r.step + (r.detail.isEmpty ? "" : " — " + r.detail)) }
         if !apply { out(L10n.tr("cli.restore.simulation")) } else { out(L10n.tr("cli.restore.manual")) }
         return results.allSatisfy(\.ok) ? .ok : .failure
@@ -473,6 +578,7 @@ public enum CLI {
             switch args[i] {
             case "--dry-run": req.dryRun = true
             case "--json": json = true
+            case "--yes", "-y": break   // rien à confirmer
             case "--destination":
                 guard i + 1 < args.count else { err(L10n.tr("cli.missing_value", "--destination")); return .usage }
                 i += 1; req.destinationIDs = (req.destinationIDs ?? []) + [args[i]]
@@ -484,7 +590,12 @@ public enum CLI {
                 req.only = (req.only ?? []).union([k])
             case "--tool":
                 guard i + 1 < args.count else { err(L10n.tr("cli.missing_value", "--tool")); return .usage }
-                i += 1; req.aiTools = (req.aiTools ?? []) + [args[i]]
+                i += 1
+                guard AIProfiles.bundled.contains(where: { $0.id == args[i] }) else {
+                    err(L10n.tr("cli.backup.unknown_tool", args[i], AIProfiles.bundled.map(\.id).joined(separator: ", ")))
+                    return .usage
+                }
+                req.aiTools = (req.aiTools ?? []) + [args[i]]
             default: err(L10n.tr("cli.unknown_option", args[i])); return .usage
             }
             i += 1
@@ -525,7 +636,9 @@ public enum CLI {
         }
         if json {
             let list: [[String: Any]] = results.map { r in
-                var d: [String: Any] = ["destination": r.destination, "waiting": r.waiting, "error": r.error ?? NSNull()]
+                var d: [String: Any] = ["destination": r.destination, "waiting": r.waiting, "error": r.error ?? NSNull(),
+                                        "damaged_files": r.damagedFiles, "log": r.log?.path ?? NSNull()]
+                if let c = r.imageCheck { d["image_check_ok"] = c.ok }
                 if let o = r.outcome {
                     d["version"] = o.version ?? NSNull()
                     d["dry_run"] = o.dryRun
@@ -547,6 +660,11 @@ public enum CLI {
                                            Fmt.bytes(o.bytesTransferred), Fmt.duration(o.duration)))
                     for (part, b) in o.bytesByPart.sorted(by: { $0.key < $1.key }) { out("  " + part.padding(toLength: 30, withPad: " ", startingAt: 0) + " " + Fmt.bytes(b)) }
                     o.warnings.forEach { err("  " + $0) }
+                    if !r.damagedFiles.isEmpty {
+                        err(L10n.tr("cli.backup.damaged", r.damagedFiles.count))
+                        r.damagedFiles.prefix(20).forEach { err("  ✗ " + $0) }
+                    }
+                    if let c = r.imageCheck, !c.ok { err(L10n.tr("cli.backup.image_check_failed", r.destination, c.output)) }
                     if !o.deletedVersions.isEmpty { out(L10n.tr("cli.backup.deleted", o.deletedVersions.count)) }
                 } else if r.waiting {
                     err(L10n.tr("cli.backup.waiting", r.destination))
@@ -561,15 +679,21 @@ public enum CLI {
 
     static func verify(_ args: [String], store: ConfigStore, out: (String) -> Void, err: (String) -> Void) -> Exit {
         if args.contains("-h") || args.contains("--help") { out(L10n.tr("cli.verify.help")); return .ok }
-        var full = false
+        var full = false, json = false
         var destID: String?
         var version: String?
         var i = 0
         while i < args.count {
             switch args[i] {
             case "--full": full = true
-            case "--destination": guard i + 1 < args.count else { return .usage }; i += 1; destID = args[i]
-            case "--version": guard i + 1 < args.count else { return .usage }; i += 1; version = args[i]
+            case "--json": json = true
+            case "--yes", "-y": break   // rien à confirmer
+            case "--destination":
+                guard i + 1 < args.count else { err(L10n.tr("cli.missing_value", "--destination")); return .usage }
+                i += 1; destID = args[i]
+            case "--version":
+                guard i + 1 < args.count else { err(L10n.tr("cli.missing_value", "--version")); return .usage }
+                i += 1; version = args[i]
             default: err(L10n.tr("cli.unknown_option", args[i])); return .usage
             }
             i += 1
@@ -578,25 +702,33 @@ public enum CLI {
         let dests = config.destinations.filter { destID == nil || $0.id == destID }
         guard !dests.isEmpty else { err(L10n.tr("cli.backup.no_destination")); return .usage }
         var damaged = 0
+        var unknownVersion = false
+        var list: [[String: Any]] = []
         for d in dests {
-            let session = DestinationSession(d)
             do {
-                let root = try session.open(createIfMissing: false)
-                defer { session.close() }
-                let dir = BackupEngine.versionsDir(root: root)
-                let all = BackupEngine.versions(in: dir)
-                let targets = version.map { [$0] } ?? (full ? all : Array(all.suffix(1)))
-                for v in targets {
-                    let r = Integrity.verify(version: dir.appendingPathComponent(v), full: full)
+                // Prend le verrou d'opération et note le résultat dans runs.json (comme l'app).
+                let reports = try BackupService.verify(destination: d, paths: store.paths, version: version, full: full)
+                for r in reports {
                     damaged += r.damaged.count
-                    out(r.missingChecksums ? L10n.tr("cli.verify.pending", d.id, v)
-                                           : L10n.tr("cli.verify.result", d.id, v, Fmt.count(r.checked), r.damaged.count))
+                    list.append(["destination": d.id, "version": r.version, "checked": r.checked, "damaged": r.damaged,
+                                 "missing_checksums": r.missingChecksums, "full": full])
+                    if json { continue }
+                    out(r.missingChecksums ? L10n.tr("cli.verify.pending", d.id, r.version)
+                                           : L10n.tr("cli.verify.result", d.id, r.version, Fmt.count(r.checked), r.damaged.count))
                     r.damaged.prefix(20).forEach { err("  ✗ " + $0) }
                 }
+            } catch OperationLock.Failure.alreadyHeld {
+                err(L10n.tr("cli.busy")); return .failure
+            } catch let e as BackupService.VerifyFailure {
+                err(String(describing: e)); unknownVersion = true
+                list.append(["destination": d.id, "error": "unknown_version", "version": version ?? NSNull()])
             } catch {
                 err(String(describing: error)); damaged += 1
+                list.append(["destination": d.id, "error": String(describing: error)])
             }
         }
+        if json { printJSON(["results": list], out) }
+        if unknownVersion { return .usage }
         return damaged == 0 ? .ok : .failure
     }
 
@@ -606,6 +738,7 @@ public enum CLI {
         var folders: [String] = []
         for a in args {
             if a == "--json" { json = true }
+            else if a == "--yes" || a == "-y" { continue }   // rien à confirmer
             else if a.hasPrefix("-") { err(L10n.tr("cli.unknown_option", a)); return .usage }
             else { folders.append((a as NSString).expandingTildeInPath) }
         }

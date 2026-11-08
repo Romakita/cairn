@@ -14,6 +14,7 @@ struct OnboardingView: View {
     @ViewState private var password = ""
     @ViewState private var notifications = true
     @ViewState private var newHomeItem = ""
+    @ViewState private var confirmUnencrypted = false
 
     static let steps = ["folders", "home", "ai", "destination", "schedule", "notifications"]
 
@@ -166,11 +167,21 @@ struct OnboardingView: View {
                 }
             }
             if destinationKind != 0 {
-                Toggle(T("onboarding.destination.encrypted"), isOn: $draft.encrypted).toggleStyle(.switch)
+                // Décocher le chiffrement demande une confirmation explicite.
+                Toggle(T("onboarding.destination.encrypted"), isOn: Binding(get: { draft.encrypted }, set: { on in
+                    if on { draft.encrypted = true } else { confirmUnencrypted = true }
+                })).toggleStyle(.switch)
                 if !draft.encrypted {
                     Banner(icon: "lock.open", text: T("onboarding.destination.unencrypted_warning"), tone: .warning)
                 }
             }
+        }
+        .confirmationDialog(T("onboarding.destination.disable_encryption.title"), isPresented: $confirmUnencrypted,
+                            titleVisibility: .visible) {
+            Button(T("onboarding.destination.disable_encryption.confirm"), role: .destructive) { draft.encrypted = false }
+            Button(T("action.cancel"), role: .cancel) {}
+        } message: {
+            Text(T("onboarding.destination.disable_encryption.message"))
         }
     }
 

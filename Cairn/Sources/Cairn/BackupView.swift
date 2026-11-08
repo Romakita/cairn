@@ -14,6 +14,9 @@ struct BackupView: View {
     @EnvironmentObject var model: AppModel
     @ViewState private var pendingRetention: (CairnConfig.Retention, [String], Int64)?
     @ViewState private var confirmRetention = false
+    /// Vérification complète : destinations en cours et rapport par version.
+    @ViewState private var fullVerifying: Set<String> = []
+    @ViewState private var fullReports: [String: [Integrity.Report]] = [:]
 
     var body: some View {
         let dests = model.config?.destinations ?? []
@@ -65,6 +68,8 @@ struct BackupView: View {
                     Spacer()
                     Button(T("backup.simulate")) { model.backups.run(destinations: [d.id], dryRun: true) }.buttonStyle(.pill)
                     Button(T("backup.verify")) { model.verify(d) }.buttonStyle(.pill)
+                    Button(T("backup.verify_full")) { verifyFull(d) }.buttonStyle(.pill)
+                        .disabled(fullVerifying.contains(d.id) || model.isBackingUp)
                     if model.isBackingUp {
                         Button(T("action.stop")) { model.backups.cancel() }.buttonStyle(.pill)
                     } else {
@@ -82,6 +87,15 @@ struct BackupView: View {
                             Text(p.current).font(.system(size: 11.5)).foregroundStyle(Palette.secondary).lineLimit(1).truncationMode(.middle)
                         }
                     }
+                }
+                if let r = model.lastBackupResults.first(where: { $0.destination == d.id }) {
+                    lastResultCard(d, r)
+                } else if let log = model.backups.lastLog, model.lastBackupResults.isEmpty, !model.isBackingUp {
+                    // Échec avant les destinations : seul le journal peut l'expliquer.
+                    HStack { Spacer(); Button(T("backup.view_log")) { Notifier.openLog(log) }.buttonStyle(.pill) }
+                }
+                if fullVerifying.contains(d.id) || fullReports[d.id] != nil {
+                    fullVerificationCard(d)
                 }
                 HStack(alignment: .top, spacing: 14) {
                     statCard(T("home.last_backup"), ds.lastSuccess.map(Fmt.date) ?? T("backup.never"),
@@ -110,6 +124,90 @@ struct BackupView: View {
                 Text(value).font(.system(size: 20, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
                 Text(detail).font(.system(size: 12.5)).foregroundStyle(Palette.secondary).lineLimit(2)
             }
+        }
+    }
+
+    /// Résultat de la dernière sauvegarde ou simulation : volume par partie et total de la destination.
+    func lastResultCard(_ d: CairnConfig.Destination, _ r: BackupService.Result) -> some View {
+        Card {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(r.outcome?.dryRun == true ? T("backup.result.simulation") : T("backup.result.backup"))
+                        .font(.system(size: 15, weight: .semibold))
+                    Spacer()
+                    if let log = r.log { Button(T("backup.view_log")) { Notifier.openLog(log) }.buttonStyle(.pill) }
+                    Button(T("backup.result.dismiss")) { model.lastBackupResults.removeAll { $0.destination == d.id } }.buttonStyle(.pill)
+                }
+                if let o = r.outcome {
+                    ForEach(o.bytesByPart.sorted(by: { $0.key < $1.key }), id: \.key) { part, bytes in
+                        HStack {
+                            Text(part).font(.system(size: 12.5, design: .monospaced))
+                            Spacer()
+                            Text(Fmt.bytes(bytes)).font(.system(size: 12.5)).foregroundStyle(Palette.secondary)
+                        }
+                    }
+                    Divider()
+                    HStack {
+                        Text(T("backup.result.total", model.destinationLabel(d))).fontWeight(.medium)
+                        Spacer()
+                        Text(T("backup.result.files", Fmt.bytes(o.totalBytes), Fmt.count(o.filesTransferred))).fontWeight(.medium)
+                    }
+                    ForEach(o.warnings, id: \.self) { Text($0).font(.system(size: 12.5)).foregroundStyle(Palette.foreground(.warning)) }
+                    if !r.damagedFiles.isEmpty {
+                        Text(T("backup.notify.damaged_body", r.damagedFiles.count)).font(.system(size: 12.5))
+                            .foregroundStyle(Palette.foreground(.warning))
+                    }
+                    if let c = r.imageCheck, !c.ok {
+                        Text(T("backup.image_check.failed", c.output)).font(.system(size: 12.5)).foregroundStyle(Palette.foreground(.warning))
+                    }
+                } else if let e = r.error {
+                    Text(e).font(.system(size: 13)).foregroundStyle(r.waiting ? Palette.secondary : Palette.foreground(.warning))
+                }
+            }
+        }
+    }
+
+    /// Rapport de la vérification complète, version par version.
+    func fullVerificationCard(_ d: CairnConfig.Destination) -> some View {
+        Card {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(T("backup.verify_full.title")).font(.system(size: 15, weight: .semibold))
+                    if fullVerifying.contains(d.id) {
+                        ProgressView().controlSize(.small)
+                        Text(T("backup.verify_full.running")).font(.system(size: 12.5)).foregroundStyle(Palette.secondary)
+                    }
+                    Spacer()
+                    if !fullVerifying.contains(d.id) {
+                        Button(T("backup.result.dismiss")) { fullReports[d.id] = nil }.buttonStyle(.pill)
+                    }
+                }
+                ForEach(fullReports[d.id] ?? [], id: \.version) { r in
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack {
+                            Circle().fill(r.damaged.isEmpty ? Palette.foreground(.success) : Color.orange).frame(width: 8, height: 8)
+                            Text(r.version).font(.system(size: 12.5, design: .monospaced))
+                            Spacer()
+                            Text(r.missingChecksums ? T("backup.verify_full.pending")
+                                                    : T("backup.verify_full.result", Fmt.count(r.checked), r.damaged.count))
+                                .font(.system(size: 12.5)).foregroundStyle(Palette.secondary)
+                        }
+                        ForEach(r.damaged.prefix(10), id: \.self) { f in
+                            Text("✗ " + f).font(.system(size: 11.5, design: .monospaced)).foregroundStyle(Palette.foreground(.warning))
+                                .lineLimit(1).truncationMode(.middle)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    func verifyFull(_ d: CairnConfig.Destination) {
+        fullVerifying.insert(d.id)
+        fullReports[d.id] = nil
+        model.verify(d, full: true) { reports in
+            fullVerifying.remove(d.id)
+            fullReports[d.id] = reports
         }
     }
 
@@ -201,7 +299,17 @@ struct BackupView: View {
 
     /// Un changement de rétention qui supprimerait des versions demande une confirmation.
     func change(_ d: CairnConfig.Destination, _ r: CairnConfig.Retention) {
-        model.checkRetention(d, r) { excess, bytes in
+        model.checkRetention(d, r) { found in
+            // Destination illisible : une rétention plus courte n'est pas enregistrée (elle supprimerait des versions
+            // à la prochaine sauvegarde, sans confirmation possible).
+            guard let (excess, bytes) = found else {
+                if RetentionPolicy.mayDeleteMore(r, than: d.retention) {
+                    model.lastMessage = T("backup.retention.unreachable")
+                } else {
+                    model.updateConfig { c in if let i = c.destinations.firstIndex(where: { $0.id == d.id }) { c.destinations[i].retention = r } }
+                }
+                return
+            }
             if excess.isEmpty {
                 model.updateConfig { c in if let i = c.destinations.firstIndex(where: { $0.id == d.id }) { c.destinations[i].retention = r } }
             } else {
@@ -248,20 +356,25 @@ extension AppModel {
         }
     }
 
-    /// Calcule les versions en trop avec une nouvelle rétention (destination joignable requise).
-    func checkRetention(_ d: CairnConfig.Destination, _ r: CairnConfig.Retention, then: @escaping ([String], Int64) -> Void) {
+    /// Calcule les versions en trop avec une nouvelle rétention. `nil` si la destination n'a pas pu être lue
+    /// (injoignable, mot de passe absent…) ; une destination encore vide n'a rien en trop.
+    func checkRetention(_ d: CairnConfig.Destination, _ r: CairnConfig.Retention, then: @escaping (([String], Int64)?) -> Void) {
         Task.detached(priority: .userInitiated) {
             let session = DestinationSession(d)
-            var excess: [String] = []
-            var bytes: Int64 = 0
-            if session.provider.isReachable(), let root = try? session.open(createIfMissing: false) {
-                let dir = BackupEngine.versionsDir(root: root)
-                excess = BackupEngine.excessVersions(versionsDir: dir, retention: r, now: Date())
-                bytes = BackupEngine.uniqueBytes(excess.map { dir.appendingPathComponent($0) })
+            var found: ([String], Int64)?
+            if session.provider.isReachable() {
+                do {
+                    let root = try session.open(createIfMissing: false)
+                    let dir = BackupEngine.versionsDir(root: root)
+                    let excess = BackupEngine.excessVersions(versionsDir: dir, retention: r, now: Date())
+                    found = (excess, BackupEngine.uniqueBytes(excess.map { dir.appendingPathComponent($0) }))
+                } catch ProviderError.notCreated {
+                    found = ([], 0)
+                } catch {}
                 session.close()
             }
-            let (e, b) = (excess, bytes)
-            await MainActor.run { then(e, b) }
+            let f = found
+            await MainActor.run { then(f) }
         }
     }
 
@@ -277,29 +390,29 @@ extension AppModel {
         }
     }
 
-    func verify(_ d: CairnConfig.Destination) {
+    /// Vérifie une destination en arrière-plan, sous le verrou d'opération : échantillon de la dernière version, ou
+    /// toutes les versions (`full`). L'état (`runs.json`) est mis à jour par `BackupService.verify`, comme en ligne
+    /// de commande.
+    func verify(_ d: CairnConfig.Destination, full: Bool = false, then: @escaping ([Integrity.Report]) -> Void = { _ in }) {
+        let paths = self.paths
         Task.detached(priority: .utility) {
-            let session = DestinationSession(d)
             var msg = ""
+            var reports: [Integrity.Report] = []
             do {
-                let root = try session.open(createIfMissing: false)
-                let dir = BackupEngine.versionsDir(root: root)
-                if let last = BackupEngine.versions(in: dir).last {
-                    let r = Integrity.verify(version: dir.appendingPathComponent(last), full: false)
-                    msg = L10n.tr("cli.verify.result", d.id, last, Fmt.count(r.checked), r.damaged.count)
-                    var state = RunState.load(self.paths)
-                    var ds = state[d.id]
-                    ds.lastVerification = Date()
-                    if !r.damaged.isEmpty { ds.damagedVersions.append(last) }
-                    state[d.id] = ds
-                    try? state.save(self.paths)
+                reports = try BackupService.verify(destination: d, paths: paths, full: full)
+                if full {
+                    msg = L10n.tr("backup.verify_full.summary", reports.count, reports.reduce(0) { $0 + $1.damaged.count })
+                } else if let r = reports.last {
+                    msg = L10n.tr("cli.verify.result", d.id, r.version, Fmt.count(r.checked), r.damaged.count)
                 }
-                session.close()
+            } catch OperationLock.Failure.alreadyHeld {
+                msg = L10n.tr("cli.busy")
             } catch { msg = String(describing: error) }
-            let m = msg
+            let (m, list) = (msg, reports)
             await MainActor.run {
-                self.lastMessage = m
+                if !m.isEmpty { self.lastMessage = m }
                 self.runState = RunState.load(self.paths)
+                then(list)
             }
         }
     }

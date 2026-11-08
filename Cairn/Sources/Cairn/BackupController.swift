@@ -1,7 +1,6 @@
 import AppKit
 import CairnCore
 import Network
-import UserNotifications
 
 /// Planificateur de l'app : échéances, veille, réseau, notifications. Ne tourne que pendant que l'app est ouverte.
 @MainActor
@@ -11,11 +10,14 @@ final class BackupController {
     private let monitor = NWPathMonitor()
     private var service: BackupService?
     private var observers: [NSObjectProtocol] = []
+    /// Journal de la dernière sauvegarde ou simulation (bouton « Voir le journal »).
+    private(set) var lastLog: URL?
 
     init() {}
 
     func start(model: AppModel) {
         self.model = model
+        Notifier.setup()
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
         }
@@ -75,7 +77,7 @@ final class BackupController {
         for d in config.destinations where model.destinationWaiting[d.id] == true {
             let ds = state[d.id]
             if BackupSchedule.shouldNotifyOverdue(config.schedule, lastSuccess: ds.lastSuccess, lastNotice: ds.lastOverdueNotice, now: Date()) {
-                let last = ds.lastSuccess.map(Fmt.date) ?? T("backup.never")
+                let last = ds.lastSuccess.map(Self.relative) ?? T("backup.never")
                 notify(title: T("backup.notify.overdue_title", model.destinationLabel(d)), body: T("backup.notify.overdue_body", last))
                 var x = ds
                 x.lastOverdueNotice = Date()
@@ -101,27 +103,43 @@ final class BackupController {
         Task.detached(priority: .utility) {
             var results: [BackupService.Result] = []
             var failure: String?
+            var busy = false
             do {
                 results = try service.run(req) { dest, p in
                     Task { @MainActor in model.backupProgress = (dest, p) }
                 }
             } catch OperationLock.Failure.alreadyHeld {
                 failure = T("cli.busy")
+                busy = true
             } catch {
                 failure = String(describing: error)
             }
-            let (r, f) = (results, failure)
+            let (r, f, log, wasBusy) = (results, failure, service.logURL, busy)
             await MainActor.run {
                 model.isBackingUp = false
                 model.backupProgress = nil
                 self.service = nil
                 model.runState = RunState.load(model.paths)
+                self.lastLog = log
                 model.lastBackupResults = r
-                if let f { model.lastMessage = f }
+                // Erreur levée avant les destinations (parties illisibles…) : notifiée aussi. Une autre opération
+                // en cours (verrou pris) n'est pas un échec : simple message.
+                if let f {
+                    model.lastMessage = f
+                    if !dryRun && !wasBusy { self.notify(title: T("backup.notify.failed_title"), body: f, log: log) }
+                }
                 for res in r {
                     if let pw = res.newImagePassword { model.newImagePassword = (res.destination, pw) }
+                    let label = config.destinations.first { $0.id == res.destination }.map(model.destinationLabel) ?? res.destination
                     if let e = res.error, !res.waiting, !dryRun {
-                        self.notify(title: T("backup.notify.failed_title"), body: e)
+                        self.notify(title: T("backup.notify.failed_title"), body: e, log: res.log)
+                    }
+                    if !res.damagedFiles.isEmpty {
+                        self.notify(title: T("backup.notify.damaged_title", label),
+                                    body: T("backup.notify.damaged_body", res.damagedFiles.count), log: res.log)
+                    }
+                    if let c = res.imageCheck, !c.ok {
+                        self.notify(title: T("backup.notify.image_failed_title", label), body: c.output, log: res.log)
                     }
                 }
             }
@@ -130,11 +148,24 @@ final class BackupController {
 
     func cancel() { service?.cancel() }
 
-    func notify(title: String, body: String) {
-        let c = UNMutableNotificationContent()
-        c.title = title
-        c.body = body
-        Notifier.center?.add(UNNotificationRequest(identifier: UUID().uuidString, content: c, trigger: nil))
+    /// Fin de l'app : la sauvegarde en cours est annulée et on attend brièvement que rsync s'arrête
+    /// (la version reste incomplète et sera reprise ; l'image est détachée, le verrou rendu).
+    func terminate() {
+        guard let service else { return }
+        service.cancel()
+        service.waitUntilFinished(timeout: 5)
+    }
+
+    /// « il y a 2 jours », dans la langue de l'app.
+    static func relative(_ date: Date) -> String {
+        let f = RelativeDateTimeFormatter()
+        f.locale = L10n.locale
+        f.unitsStyle = .full
+        return f.localizedString(for: date, relativeTo: Date())
+    }
+
+    func notify(title: String, body: String, log: URL? = nil) {
+        Notifier.post(title: title, body: body, log: log)
         model?.lastMessage = title + " — " + body
     }
 }
