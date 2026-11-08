@@ -56,9 +56,9 @@ public enum AIRestore {
         try fm.copyItem(at: snapshot, to: dest)
     }
 
-    /// Nom de dossier de projet de Claude Code pour un chemin (`/` et `.` deviennent `-`).
+    /// Nom de dossier de projet de Claude Code pour un chemin : tout caractère non alphanumérique devient `-`.
     public static func claudeProjectName(_ path: String) -> String {
-        path.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ".", with: "-")
+        path.replacingOccurrences(of: "[^A-Za-z0-9]", with: "-", options: .regularExpression)
     }
 
     /// Renomme les dossiers de `~/.claude/projects` selon la table « ancien préfixe → nouveau préfixe ».

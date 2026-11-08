@@ -536,3 +536,12 @@
 "restore.nas.user" = "Nom d'utilisateur";
 "restore.nas.connect" = "Se connecter";
 "restore.version.partial" = "partielle";
+
+/* Lot avertissements : outils IA et restauration */
+"ai.banner.credentials_ignored" = "Une destination n'est pas chiffrée (ou aucune n'est configurée) : les identifiants ne sont pas sauvegardés, même cochés. Les plugins et paquets ne sont pas copiés, ils seront réinstallés.";
+"ai.credentials.ignored" = "Identifiants cochés mais ignorés : toutes les destinations doivent être chiffrées.";
+"ai.size.saved_help" = "Taille des catégories cochées, la part qui sera sauvegardée.";
+"ai.last_backup" = "Dernière sauvegarde : %@";
+"ai.last_backup.never" = "jamais";
+"restore.verify" = "Vérifier";
+"restore.verify_note" = "Liste les outils de l'inventaire présents ou manquants sur ce Mac. Ne modifie rien.";

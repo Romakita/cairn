@@ -32,6 +32,7 @@ var suites: [(String, [TestCase])] = [
     ("Backup", backupTests),
     ("Alerts", alertTests),
     ("AI", aiTests),
+    ("RestoreWarnings", restoreWarningTests),
     ("Restore", restoreTests),
 ]
 

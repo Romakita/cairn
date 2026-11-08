@@ -536,3 +536,12 @@
 "restore.nas.user" = "User name";
 "restore.nas.connect" = "Connect";
 "restore.version.partial" = "partial";
+
+/* Lot avertissements : outils IA et restauration */
+"ai.banner.credentials_ignored" = "A destination is not encrypted (or none is set up): credentials are not backed up, even when checked. Plugins and packages are not copied, they are reinstalled.";
+"ai.credentials.ignored" = "Credentials are checked but ignored: every destination must be encrypted.";
+"ai.size.saved_help" = "Size of the checked categories, the part that will be backed up.";
+"ai.last_backup" = "Last backup: %@";
+"ai.last_backup.never" = "never";
+"restore.verify" = "Check";
+"restore.verify_note" = "Lists the inventory tools present or missing on this Mac. Changes nothing.";

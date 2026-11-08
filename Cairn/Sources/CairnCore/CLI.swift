@@ -438,7 +438,7 @@ public enum CLI {
             for f in source.folders { plan.folders[f.name] = targets[f.name] ?? f.originalPath }
         }
         for (name, target) in plan.folders {
-            if !FileManager.default.fileExists(atPath: (target as NSString).deletingLastPathComponent) {
+            if RestoreService.targetIsMissing(target) {
                 err(L10n.tr("cli.restore.missing_target", name, target))
             }
         }
@@ -454,7 +454,7 @@ public enum CLI {
         let results = service.run(plan, apply: apply, waitForAdmin: { cmd in
             err(L10n.tr("cli.restore.terminal"))
             RestoreService.openInTerminal(cmd)
-            return RestoreService.waitFor("brew")
+            return RestoreService.waitAfterAdmin(cmd)
         }, waitForQuit: { tool in
             err(L10n.tr("restore.quit_tool", L10n.tr("ai.\(tool.id)")))
             return RestoreService.waitUntilQuit(tool)

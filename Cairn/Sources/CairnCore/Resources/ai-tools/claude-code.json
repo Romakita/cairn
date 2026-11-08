@@ -1,5 +1,6 @@
 {
   "id": "claude-code",
+  "name": "Claude Code",
   "version": 1,
   "root": "~",
   "detect": [".claude", ".claude.json"],

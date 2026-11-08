@@ -37,12 +37,6 @@ public struct OnboardingDraft: Equatable, Sendable {
 
     public init() {}
 
-    /// Identifiants des outils IA connus et emplacement qui signale leur présence.
-    public static let aiTools: [(id: String, markers: [String])] = [
-        ("claude-code", [".claude", ".claude.json"]),
-        ("claude-desktop", ["Library/Application Support/Claude"]),
-        ("codex", [".codex"]),
-    ]
 
     /// Fichiers de configuration du home proposés s'ils existent (les dossiers des outils IA sont gérés à part).
     public static let homeCandidates = [
@@ -54,7 +48,8 @@ public struct OnboardingDraft: Equatable, Sendable {
     /// Propositions détectées sur la machine.
     public static func detect(home: URL = FileManager.default.homeDirectoryForCurrentUser,
                               legacyRootPath: String? = nil,
-                              exists: (String) -> Bool = { FileManager.default.fileExists(atPath: $0) }) -> OnboardingDraft {
+                              exists: (String) -> Bool = { FileManager.default.fileExists(atPath: $0) },
+                              profiles: [AIProfile] = AIProfiles.bundled) -> OnboardingDraft {
         var d = OnboardingDraft()
         var seen = Set<String>()
         let candidates = ["/Volumes/workspaces", legacyRootPath].compactMap { $0 }
@@ -67,10 +62,12 @@ public struct OnboardingDraft: Equatable, Sendable {
 
         d.home = homeCandidates.filter { exists(home.appendingPathComponent($0).path) }.map { .init(path: $0, selected: true) }
 
-        for tool in aiTools {
-            let found = tool.markers.contains { exists(home.appendingPathComponent($0).path) }
-            d.ai.append(.init(id: tool.id, detected: found,
-                              categories: found ? ["conversations", "config", "memories", "credentials"] : []))
+        // Outils IA : un par profil ; présélection des catégories que l'outil remplit vraiment
+        // (pas d'« identifiants » pour un outil qui les range dans le Trousseau).
+        for p in profiles {
+            let found = p.detect.contains { exists(home.appendingPathComponent($0).path) }
+            let cats = CairnConfig.AITool.categories.filter { !(p.categories[$0] ?? []).isEmpty }
+            d.ai.append(.init(id: p.id, detected: found, categories: found ? Set(cats) : []))
         }
         return d
     }
