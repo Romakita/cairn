@@ -133,7 +133,7 @@ final class BackupController {
         let c = UNMutableNotificationContent()
         c.title = title
         c.body = body
-        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: c, trigger: nil))
+        Notifier.center?.add(UNNotificationRequest(identifier: UUID().uuidString, content: c, trigger: nil))
         model?.lastMessage = title + " — " + body
     }
 }

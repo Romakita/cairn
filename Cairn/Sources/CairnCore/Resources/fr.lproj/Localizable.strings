@@ -450,3 +450,17 @@
 "git.worker.timeout" = "worker arrêté après %lld s";
 "git.worker.failed" = "échec du worker (code %lld)";
 "git.worker.progress" = "%1$lld/%2$lld dépôts · %3$lld worker(s) · max %4$@";
+"alerts.snooze" = "Ignorer 7 jours";
+"alerts.low_title" = "%@ est presque plein";
+"alerts.critical_title" = "%@ est plein (critique)";
+"alerts.body" = "%1$@ libres (%2$@ %%).";
+"alerts.forecast" = "Plein dans environ %@ jours au rythme actuel.";
+"alerts.forecast_short" = "%1$@ plein dans ~%2$@ jours";
+"alerts.trash" = "Vider sa corbeille libérerait %@.";
+"menu.extra_reclaimable" = "+ worktrees obsolètes %1$@ · corbeille du volume %2$@";
+"menu.clean_amount" = "Nettoyer %@";
+"menu.more" = "Plus d'actions";
+"menu.analysis_date" = "Analyse du %@";
+"menu.no_analysis" = "Pas encore d'analyse";
+"menu.backed_up" = "Sauvegardé le %@";
+"menu.waiting" = "En attente de %@";

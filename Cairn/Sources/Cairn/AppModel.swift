@@ -29,6 +29,9 @@ final class AppModel: ObservableObject {
     @Published var versions: [String: [VersionInfo]] = [:]
     var pendingRetentionDestination: String?
     let backups = BackupController()
+    let storage = StorageMonitor()
+    @Published var summary: AnalysisSummary?
+    @Published var activeAlerts: [StorageAlerts.Alert] = []
     @Published var volume: VolumeInfo?
     @Published var isScanning = false
     @Published var scannedFiles = 0
@@ -65,6 +68,7 @@ final class AppModel: ObservableObject {
         }
         pruneLogs()
         runState = RunState.load(paths)
+        summary = AnalysisSummary.load(paths)
         janitorTimer = Timer.scheduledTimer(withTimeInterval: 86_400, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.pruneLogs() }
         }
@@ -174,6 +178,8 @@ final class AppModel: ObservableObject {
                 if ctx.cancelled { return }
                 self.analyses = analyses
                 self.applyCurrentFolder()
+                self.refreshSummary()
+                self.storage.check()
                 self.lastMessage = T("scan.done", Fmt.duration(duration)) + (errors > 0 ? T("scan.errors", errors) : "")
             }
         }

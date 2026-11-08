@@ -96,3 +96,23 @@ Comparaison des exclusions sur `/Volumes/workspaces` (8 nov. 2026) : 587 dossier
 Maintenance git : sur 381 branches « gone », 374 ont le même statut que `git-cleanup.sh`. Les 7 autres sont des squash
 merges que le script classait « non fusionnée » à cause de `set -o pipefail` combiné à `grep -q` (interruption du
 pipeline dès la première correspondance) ; vérifié à la main sur `clubmed/digital-api`.
+
+## Barre des menus et alertes de disque plein
+
+Avec l'accord pour la tâche de fond, Cairn place une icône dans la barre des menus (état : normal, sauvegarde en
+cours, attention). Son panneau montre la jauge de chaque volume suivi, l'espace récupérable (régénérable, worktrees
+obsolètes, corbeille du volume), l'état des sauvegardes et les alertes, avec « Nettoyer » (ouvre l'écran Nettoyable,
+rien n'est supprimé sans confirmation) et « Sauvegarder maintenant ». Les chiffres viennent de la dernière analyse
+(`~/.cairn/state/analysis-summary.json`) : ouvrir le panneau ne relance aucune analyse.
+
+L'espace libre est relevé toutes les 15 minutes et après chaque opération (`state/volumes.json`, 30 jours). Alertes :
+
+| Niveau | Défaut (`[alerts]`) |
+|---|---|
+| presque plein | moins de 10 % ou de 20 Go libres (`low_percent`, `low_gb`) |
+| critique | moins de 5 % ou de 5 Go (`critical_percent`, `critical_gb`) |
+| anticipée | plein dans moins de 7 jours au rythme des 7 derniers jours (au moins 3 jours d'historique) |
+
+Une notification par volume et par jour au plus, sauf passage au niveau critique ; un volume revenu 2 points au-dessus
+du seuil remet le compteur à zéro ; « Ignorer 7 jours » met le volume en sourdine. Si les notifications sont refusées,
+les alertes restent visibles dans le panneau et sur l'accueil.

@@ -30,7 +30,8 @@ extension AppModel {
 
     var globalStatus: GlobalStatus {
         if configIssues.contains(where: { $0.severity == .error }) { return .error }
-        if diskAlert != nil || trackedFolders.contains(where: { !$0.isAvailable }) { return .attention }
+        if diskAlert != nil || !activeAlerts.isEmpty || trackedFolders.contains(where: { !$0.isAvailable })
+            || runState.destinations.values.contains(where: { !$0.damagedVersions.isEmpty }) { return .attention }
         return .ok
     }
 
@@ -115,7 +116,7 @@ extension AppModel {
             return
         }
         if notifications {
-            UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+            Notifier.center?.requestAuthorization(options: [.alert, .sound]) { _, _ in }
         }
         loadConfig()
         section = .home

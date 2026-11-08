@@ -39,7 +39,10 @@ struct CairnApp: App {
                 .environmentObject(model)
                 .environment(\.locale, L10n.locale)
                 .onAppear {
-                    if AppDelegate.model == nil { model.backups.start(model: model) }
+                    if AppDelegate.model == nil {
+                        model.backups.start(model: model)
+                        model.storage.start(model: model)
+                    }
                     AppDelegate.model = model
                     model.background.windowOpened()
                     if !model.showOnboarding && model.root == nil && !model.isScanning
@@ -60,27 +63,13 @@ struct CairnApp: App {
             }
         }
 
-        // Icône dans la barre des menus (le panneau complet arrive avec la capacité menu-bar).
+        // Icône dans la barre des menus (seulement avec l'accord pour la tâche de fond).
         MenuBarExtra(isInserted: Binding(get: { model.config?.schedule.background ?? false }, set: { _ in })) {
-            MenuBarMenu().environmentObject(model)
+            MenuBarPanel().environmentObject(model)
         } label: {
-            Image(systemName: model.globalStatus == .ok ? "square.stack.3d.up" : "exclamationmark.triangle")
+            Image(systemName: model.isBackingUp ? "arrow.triangle.2.circlepath"
+                  : (model.globalStatus == .ok ? "square.stack.3d.up" : "exclamationmark.triangle"))
         }
-    }
-}
-
-struct MenuBarMenu: View {
-    @EnvironmentObject var model: AppModel
-    @Environment(\.openWindow) private var openWindow
-
-    var body: some View {
-        Button(T("menu.open")) {
-            openWindow(id: "main")
-            NSApp.setActivationPolicy(.regular)
-            NSApp.activate(ignoringOtherApps: true)
-        }
-        Button(T("action.analyze")) { model.scan() }
-        Divider()
-        Button(T("menu.quit")) { NSApp.terminate(nil) }.keyboardShortcut("q")
+        .menuBarExtraStyle(.window)
     }
 }

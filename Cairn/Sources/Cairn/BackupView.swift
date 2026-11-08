@@ -46,7 +46,8 @@ struct BackupView: View {
 
     func detail(_ d: CairnConfig.Destination) -> some View {
         let ds = model.runState[d.id]
-        let waiting = model.destinationWaiting[d.id] ?? false
+        let probed = model.destinationWaiting[d.id]
+        let waiting = probed ?? false
         return ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 HStack(spacing: 14) {
@@ -55,7 +56,8 @@ struct BackupView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 8) {
                             Text(model.destinationLabel(d)).font(.system(size: 22, weight: .semibold))
-                            Badge(text: waiting ? T("backup.badge.waiting") : T("backup.badge.reachable"), tone: waiting ? .warning : .success)
+                            Badge(text: probed == nil ? T("destination.not_checked") : (waiting ? T("backup.badge.waiting") : T("backup.badge.reachable")),
+                                  tone: probed == nil ? .neutral : (waiting ? .warning : .success))
                             if d.encrypted { Badge(text: T("backup.badge.encrypted")) } else { Badge(text: T("backup.badge.clear"), tone: .warning) }
                         }
                         Text(d.url ?? d.path ?? "").font(.system(size: 13)).foregroundStyle(Palette.secondary)
@@ -156,14 +158,18 @@ struct BackupView: View {
         return Card {
             VStack(alignment: .leading, spacing: 12) {
                 Text(T("backup.retention")).font(.system(size: 15, weight: .semibold))
-                PillPicker(options: [(0, T("backup.retention.recommended")), (1, T("backup.retention.count")), (2, T("backup.retention.custom"))],
-                           selection: Binding(get: { mode }, set: { m in
+                Picker("", selection: Binding(get: { mode }, set: { m in
                                switch m {
                                case 0: change(d, .recommended)
                                case 1: change(d, .count(12))
                                default: change(d, .tiered(days: 14, weeks: 26))
                                }
-                           }))
+                           })) {
+                    Text(T("backup.retention.recommended")).tag(0)
+                    Text(T("backup.retention.count")).tag(1)
+                    Text(T("backup.retention.custom")).tag(2)
+                }
+                .pickerStyle(.segmented).labelsHidden()
                 switch d.retention {
                 case let .count(n):
                     Stepper(T("backup.retention.versions", n), value: Binding(get: { n }, set: { change(d, .count($0)) }), in: 1...520)

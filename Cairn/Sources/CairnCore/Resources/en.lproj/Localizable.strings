@@ -450,3 +450,17 @@
 "git.worker.timeout" = "worker stopped after %lld s";
 "git.worker.failed" = "worker failed (code %lld)";
 "git.worker.progress" = "%1$lld/%2$lld repositories · %3$lld worker(s) · max %4$@";
+"alerts.snooze" = "Ignore for 7 days";
+"alerts.low_title" = "%@ is almost full";
+"alerts.critical_title" = "%@ is critically full";
+"alerts.body" = "%1$@ free (%2$@ %%).";
+"alerts.forecast" = "Full in about %@ days at the current pace.";
+"alerts.forecast_short" = "%1$@ full in ~%2$@ days";
+"alerts.trash" = "Emptying its Trash would free %@.";
+"menu.extra_reclaimable" = "+ obsolete worktrees %1$@ · volume Trash %2$@";
+"menu.clean_amount" = "Clean up %@";
+"menu.more" = "More actions";
+"menu.analysis_date" = "Analysis of %@";
+"menu.no_analysis" = "No analysis yet";
+"menu.backed_up" = "Backed up %@";
+"menu.waiting" = "Waiting for %@";

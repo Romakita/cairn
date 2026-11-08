@@ -226,9 +226,9 @@ struct SidebarView: View {
         Text(AppSection.backup.title).font(.system(size: 17, weight: .semibold)).padding(.horizontal, 8).padding(.top, 8)
         SidebarHeader(title: T("sidebar.destinations"))
         ForEach(model.config?.destinations ?? [], id: \.id) { d in
-            let waiting = model.destinationWaiting[d.id] ?? false
-            SidebarRow(dot: waiting ? .orange : Palette.foreground(.success), title: model.destinationLabel(d),
-                       meta: waiting ? T("backup.badge.waiting") : T("backup.badge.reachable"),
+            let probed = model.destinationWaiting[d.id]
+            SidebarRow(dot: probed == nil ? Palette.secondary : (probed! ? .orange : Palette.foreground(.success)), title: model.destinationLabel(d),
+                       meta: probed == nil ? T("destination.not_checked") : (probed! ? T("backup.badge.waiting") : T("backup.badge.reachable")),
                        selected: (model.selectedDestination ?? model.config?.destinations.first?.id) == d.id) {
                 model.selectedDestination = d.id
             }
