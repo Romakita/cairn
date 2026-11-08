@@ -17,4 +17,4 @@ if ! grep -q "^## \[$NEW\]" "$ROOT/CHANGELOG.md"; then
 ## [$NEW] - $(date +%F)/" "$ROOT/CHANGELOG.md"
 fi
 echo "✔ $OLD → $NEW (VERSION, CairnVersion.fallback, CHANGELOG)"
-echo "Ensuite : relire CHANGELOG.md, commiter, puis : git tag v$NEW && git push origin main v$NEW"
+echo "Ensuite : relire CHANGELOG.md, commiter dans la PR ; au merge sur main, la CI crée le tag v$NEW et la release."

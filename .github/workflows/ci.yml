@@ -8,7 +8,8 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Sur main, ne jamais annuler un build : il peut être en train de publier une release.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:
@@ -42,3 +43,12 @@ jobs:
 
       - name: App runs outside the build folder
         run: Cairn/scripts/smoke-test-app.sh Cairn/build/Cairn.app
+
+  # Après un build réussi sur main : tag v<Cairn/VERSION> + release GitHub avec l'archive, si elle n'existe pas encore.
+  release:
+    name: Release
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release.yml

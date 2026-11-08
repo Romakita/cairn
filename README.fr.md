@@ -264,15 +264,17 @@ d'inventaire = éditer `Sources/CairnCore/Resources/rules/rules.json`. Détails 
 
 La version suit [SemVer](https://semver.org/lang/fr/) et vit dans `Cairn/VERSION` (`just version`, `cairn --version`).
 
+Les releases sont publiées par la CI : branche → PR → revue → merge sur `main` → build → release.
+
 ```bash
-just bump 0.2.0                      # VERSION, constante du code, section datée du CHANGELOG
-git commit -am "Release 0.2.0"
-git tag v0.2.0 && git push origin main v0.2.0
+just bump 0.2.0                      # dans la PR : VERSION, constante du code, section datée du CHANGELOG
+git commit -am "chore(release): 0.2.0"
 ```
 
-Le tag déclenche le workflow **Release** : tests, construction de `Cairn.app`, puis release GitHub avec
-`Cairn-<version>-arm64.zip`, son empreinte SHA-256 et les notes du CHANGELOG. Un tag qui ne correspond pas à
-`Cairn/VERSION` est refusé.
+Une fois la PR mergée et le build de `main` passé, la CI crée le tag `v0.2.0` sur ce commit et une release GitHub
+avec `Cairn-<version>-arm64.zip`, son empreinte SHA-256 et les notes du CHANGELOG (l'archive est aussi conservée
+avec l'exécution du workflow). Un merge qui ne change pas `Cairn/VERSION` ne publie rien : son tag existe déjà.
+Pousser un tag `vX.Y.Z` à la main fonctionne toujours ; un tag qui ne correspond pas à `Cairn/VERSION` est refusé.
 
 ## Feuille de route
 

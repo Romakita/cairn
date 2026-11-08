@@ -260,15 +260,17 @@ editing `Sources/CairnCore/Resources/rules/rules.json`. Details in [Cairn/README
 Versioning follows [SemVer](https://semver.org/) and the number lives in `Cairn/VERSION` (`just version`,
 `cairn --version`).
 
+Releases are published by CI: branch → PR → review → merge on `main` → build → release.
+
 ```bash
-just bump 0.2.0                      # VERSION, code constant, dated CHANGELOG section
-git commit -am "Release 0.2.0"
-git tag v0.2.0 && git push origin main v0.2.0
+just bump 0.2.0                      # in the PR: VERSION, code constant, dated CHANGELOG section
+git commit -am "chore(release): 0.2.0"
 ```
 
-The tag triggers the **Release** workflow: tests, `Cairn.app` build, then a GitHub release with
-`Cairn-<version>-arm64.zip`, its SHA-256 checksum and the CHANGELOG notes. A tag that doesn't match `Cairn/VERSION` is
-rejected.
+Once the PR is merged and the `main` build passes, CI creates the `v0.2.0` tag on that commit and a GitHub release
+with `Cairn-<version>-arm64.zip`, its SHA-256 checksum and the CHANGELOG notes (the archive is also kept with the
+workflow run). A merge that doesn't change `Cairn/VERSION` publishes nothing, since its tag already exists. Pushing a
+`vX.Y.Z` tag by hand still works; a tag that doesn't match `Cairn/VERSION` is rejected.
 
 ## Roadmap
 

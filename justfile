@@ -64,7 +64,7 @@ storage-report *args:
 version:
     @cat Cairn/VERSION
 
-# Change la version (VERSION, code, CHANGELOG) ; ensuite commiter, taguer vX.Y.Z et pousser le tag
+# Change la version (VERSION, code, CHANGELOG) dans la PR ; au merge sur main, la CI crée le tag et la release
 bump new:
     Cairn/scripts/bump-version.sh {{new}}
 
