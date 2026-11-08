@@ -28,6 +28,10 @@ versions follow [SemVer](https://semver.org/). The current version is in `Cairn/
 - The project is released under the MIT license.
 
 ### Fixed
+- Backups no longer fail with "Could not snapshot the database state_5.sqlite": a WAL database whose tool has closed
+  it (Codex) has no `-shm` file, which a read-only SQLite connection cannot create. Cairn now reads such a database
+  without locks or side files and checks that it did not change during the copy. A database that still cannot be
+  copied is reported as a warning instead of stopping the whole backup.
 - The wizard's button to pick a destination folder was labelled "Analyze".
 - No more crash when the resource bundle cannot be found: `Bundle.module` (which asserts) is no longer called, and
   the app starts with untranslated strings.

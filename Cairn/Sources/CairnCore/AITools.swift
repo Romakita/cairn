@@ -134,10 +134,48 @@ public enum AIBackup {
     }
 
     static func snapshotOnce(_ source: String, to dest: String) throws {
-        try FileManager.default.createDirectory(atPath: (dest as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
-        try? FileManager.default.removeItem(atPath: dest)
+        let fm = FileManager.default
+        try fm.createDirectory(atPath: (dest as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
+        try? fm.removeItem(atPath: dest)
+        do { return try backup(source, to: dest, immutable: false) } catch {
+            // Base en WAL fermée proprement (SQLite embarqué de Codex) : ni -wal ni -shm à côté, et une connexion
+            // en lecture seule ne peut pas créer le -shm (SQLITE_CANTOPEN). Sans -wal, tout est dans le fichier
+            // principal : lecture « immutable » (aucun fichier créé, aucun verrou), puis contrôle que la base n'a
+            // pas bougé pendant la copie (un checkpoint de l'outil la réécrirait).
+            guard !fm.fileExists(atPath: source + "-wal"), !fm.fileExists(atPath: source + "-shm") else { throw error }
+            let before = stamp(source)
+            try? fm.removeItem(atPath: dest)
+            try backup(source, to: dest, immutable: true)
+            guard before != nil, stamp(source) == before, quickCheck(dest) else {
+                try? fm.removeItem(atPath: dest)
+                throw AIError.sqlite(source)
+            }
+        }
+    }
+
+    /// Taille et date de modification d'un fichier (détecte une réécriture pendant la copie).
+    private static func stamp(_ path: String) -> [Int64]? {
+        guard let a = try? FileManager.default.attributesOfItem(atPath: path),
+              let size = a[.size] as? Int64, let date = a[.modificationDate] as? Date else { return nil }
+        return [size, Int64(date.timeIntervalSince1970 * 1_000_000_000)]
+    }
+
+    private static func quickCheck(_ path: String) -> Bool {
+        var db: OpaquePointer?
+        defer { sqlite3_close(db) }
+        guard sqlite3_open_v2(path, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else { return false }
+        var stmt: OpaquePointer?
+        defer { sqlite3_finalize(stmt) }
+        guard sqlite3_prepare_v2(db, "PRAGMA quick_check;", -1, &stmt, nil) == SQLITE_OK,
+              sqlite3_step(stmt) == SQLITE_ROW, let c = sqlite3_column_text(stmt, 0) else { return false }
+        return String(cString: c) == "ok"
+    }
+
+    /// Copie par l'API de sauvegarde en ligne ; `immutable` : lecture sans verrou ni fichier annexe.
+    private static func backup(_ source: String, to dest: String, immutable: Bool) throws {
         var src: OpaquePointer?, dst: OpaquePointer?
-        guard sqlite3_open_v2(source, &src, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else {
+        let name = immutable ? URL(fileURLWithPath: source).absoluteString + "?mode=ro&immutable=1" : source
+        guard sqlite3_open_v2(name, &src, SQLITE_OPEN_READONLY | SQLITE_OPEN_URI, nil) == SQLITE_OK else {
             sqlite3_close(src); throw AIError.sqlite(source)
         }
         defer { sqlite3_close(src) }
@@ -256,8 +294,10 @@ public enum AIBackup {
 
     /// Parties de sauvegarde des outils IA configurés : une partie par catégorie (fichiers),
     /// plus `ai/<outil>/meta` (profil, liste à réinstaller, snapshots SQLite).
+    /// Une base impossible à copier ne fait pas échouer la sauvegarde : elle est signalée par `warn`.
     public static func parts(config: CairnConfig, staging: URL, home: String = NSHomeDirectory(),
-                             profiles: [AIProfile] = AIProfiles.bundled) throws -> [BackupPart] {
+                             profiles: [AIProfile] = AIProfiles.bundled,
+                             warn: (String) -> Void = { _ in }) throws -> [BackupPart] {
         var parts: [BackupPart] = []
         let running = runningApps(profiles: profiles)
         for tool in config.ai {
@@ -278,7 +318,8 @@ public enum AIBackup {
                                             filesFrom: files))
                 }
                 for db in resolved.databases[cat] ?? [] {
-                    try snapshot(root + "/" + db, to: meta.appendingPathComponent("sqlite/\(cat)/\(db)").path)
+                    do { try snapshot(root + "/" + db, to: meta.appendingPathComponent("sqlite/\(cat)/\(db)").path) }
+                    catch { warn(L10n.tr("backup.warning.ai_database", "ai/\(p.id)/\(cat)", String(describing: error))) }
                 }
             }
             // Éléments réinstallés plutôt que copiés : seulement leur liste (noms de dossiers en repli,
