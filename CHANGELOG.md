@@ -20,6 +20,8 @@ versions follow [SemVer](https://semver.org/). The current version is in `Cairn/
 - A backup no longer fails with "Could not copy the state_5.sqlite database": SQLite databases that an AI tool closed
   in WAL mode without keeping their `-shm` file (Codex) are now copied read-only without a lock, then checked. A
   database that still cannot be copied only produces a warning instead of stopping the whole backup.
+- The Home toggle (Overview / Activity) now matches the Codex "Chat / Work" toggle: equal-width segments, darker
+  labels, a white thumb that slides between options.
 
 ## [0.3.0] - 2026-11-08
 
