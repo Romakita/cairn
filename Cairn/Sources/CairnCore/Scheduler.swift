@@ -11,7 +11,12 @@ public enum BackupSchedule {
         case alreadyRunning
         case waitingPower
         case waitingDestination
+        /// Dernière tentative en échec trop récente : on attend `retryDelay` avant de relancer.
+        case retryLater
     }
+
+    /// Délai avant de relancer automatiquement une sauvegarde qui a échoué (évite une boucle de relances).
+    public static let retryDelay: TimeInterval = 3600
 
     public struct Power: Equatable, Sendable {
         public var onBattery: Bool
@@ -52,11 +57,12 @@ public enum BackupSchedule {
         return lastSuccess.map { $0 < occ } ?? true
     }
 
-    public static func decide(_ s: CairnConfig.Schedule, lastSuccess: Date?, now: Date, running: Bool, power: Power,
-                              reachable: Bool, calendar: Calendar = .current) -> Decision {
+    public static func decide(_ s: CairnConfig.Schedule, lastSuccess: Date?, lastAttempt: Date? = nil, now: Date,
+                              running: Bool, power: Power, reachable: Bool, calendar: Calendar = .current) -> Decision {
         if s.frequency == .manual { return .manual }
         guard isDue(s, lastSuccess: lastSuccess, now: now, calendar: calendar) else { return .notDue }
         if running { return .alreadyRunning }
+        if let a = lastAttempt, a > (lastSuccess ?? .distantPast), now.timeIntervalSince(a) < retryDelay { return .retryLater }
         if power.onBattery && (power.lowPowerMode || power.percent < s.onBatteryMinPercent) { return .waitingPower }
         if !reachable { return .waitingDestination }
         return .run
