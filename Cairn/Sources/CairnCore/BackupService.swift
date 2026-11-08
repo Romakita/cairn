@@ -124,6 +124,7 @@ public final class BackupService: @unchecked Sendable {
                 for d in config.destinations where request.destinationIDs?.contains(d.id) ?? true {
                     var ds = state[d.id]
                     ds.lastAttempt = Date()
+                    ds.lastFailure = Date()
                     ds.lastError = String(describing: error)
                     state[d.id] = ds
                 }
@@ -207,6 +208,7 @@ public final class BackupService: @unchecked Sendable {
                                       imageCheck: imageCheck, log: log.url))
             } catch {
                 ds.lastError = String(describing: error)
+                if !request.dryRun { ds.lastFailure = Date() }
                 log.write("\(d.id): error \(error)")
                 results.append(Result(destination: d.id, outcome: nil, error: String(describing: error), waiting: false,
                                       newImagePassword: session.newImagePassword, log: log.url))
