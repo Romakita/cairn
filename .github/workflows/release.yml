@@ -52,9 +52,9 @@ jobs:
           cat >> build-notes.md <<'NOTES'
 
           ---
-          **Installation** : décompresser l'archive et glisser `Cairn.app` dans `~/Applications`. L'app n'est pas
-          notarisée : au premier lancement, clic droit → Ouvrir, ou `xattr -dr com.apple.quarantine ~/Applications/Cairn.app`.
-          Commande `cairn` : `ln -sf ~/Applications/Cairn.app/Contents/MacOS/Cairn ~/.local/bin/cairn`.
+          **Installation:** unzip the archive and drag `Cairn.app` into `~/Applications`. The app is not notarized: on
+          first launch, right-click → Open, or run `xattr -dr com.apple.quarantine ~/Applications/Cairn.app`.
+          `cairn` command: `ln -sf ~/Applications/Cairn.app/Contents/MacOS/Cairn ~/.local/bin/cairn`.
           NOTES
 
       - name: Publish

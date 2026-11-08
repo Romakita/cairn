@@ -1,49 +1,49 @@
 # Changelog
 
-Toutes les évolutions notables de Cairn. Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
-versions en [SemVer](https://semver.org/lang/fr/). Le numéro courant est dans `Cairn/VERSION`.
+All notable changes to Cairn. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
+versions follow [SemVer](https://semver.org/). The current version is in `Cairn/VERSION`.
 
 ## [Unreleased]
 
-### Modifié
-- Nouvelle icône : cairn de galets ombrés sur une crête au crépuscule.
-- README réécrit pour un projet open source, en anglais (`README.md`) et en français (`README.fr.md`).
+### Changed
+- New icon: a cairn of shaded pebbles on a ridge at dusk.
+- README rewritten for an open-source project, in English (`README.md`) and French (`README.fr.md`).
+- The project is released under the MIT license.
 
-### Corrigé
-- Plus aucun plantage si le bundle de ressources est introuvable : `Bundle.module` (qui fait une assertion) n'est plus
-  appelé, l'app démarre avec les textes non traduits.
-- Le test de fumée lance aussi l'interface et vérifie qu'elle tourne encore après quelques secondes : le plantage de
-  la 0.1.0 (à la construction des menus) n'était pas couvert par les seules commandes CLI.
-- Le projet est publié sous licence MIT.
+### Fixed
+- No more crash when the resource bundle cannot be found: `Bundle.module` (which asserts) is no longer called, and
+  the app starts with untranslated strings.
+- The smoke test also launches the GUI and checks that it is still running after a few seconds: the 0.1.0 crash
+  (while building the menus) was not covered by the CLI commands alone.
 
 ## [0.1.1] - 2026-11-08
 
-### Corrigé
-- L'app téléchargée depuis une release plantait au lancement : son bundle de ressources n'était cherché que dans le
-  dossier de build de la machine qui l'avait compilée. Les ressources sont maintenant cherchées dans
-  `Cairn.app/Contents/Resources` (y compris via le lien `cairn`), et la CI lance l'app construite hors de ce dossier.
-- Maintenance git : la branche principale locale n'est jamais proposée, même extraite dans un worktree lié.
-- Restauration des outils IA : une base SQLite absente du Mac est toujours restaurée ; un dossier de projet Claude
-  n'est supprimé qu'après une fusion réussie.
+### Fixed
+- The app downloaded from a release crashed at launch: its resource bundle was only looked up in the build folder of
+  the machine that compiled it. Resources are now looked up in `Cairn.app/Contents/Resources` (including through the
+  `cairn` link), and CI runs the built app outside that folder.
+- Git maintenance: the local main branch is never offered for deletion, even when checked out in a linked worktree.
+- AI tools restore: a SQLite database missing from the Mac is always restored; a Claude project folder is only
+  removed after a successful merge.
 
-### Ajouté
-- `cairn restore --tool ID` pour choisir les outils IA à restaurer.
+### Added
+- `cairn restore --tool ID` to choose which AI tools to restore.
 
 ## [0.1.0] - 2026-11-08
 
-Première version publique.
+First public release.
 
-### Ajouté
-- Analyse de l'occupation des dossiers suivis : explorateur, contenu régénérable (nettoyage vers la corbeille après
-  confirmation), gros projets (worktrees compris), gros objets.
-- Sauvegardes versionnées par rsync (`--link-dest`) vers un dossier, un disque ou un NAS SMB, dans une image disque
-  chiffrée (AES-256) ; rétention par paliers, reprise d'une sauvegarde interrompue, contrôle d'intégrité (SHA-256),
-  planification tant que l'app est ouverte, attente d'un NAS injoignable.
-- Sauvegarde et restauration des conversations et de la configuration des outils IA (Claude Code, Claude Desktop,
-  Codex) par profils déclaratifs, avec copies cohérentes des bases SQLite.
-- Inventaire des outils en ligne de commande (brew, mise, npm, uv, pipx, cargo, go) et export réinstallable.
-- Maintenance git : branches gone, fusionnées ou squashées, worktrees obsolètes, gc ; simulation par défaut et journal
-  des SHA supprimés.
-- Restauration sélective (format Cairn et anciennes sauvegardes `backup.sh`), y compris sur un Mac neuf.
-- Barre des menus avec résumé du stockage et alertes de disque plein.
-- Commande `cairn` (même binaire que l'app) ; interface en anglais et en français.
+### Added
+- Disk usage analysis of tracked folders: explorer, regenerable content (cleaned to the Trash after confirmation),
+  large projects (worktrees included), large objects.
+- Versioned backups with rsync (`--link-dest`) to a folder, a drive or an SMB NAS, inside an encrypted disk image
+  (AES-256); tiered retention, resume of an interrupted backup, integrity check (SHA-256), scheduling while the app is
+  open, waiting for an unreachable NAS.
+- Backup and restore of AI tools' conversations and configuration (Claude Code, Claude Desktop, Codex) through
+  declarative profiles, with consistent copies of SQLite databases.
+- Inventory of command-line tools (brew, mise, npm, uv, pipx, cargo, go) and a reinstallable export.
+- Git maintenance: gone, merged or squashed branches, stale worktrees, gc; dry run by default and a log of deleted
+  SHAs.
+- Selective restore (Cairn format and older `backup.sh` backups), including on a new Mac.
+- Menu bar extra with a storage summary and disk-full alerts.
+- `cairn` command (same binary as the app); interface in English and French.
