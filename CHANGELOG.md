@@ -5,6 +5,8 @@ versions follow [SemVer](https://semver.org/). The current version is in `Cairn/
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-08
+
 ### Added
 - In-app updates, like Codex: when a new release is published, an **Update available** button appears at the bottom
   of the icon bar. It shows the release notes and offers **Install and relaunch**: the archive is checked against its
