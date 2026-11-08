@@ -564,3 +564,30 @@
 /* Lot avertissements : configuration, langues, inventaire */
 "config.save.refused" = "config.toml contains an error: fix the file before changing settings (%@)";
 "settings.blocked" = "Settings and scheduled backups are paused until config.toml is fixed.";
+
+/* Lot avertissements : sauvegarde et ligne de commande */
+"cli.verify.unknown_version" = "Unknown version: %@";
+"cli.backup.unknown_tool" = "Unknown AI tool: %1$@ (known: %2$@)";
+"cli.backup.damaged" = "Monthly check: %lld damaged file(s), recopied from the source at the next backup";
+"cli.backup.image_check_failed" = "%1$@: disk image check failed: %2$@";
+"backup.notify.view_log" = "View log";
+"backup.notify.damaged_title" = "Damaged files in the backup on %@";
+"backup.notify.damaged_body" = "%lld damaged file(s) found; they will be recopied from your Mac at the next backup.";
+"backup.notify.image_failed_title" = "Disk image check failed on %@";
+"backup.image_check.failed" = "Disk image check failed: %@";
+"backup.view_log" = "View log";
+"backup.result.simulation" = "Simulation result";
+"backup.result.backup" = "Last backup";
+"backup.result.dismiss" = "Hide";
+"backup.result.total" = "Total for %@";
+"backup.result.files" = "%1$@ · %2$@ files";
+"backup.verify_full" = "Full check";
+"backup.verify_full.title" = "Full check of every version";
+"backup.verify_full.running" = "Reading every file…";
+"backup.verify_full.pending" = "Checksums pending";
+"backup.verify_full.result" = "%1$@ files checked, %2$lld damaged";
+"backup.verify_full.summary" = "Full check: %1$lld version(s), %2$lld damaged file(s)";
+"backup.retention.unreachable" = "The destination could not be read: a shorter retention is not saved, because it would delete versions without confirmation. Connect the destination and try again.";
+"onboarding.destination.disable_encryption.title" = "Back up without encryption?";
+"onboarding.destination.disable_encryption.message" = "Anyone with access to the destination will be able to read your files, including SSH keys and tokens.";
+"onboarding.destination.disable_encryption.confirm" = "Disable encryption";

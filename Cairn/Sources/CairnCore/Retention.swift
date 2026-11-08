@@ -32,6 +32,16 @@ public enum RetentionPolicy {
         }
     }
 
+    /// La nouvelle rétention peut-elle supprimer des versions que l'ancienne gardait ? (sans lire la destination)
+    /// Passer d'un type de rétention à l'autre compte comme plus court : on ne peut pas le prouver sans les versions.
+    public static func mayDeleteMore(_ new: CairnConfig.Retention, than old: CairnConfig.Retention) -> Bool {
+        switch (old, new) {
+        case let (.count(a), .count(b)): b < a
+        case let (.tiered(d1, w1), .tiered(d2, w2)): d2 < d1 || d2 + 7 * w2 < d1 + 7 * w1
+        default: true
+        }
+    }
+
     /// Nombre maximal de versions et durée couverte, pour l'affichage dans les réglages.
     public static func coverage(_ retention: CairnConfig.Retention, frequency: CairnConfig.Frequency) -> (maxVersions: Int, days: Int) {
         switch retention {
@@ -55,6 +65,9 @@ public struct RunState: Codable, Equatable, Sendable {
         public var lastOverdueNotice: Date?
         public var lastVerification: Date?
         public var damagedVersions: [String] = []
+        /// Dernier contrôle de l'image disque (`hdiutil verify`) et son résultat.
+        public var lastImageCheck: Date?
+        public var lastImageCheckOK: Bool?
         public var lastBytesTransferred: Int64 = 0
         public var lastDuration: Double = 0
         /// Journaux des versions encore présentes sur la destination (épargnés par la purge des journaux).

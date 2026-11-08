@@ -266,6 +266,28 @@ public final class SparseImage: @unchecked Sendable {
         mountPoint = nil
     }
 
+    /// Résultat de `hdiutil verify`.
+    public struct Check: Sendable, Equatable {
+        public let ok: Bool
+        public let output: String
+    }
+
+    /// Contrôle de l'image avec `hdiutil verify` (image détachée). Un sparsebundle n'a pas de somme de contrôle
+    /// globale : « has no checksum » veut dire que l'image s'ouvre (structure lisible, mot de passe accepté) et compte
+    /// comme réussi ; toute autre erreur (image illisible, mot de passe refusé) est un échec.
+    public func verify(password provided: String? = nil) -> Check {
+        var args = ["verify", path]
+        var pw: String?
+        if encrypted {
+            pw = provided ?? password
+            guard pw != nil else { return Check(ok: false, output: ProviderError.missingImagePassword(path).description) }
+            args.insert("-stdinpass", at: 1)
+        }
+        let (code, out) = Self.hdiutil(args, stdin: pw)
+        let text = out.trimmingCharacters(in: .whitespacesAndNewlines)
+        return Check(ok: code == 0 || text.contains("has no checksum"), output: text)
+    }
+
     /// Récupère l'espace libéré par la rétention.
     public func compact() {
         _ = Self.hdiutil(["compact", "-batteryallowed", path] + (encrypted ? ["-stdinpass"] : []), stdin: encrypted ? password : nil)
@@ -341,5 +363,13 @@ public final class DestinationSession: @unchecked Sendable {
         image?.detach()
         if compact { image?.compact() }
         provider.finish()
+    }
+
+    /// `hdiutil verify` de l'image utilisée (nil sans image). À appeler avant `close` : l'image est détachée
+    /// pour le contrôle, le partage qui la porte reste monté jusqu'à `close`.
+    public func verifyImage() -> SparseImage.Check? {
+        guard let image else { return nil }
+        image.detach()
+        return image.verify(password: imagePassword)
     }
 }
