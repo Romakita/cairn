@@ -371,9 +371,14 @@ public enum CLI {
         if !yes && !confirm(L10n.tr("cli.git.confirm", nb, nw, o.pruneNow ? L10n.tr("cli.git.prune_warning") : "")) {
             err(L10n.tr("cli.cancelled")); return .failure
         }
+        // Même verrou que la sauvegarde : gc et prune ne doivent pas réécrire un .git en cours de copie.
+        let lock = OperationLock(url: store.paths.operationLock)
+        do { try lock.acquire(operation: "git-clean") } catch { err(L10n.tr("cli.busy")); return .failure }
+        defer { lock.release() }
         var failures = 0
         for (r, branches, wts) in plan where !branches.isEmpty || !wts.isEmpty || o.gc {
-            let res = GitMaintenance.apply(repo: r.path, branches: branches.map(\.name), worktrees: wts, options: o)
+            let res = GitMaintenance.apply(repo: r.path, branches: branches.map(\.name), worktrees: wts, options: o,
+                                           expectedSHAs: Dictionary(branches.map { ($0.name, $0.sha) }, uniquingKeysWith: { a, _ in a }))
             failures += res.failures.count
             res.failures.forEach { err(L10n.tr("cli.git.failed", $0)) }
         }
@@ -487,7 +492,7 @@ public enum CLI {
                 if let version, !all.contains(where: { $0.version == version }) {
                     err(L10n.tr("cli.verify.unknown_version", version)); return .usage
                 }
-                guard let pick = version.flatMap({ v in all.first { $0.version == v }?.url }) ?? RestoreSource.defaultVersion(all) else {
+                guard let pick = version.flatMap({ RestoreSource.version(named: $0, in: all) }) ?? RestoreSource.defaultVersion(all) else {
                     err(L10n.tr("cli.restore.no_version")); return .failure
                 }
                 sourceURL = pick

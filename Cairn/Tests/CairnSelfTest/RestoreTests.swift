@@ -172,4 +172,27 @@ let restoreTests: [TestCase] = [
                        "rien à signaler si le chemin ne change pas")
         }
     },
+    TestCase("default_version_is_most_recent_and_prefers_this_mac") {
+        typealias V = (machine: String, version: String, url: URL, partial: Bool)
+        func v(_ m: String, _ name: String, partial: Bool = false) -> V { (m, name, URL(fileURLWithPath: "/d/\(m)/\(name)"), partial) }
+        // Trié par machine (comme `versions(onDestinationRoot:)`) : la dernière n'est pas la plus récente.
+        let all = [v("Alpha", "2026-11-01T120000"), v("Zulu", "2025-01-01T120000")]
+        try expectEqual(RestoreSource.defaultVersion(all, machine: "New")?.path, "/d/Alpha/2026-11-01T120000")
+        try expectEqual(RestoreSource.defaultVersion(all, machine: "Zulu")?.path, "/d/Zulu/2025-01-01T120000")
+        let twice = [v("Alpha", "2026-11-01T120000"), v("Zulu", "2026-11-01T120000")]
+        try expectEqual(RestoreSource.version(named: "2026-11-01T120000", in: twice, machine: "Zulu")?.path, "/d/Zulu/2026-11-01T120000")
+        try expect(RestoreSource.version(named: "absente", in: twice) == nil)
+    },
+    TestCase("tool_names_from_backup_are_not_run_by_the_shell") {
+        try withTempDir { dir in
+            let v = dir.appendingPathComponent("v")
+            let marker = dir.appendingPathComponent("pwned")
+            try put("{\"parts\": []}", v.appendingPathComponent("manifest.json"))
+            try put("[[npm]]\nname = \"evil\"\ncommands = [\"x; touch \(marker.path)\"]\n", v.appendingPathComponent("tools/tools.toml"))
+            let service = RestoreService(source: RestoreSource.open(v)!, runner: SystemRunner(), home: dir.path)
+            let (_, missing) = service.check()
+            try expectEqual(missing, ["evil"])
+            try expect(!FileManager.default.fileExists(atPath: marker.path), "le nom n'est pas interprété par le shell")
+        }
+    },
 ]

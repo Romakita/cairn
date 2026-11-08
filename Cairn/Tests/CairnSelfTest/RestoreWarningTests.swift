@@ -233,7 +233,7 @@ let restoreWarningTests: [TestCase] = [
             try expect(!sim.contains { $0.step == "check" }, "pas de vérification en simulation")
             let ok = RestoreService(source: source, runner: FakeRunner(cltInstalled: true), home: dir.path)
                 .run(plan, apply: true, waitForAdmin: { asked.append($0); return true })
-            try expectEqual(ok.first { $0.step == "command-line-tools" }?.detail, "present")
+            try expectEqual(ok.first { $0.step == "command-line-tools" }?.detail, L10n.tr("restore.detail.present"))
             try expect(!asked.contains(RestoreService.commandLineToolsInstall))
             try expect(RestoreService.waitForCommandLineTools(timeout: 1, runner: FakeRunner(cltInstalled: true)))
         }

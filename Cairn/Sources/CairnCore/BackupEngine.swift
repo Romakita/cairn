@@ -136,7 +136,7 @@ public final class BackupEngine: @unchecked Sendable {
     public func cancel() {
         lock.withLock {
             cancelled = true
-            process?.terminate()
+            if let p = process, p.isRunning { p.terminate() }
         }
     }
 
@@ -333,9 +333,14 @@ public final class BackupEngine: @unchecked Sendable {
         let pipe = Pipe()
         p.standardOutput = pipe
         p.standardError = FileHandle.nullDevice
-        lock.withLock { process = p }
-        defer { lock.withLock { process = nil } }
+        // Publié seulement une fois lancé : terminate() sur un processus non lancé lève une exception.
         try p.run()
+        let cancelledBeforeStart = lock.withLock { () -> Bool in
+            process = p
+            return cancelled
+        }
+        defer { lock.withLock { process = nil } }
+        if cancelledBeforeStart { p.terminate() }
 
         var names: [String] = []
         var buffer = Data()

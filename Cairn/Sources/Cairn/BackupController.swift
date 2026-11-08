@@ -64,18 +64,20 @@ final class BackupController {
             let waitingMap = waiting
             await MainActor.run {
                 model.destinationWaiting = waitingMap
-                self.notifyOverdue(config: config, state: state)
+                self.notifyOverdue(config: config)
                 if !dueIDs.isEmpty { self.run(destinations: dueIDs, dryRun: false) }
             }
         }
     }
 
-    func notifyOverdue(config: CairnConfig, state: RunState) {
+    func notifyOverdue(config: CairnConfig) {
         guard let model else { return }
-        var s = state
+        // Relu juste avant l'écriture : `state` date du début de tick(), avant les tests de joignabilité, et une
+        // sauvegarde (app ou `cairn backup`) a pu écrire runs.json entre-temps.
+        var s = RunState.load(model.paths)
         var changed = false
         for d in config.destinations where model.destinationWaiting[d.id] == true {
-            let ds = state[d.id]
+            let ds = s[d.id]
             if BackupSchedule.shouldNotifyOverdue(config.schedule, lastSuccess: ds.lastSuccess, lastNotice: ds.lastOverdueNotice, now: Date()) {
                 let last = ds.lastSuccess.map(Self.relative) ?? T("backup.never")
                 notify(title: T("backup.notify.overdue_title", model.destinationLabel(d)), body: T("backup.notify.overdue_body", last))

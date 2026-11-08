@@ -324,14 +324,15 @@ public struct TOMLDocument: Sendable {
     }
 
     private mutating func ensureTrailingNewline() {
-        if let last = items.indices.last, !items[last].raw.hasSuffix("\n") { items[last].raw += "\n" }
+        // En scalaires : « \r\n » ne se termine pas par le graphème "\n".
+        if let last = items.indices.last, items[last].raw.unicodeScalars.last != "\n" { items[last].raw += "\n" }
     }
 
     private mutating func renumber() {
         var line = 1
         for i in items.indices {
             items[i].line = line
-            line += items[i].raw.filter { $0 == "\n" }.count
+            line += items[i].raw.unicodeScalars.filter { $0 == "\n" }.count
         }
     }
 
@@ -472,7 +473,9 @@ struct Parser {
     var pos = 0
     var line = 1
 
-    init(text: String) { chars = Array(text) }
+    /// Un caractère par scalaire Unicode : en `Character`, « \r\n » ne forme qu'un seul graphème et ne serait égal
+    /// ni à "\r" ni à "\n" (fichier CRLF illisible, ou commentaire qui avalerait la suite du fichier).
+    init(text: String) { chars = text.unicodeScalars.map(Character.init) }
 
 
     mutating func parseAll() throws -> [TOMLDocument.Item] {
@@ -524,8 +527,10 @@ struct Parser {
             let raw = String(chars[startPos..<pos])
             var range: Range<String.Index>?
             if value != nil {
-                let lo = raw.index(raw.startIndex, offsetBy: valueStart - startPos)
-                let hi = raw.index(raw.startIndex, offsetBy: valueEnd - startPos)
+                // Positions comptées en scalaires (voir `init`).
+                let scalars = raw.unicodeScalars
+                let lo = scalars.index(scalars.startIndex, offsetBy: valueStart - startPos)
+                let hi = scalars.index(scalars.startIndex, offsetBy: valueEnd - startPos)
                 range = lo..<hi
             }
             items.append(TOMLDocument.Item(kind: kind, raw: raw, line: startLine, value: value, valueRange: range))

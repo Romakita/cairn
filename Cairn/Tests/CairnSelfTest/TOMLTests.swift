@@ -107,4 +107,14 @@ let tomlTests: [TestCase] = [
         doc.set(.string("a \"b\" \\ c\nd"), key: ["s"])
         try expectEqual(try TOMLDocument(parsing: doc.render()).tree().value("s")?.string, "a \"b\" \\ c\nd")
     },
+    TestCase("crlf_line_endings") {
+        // « \r\n » est un seul graphème Swift : le commentaire initial ne doit pas avaler tout le fichier.
+        var doc = try TOMLDocument(parsing: "# commentaire\r\nversion = 1\r\n\r\n[t]\r\nx = \"a\"   # note\r\n")
+        try expectEqual(try doc.tree().value("version"), .integer(1))
+        try expectEqual(try doc.tree().table("t")?.value("x")?.string, "a")
+        try expectEqual(doc.line(section: ["t"], key: ["x"]), 5)
+        doc.set(.integer(2), key: ["version"])
+        try expect(doc.render().hasPrefix("# commentaire\r\nversion = 2\r\n"), doc.render())
+        try expectEqual(try TOMLDocument(parsing: doc.render()).tree().value("version"), .integer(2))
+    },
 ]

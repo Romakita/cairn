@@ -76,8 +76,18 @@ public struct RestoreSource: Sendable {
     /// Version proposée par défaut : la plus récente version complète de ce Mac, sinon de n'importe quelle machine.
     public static func defaultVersion(_ all: [(machine: String, version: String, url: URL, partial: Bool)],
                                       machine: String = BackupEngine.machineName()) -> URL? {
+        // Les noms de version sont des horodatages triables ; `all` est trié par machine, pas par date.
+        func newest(_ list: [(machine: String, version: String, url: URL, partial: Bool)]) -> URL? {
+            list.max { $0.version < $1.version }?.url
+        }
         let complete = all.filter { !$0.partial }
-        return (complete.last { $0.machine == machine } ?? complete.last ?? all.last)?.url
+        return newest(complete.filter { $0.machine == machine }) ?? newest(complete) ?? newest(all)
+    }
+
+    /// Version demandée par son nom : celle de ce Mac d'abord (deux machines peuvent avoir le même nom de version).
+    public static func version(named name: String, in all: [(machine: String, version: String, url: URL, partial: Bool)],
+                               machine: String = BackupEngine.machineName()) -> URL? {
+        (all.first { $0.version == name && $0.machine == machine } ?? all.first { $0.version == name })?.url
     }
 }
 
@@ -363,8 +373,9 @@ public final class RestoreService: @unchecked Sendable {
         runner.run(["/usr/bin/xcode-select", "-p"]).status == 0
     }
 
+    /// Le nom vient de la sauvegarde (tools.toml) : passé en argument positionnel, jamais interprété par le shell.
     func available(_ cmd: String) -> Bool {
-        runner.run(["/bin/sh", "-c", "command -v \(cmd)"]).status == 0
+        runner.run(["/bin/sh", "-c", "command -v -- \"$1\"", "sh", cmd]).status == 0
     }
 
     /// Réinstalle dans l'ordre du design ; les outils présents sont ignorés, chaque échec est noté sans arrêter la suite.
@@ -372,25 +383,28 @@ public final class RestoreService: @unchecked Sendable {
         let (tools, taps, _) = ToolPlan.read(dir)
         // Command Line Tools d'abord : Homebrew et les compilations en dépendent.
         if commandLineToolsInstalled() {
-            record("command-line-tools", true, "present")
+            record("command-line-tools", true, L10n.tr("restore.detail.present"))
         } else {
             let ok = apply ? waitForAdmin(Self.commandLineToolsInstall) : false
-            record("command-line-tools", ok || !apply, apply ? "" : "would install: " + Self.commandLineToolsInstall)
+            record("command-line-tools", ok || !apply, apply ? "" : L10n.tr("restore.detail.would_install", Self.commandLineToolsInstall))
         }
         if !available("brew") && tools.contains(where: { $0.source == .brew }) {
             let cmd = "/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
             let ok = apply ? waitForAdmin(cmd) : false
-            record("brew-install", ok || !apply, apply ? "" : "simulation")
+            record("brew-install", ok || !apply, apply ? "" : L10n.tr("restore.detail.simulation"))
         }
         if apply { for tap in taps { _ = runner.run(["brew", "tap", tap]) } }
         for src in ToolPlan.order {
             for t in tools where t.source == src {
                 let present = t.commands.contains { available($0) }
-                if present { record("tool:\(t.name)", true, "present"); continue }
-                guard let cmd = ToolPlan.installCommand(t) else { record("tool:\(t.name)", false, "manual"); continue }
-                guard apply else { record("tool:\(t.name)", true, "would install: " + cmd.joined(separator: " ")); continue }
+                if present { record("tool:\(t.name)", true, L10n.tr("restore.detail.present")); continue }
+                guard let cmd = ToolPlan.installCommand(t) else { record("tool:\(t.name)", false, L10n.tr("restore.detail.manual")); continue }
+                guard apply else {
+                    record("tool:\(t.name)", true, L10n.tr("restore.detail.would_install", cmd.joined(separator: " "))); continue
+                }
                 let r = runner.run(cmd)
-                record("tool:\(t.name)", r.status == 0, r.status == 0 ? "installed" : "failed (\(r.status))")
+                record("tool:\(t.name)", r.status == 0,
+                       r.status == 0 ? L10n.tr("restore.detail.installed") : L10n.tr("restore.detail.failed", Int(r.status)))
             }
         }
     }

@@ -595,3 +595,9 @@
 "cli.version" = "cairn %@";
 "ai.restore.rename_failed" = "Claude Code: the project folder “%1$@” was left in place, it could not be renamed (%2$@).";
 "cli.restore.unknown_tool" = "No AI tool “%1$@” in this backup (available: %2$@).";
+"restore.detail.present" = "present";
+"restore.detail.would_install" = "would install: %@";
+"restore.detail.manual" = "manual reinstall";
+"restore.detail.installed" = "installed";
+"restore.detail.failed" = "failed (code %lld)";
+"restore.detail.simulation" = "simulation";
