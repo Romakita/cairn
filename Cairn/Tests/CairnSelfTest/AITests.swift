@@ -104,6 +104,28 @@ let aiTests: [TestCase] = [
             try expectEqual(after[.modificationDate] as? Date, before[.modificationDate] as? Date)
         }
     },
+    TestCase("immutable_read_only_for_clean_wal_databases") {
+        try withTempDir { dir in
+            let fm = FileManager.default
+            let wal = dir.appendingPathComponent("wal.sqlite").path
+            makeDB(wal, rows: 5)
+            for s in ["-wal", "-shm"] { try? fm.removeItem(atPath: wal + s) }
+            try expect(AIBackup.isCleanWAL(wal), "WAL fermée proprement")
+            try Data().write(to: URL(fileURLWithPath: wal + "-wal"))
+            try expect(!AIBackup.isCleanWAL(wal), "-wal présent")
+            // Journal classique avec un -journal (outil planté) : récupération nécessaire, jamais d'immutable.
+            let rollback = dir.appendingPathComponent("rollback.sqlite").path
+            var db: OpaquePointer?
+            sqlite3_open(rollback, &db)
+            sqlite3_exec(db, "PRAGMA journal_mode=DELETE; CREATE TABLE t(x); INSERT INTO t VALUES(1);", nil, nil, nil)
+            sqlite3_close(db)
+            try expect(!AIBackup.isCleanWAL(rollback), "journal classique")
+            try Data(repeating: 1, count: 512).write(to: URL(fileURLWithPath: rollback + "-journal"))
+            try expect(!AIBackup.isCleanWAL(rollback), "-journal chaud")
+            try Data(repeating: 0x42, count: 100).write(to: dir.appendingPathComponent("junk.sqlite"))
+            try expect(!AIBackup.isCleanWAL(dir.appendingPathComponent("junk.sqlite").path), "pas du SQLite")
+        }
+    },
     TestCase("unreadable_database_warns_without_failing_backup") {
         try withTempDir { dir in
             let home = dir.appendingPathComponent("home")
@@ -118,6 +140,11 @@ let aiTests: [TestCase] = [
             try expect(parts.contains { $0.target == "ai/codex/meta" }, "partie meta présente")
             try expectEqual(warnings.count, 1)
             try expect(warnings.first?.contains("state_5.sqlite") ?? false, "avertissement nomme la base")
+            // Aucune copie vide ou partielle : la restauration l'installerait à la place de la vraie base.
+            let snap = dir.appendingPathComponent("staging/ai-codex/sqlite/conversations/state_5.sqlite").path
+            for s in ["", "-journal", "-wal", "-shm"] {
+                try expect(!FileManager.default.fileExists(atPath: snap + s), "copie ratée laissée : state_5.sqlite\(s)")
+            }
         }
     },
     TestCase("backup_parts_by_category_without_packages") {
