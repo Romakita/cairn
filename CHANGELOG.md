@@ -5,6 +5,11 @@ versions en [SemVer](https://semver.org/lang/fr/). Le numéro courant est dans `
 
 ## [Unreleased]
 
+### Modifié
+- Nouvelle icône : cairn de galets ombrés sur une crête au crépuscule.
+- README réécrit pour un projet open source, en anglais (`README.md`) et en français (`README.fr.md`).
+- Le projet est publié sous licence MIT.
+
 ## [0.1.1] - 2026-11-08
 
 ### Corrigé
