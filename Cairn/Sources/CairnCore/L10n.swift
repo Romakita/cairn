@@ -55,7 +55,7 @@ public enum L10n {
         defer { lock.unlock() }
         if let t = cache[lang] { return t }
         var t: [String: String] = [:]
-        if let url = Bundle.module.url(forResource: "Localizable", withExtension: "strings", subdirectory: nil,
+        if let url = CairnResources.bundle.url(forResource: "Localizable", withExtension: "strings", subdirectory: nil,
                                        localization: lang.lproj),
            let dict = NSDictionary(contentsOf: url) as? [String: String] {
             t = dict
@@ -72,7 +72,7 @@ public enum L10n {
         defer { lock.unlock() }
         if let p = pluralCache[lang] { return p }
         var p: (keys: Set<String>, bundle: Bundle?) = ([], nil)
-        if let url = Bundle.module.url(forResource: "Localizable", withExtension: "stringsdict", subdirectory: nil,
+        if let url = CairnResources.bundle.url(forResource: "Localizable", withExtension: "stringsdict", subdirectory: nil,
                                        localization: lang.lproj),
            let dict = NSDictionary(contentsOf: url) as? [String: Any] {
             p = (Set(dict.keys), Bundle(url: url.deletingLastPathComponent()))

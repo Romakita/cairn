@@ -48,8 +48,8 @@ public struct AIProfile: Codable, Equatable, Sendable, Identifiable {
 public enum AIProfiles {
     /// Profils fournis avec Cairn.
     public static let bundled: [AIProfile] = {
-        let urls = (Bundle.module.urls(forResourcesWithExtension: "json", subdirectory: "ai-tools") ?? [])
-            + (Bundle.module.urls(forResourcesWithExtension: "json", subdirectory: nil) ?? [])
+        let urls = (CairnResources.bundle.urls(forResourcesWithExtension: "json", subdirectory: "ai-tools") ?? [])
+            + (CairnResources.bundle.urls(forResourcesWithExtension: "json", subdirectory: nil) ?? [])
         var seen = Set<String>()
         return urls.compactMap { url -> AIProfile? in
             guard let data = try? Data(contentsOf: url), let p = try? JSONDecoder().decode(AIProfile.self, from: data),

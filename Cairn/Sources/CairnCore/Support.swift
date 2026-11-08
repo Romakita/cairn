@@ -107,3 +107,29 @@ public final class RunLog: @unchecked Sendable {
         lock.withLock { try? handle?.close() }
     }
 }
+
+/// Bundle des ressources de CairnCore (catalogues, profils IA, règles).
+/// `Bundle.module` ne cherche qu'à la racine de l'app et dans le dossier de build de la machine qui a compilé : il
+/// plante donc dans une app téléchargée. On cherche d'abord aux emplacements réels, `Bundle.module` en dernier recours.
+public enum CairnResources {
+    static let name = "Cairn_CairnCore.bundle"
+
+    public static let bundle: Bundle = {
+        for url in candidates() {
+            if let b = Bundle(url: url) { return b }
+        }
+        return Bundle.module
+    }()
+
+    static func candidates() -> [URL] {
+        var out: [URL] = []
+        if let r = Bundle.main.resourceURL { out.append(r.appendingPathComponent(name)) }   // Cairn.app/Contents/Resources
+        if let exe = Bundle.main.executableURL?.resolvingSymlinksInPath() {                // lien ~/.local/bin/cairn
+            let dir = exe.deletingLastPathComponent()
+            out.append(dir.deletingLastPathComponent().appendingPathComponent("Resources").appendingPathComponent(name))
+            out.append(dir.appendingPathComponent(name))                                    // swift build, tests
+        }
+        out.append(Bundle.main.bundleURL.appendingPathComponent(name))
+        return out
+    }
+}

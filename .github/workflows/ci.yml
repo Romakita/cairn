@@ -39,3 +39,6 @@ jobs:
 
       - name: App bundle
         run: Cairn/build-app.sh --no-install
+
+      - name: App runs outside the build folder
+        run: Cairn/scripts/smoke-test-app.sh Cairn/build/Cairn.app

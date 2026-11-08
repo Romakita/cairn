@@ -38,6 +38,9 @@ jobs:
       - name: Build app and archive
         run: Cairn/build-app.sh --no-install --zip
 
+      - name: Archive runs outside the build folder
+        run: Cairn/scripts/smoke-test-app.sh Cairn/build/Cairn-${VERSION}-*.zip
+
       - name: Release notes from CHANGELOG
         run: |
           awk -v v="${VERSION}" '

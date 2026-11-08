@@ -5,6 +5,19 @@ versions en [SemVer](https://semver.org/lang/fr/). Le numéro courant est dans `
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-08
+
+### Corrigé
+- L'app téléchargée depuis une release plantait au lancement : son bundle de ressources n'était cherché que dans le
+  dossier de build de la machine qui l'avait compilée. Les ressources sont maintenant cherchées dans
+  `Cairn.app/Contents/Resources` (y compris via le lien `cairn`), et la CI lance l'app construite hors de ce dossier.
+- Maintenance git : la branche principale locale n'est jamais proposée, même extraite dans un worktree lié.
+- Restauration des outils IA : une base SQLite absente du Mac est toujours restaurée ; un dossier de projet Claude
+  n'est supprimé qu'après une fusion réussie.
+
+### Ajouté
+- `cairn restore --tool ID` pour choisir les outils IA à restaurer.
+
 ## [0.1.0] - 2026-11-08
 
 Première version publique.

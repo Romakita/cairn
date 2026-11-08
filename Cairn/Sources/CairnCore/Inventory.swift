@@ -82,8 +82,8 @@ public struct InventoryRules: Sendable {
     public let historyMinUses: Int
 
     public static let bundled: InventoryRules = {
-        guard let url = Bundle.module.url(forResource: "rules", withExtension: "json", subdirectory: "rules")
-                ?? Bundle.module.url(forResource: "rules", withExtension: "json"),
+        guard let url = CairnResources.bundle.url(forResource: "rules", withExtension: "json", subdirectory: "rules")
+                ?? CairnResources.bundle.url(forResource: "rules", withExtension: "json"),
               let data = try? Data(contentsOf: url) else {
             return InventoryRules(home: [:], projects: [:], aliases: [:], historyMinUses: 3)
         }
