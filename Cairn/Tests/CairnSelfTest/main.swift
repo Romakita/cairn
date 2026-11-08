@@ -30,6 +30,7 @@ var suites: [(String, [TestCase])] = [
     ("TOML", tomlTests),
     ("Config", configTests),
     ("Onboarding", onboardingTests),
+    ("DestinationProbe", destinationProbeTests),
     ("PathCompletion", pathCompletionTests),
     ("ConfigWarnings", configWarningTests),
     ("Analysis", analysisTests),
