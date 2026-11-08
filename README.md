@@ -250,7 +250,8 @@ Contributions are welcome: bug reports, new AI tool profiles, inventory rules, t
    `openspec/changes/` (see [AGENTS.md](AGENTS.md)). Project docs and specs are written in French.
 3. Every visible string goes through `T("key")` with an entry in both `en.lproj` **and** `fr.lproj`; a test enforces it.
 4. Any destructive operation must stay explicit, confirmed, and have a dry-run mode.
-5. `just test` must pass; record the change under `[Unreleased]` in [CHANGELOG.md](CHANGELOG.md).
+5. `just test` must pass. Don't edit [CHANGELOG.md](CHANGELOG.md): it is generated from the `feat` / `fix` commit
+   subjects, so write them as release-note lines.
 
 Adding an AI tool = adding a JSON profile in `Sources/CairnCore/Resources/ai-tools/`. Adding an inventory rule =
 editing `Sources/CairnCore/Resources/rules/rules.json`. Details in [Cairn/README.md](Cairn/README.md).
@@ -271,10 +272,11 @@ merged since the last tag:
 | only `fix` / `perf` | patch (`0.2.3` → `0.2.4`) |
 | only `docs`, `ci`, `chore`, `refactor`, `test`… | no release |
 
-After the `main` build passes, CI bumps `Cairn/VERSION`, the code constant and `CHANGELOG.md` (the `[Unreleased]`
-section becomes the dated version section), builds and smoke-tests the archive, pushes a `chore(release): X.Y.Z`
-commit to `main`, tags it `vX.Y.Z` and publishes a GitHub release with `Cairn-<version>-arm64.zip` and its SHA-256
-checksum. The release notes are the `[Unreleased]` section; when it is empty, the commit subjects are used instead.
+After the `main` build passes, CI bumps `Cairn/VERSION`, the code constant and `CHANGELOG.md` (a new dated version
+section), builds and smoke-tests the archive, pushes a `chore(release): X.Y.Z` commit to `main`, tags it `vX.Y.Z`
+and publishes a GitHub release with `Cairn-<version>-arm64.zip` and its SHA-256 checksum. The release notes, in the
+CHANGELOG and on GitHub, are generated from the commit subjects (`feat` → Added, `fix` / `perf` → Fixed, breaking →
+Changed).
 Config: [.releaserc.json](.releaserc.json).
 
 ## Roadmap

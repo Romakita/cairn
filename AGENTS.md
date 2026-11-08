@@ -12,8 +12,11 @@ Les anciens scripts bash ont été retirés (historique git). Voir [README.md](R
 - Commits : [Conventional Commits](https://www.conventionalcommits.org/) en anglais (`feat(scope): …`, `fix: …`,
   `docs: …`). Le type fixe la prochaine version (semantic-release, au merge sur `main`) : breaking change (`feat!:` ou
   `BREAKING CHANGE:`) → majeure, `feat` → mineure, `fix`/`perf` → patch, les autres types → pas de release. Ne pas
-  toucher `Cairn/VERSION` à la main. Le `CHANGELOG.md` (section `[Unreleased]`), publié tel quel comme note de
-  release, est en anglais.
+  toucher `Cairn/VERSION` ni `CHANGELOG.md` à la main : la CI les génère. La note de release (CHANGELOG, release
+  GitHub et fenêtre de mise à jour de l'app) est faite des sujets des commits `feat`/`fix`/`perf` et breaking : les
+  écrire comme une ligne de note lisible par un utilisateur (« verify a destination before saving it », pas
+  « address review »). Les retouches de revue vont dans un commit `refactor`/`test`/`chore`, ou sont fusionnées dans
+  le commit `feat`/`fix` d'origine.
 - Nom de branche : `<type>/<description-courte>`, en anglais et en kebab-case, avec le même `type` que les
   Conventional Commits (`feat/`, `fix/`, `docs/`, `ci/`, `refactor/`, `perf/`, `test/`, `chore/`…). Exemples :
   `feat/in-app-updates`, `fix/ai-wal-database-backup`, `ci/semver-release`. Pas de numéro ni de suffixe aléatoire.

@@ -1,8 +1,8 @@
 #!/bin/zsh
 # Change la version de Cairn : Cairn/VERSION, la constante du code et le CHANGELOG (section [Unreleased] datée).
 # Usage : Cairn/scripts/bump-version.sh 0.2.0 [<fichier de notes>]
-#   Appelé par la CI (semantic-release) avec la version calculée depuis les commits ; le fichier de notes remplit
-#   la section si [Unreleased] est vide.
+#   Appelé par la CI (semantic-release) avec la version calculée depuis les commits ; le fichier de notes
+#   (release-notes.sh) remplit la section de la version.
 set -euo pipefail
 ROOT="${0:A:h:h:h}"
 NEW="${1:-}"
@@ -15,15 +15,16 @@ echo "$NEW" > "$ROOT/Cairn/VERSION"
 sed -i '' "s/public static let fallback = \"$OLD\"/public static let fallback = \"$NEW\"/" "$ROOT/Cairn/Sources/CairnCore/BackupEngine.swift"
 grep -q "fallback = \"$NEW\"" "$ROOT/Cairn/Sources/CairnCore/BackupEngine.swift" || { echo "constante non mise à jour" >&2; exit 1; }
 if ! grep -q "^## \[$NEW\]" "$ROOT/CHANGELOG.md"; then
-  # [Unreleased] devient [NEW] - date ; une section vide reçoit les notes fournies.
+  # [Unreleased] devient [NEW] - date, rempli avec les notes fournies (les mêmes que la release GitHub).
+  # Tout texte ajouté à la main sous [Unreleased] est remplacé : le CHANGELOG ne se rédige pas à la main.
   awk -v new="$NEW" -v date="$(date +%F)" -v notes="${NOTES_FILE:-/dev/null}" '
-    function flush(  l, n) { if (!body) { while ((getline l < notes) > 0) { print l; n++ } if (n) print "" } }
-    /^## \[Unreleased\]$/ { print; print ""; print "## [" new "] - " date; on=1; next }
+    function flush(  l) { while ((getline l < notes) > 0) { print l } print "" }
+    /^## \[Unreleased\]$/ { print; print ""; print "## [" new "] - " date; print ""; on=1; next }
     on && /^## \[/ { flush(); on=0 }
-    on && NF { body=1 }
+    on { next }
     { print }
     END { if (on) flush() }
-  ' "$ROOT/CHANGELOG.md" > "$ROOT/CHANGELOG.md.tmp" && mv "$ROOT/CHANGELOG.md.tmp" "$ROOT/CHANGELOG.md"
+' "$ROOT/CHANGELOG.md" > "$ROOT/CHANGELOG.md.tmp" && mv "$ROOT/CHANGELOG.md.tmp" "$ROOT/CHANGELOG.md"
 fi
 echo "✔ $OLD → $NEW (VERSION, CairnVersion.fallback, CHANGELOG)"
 [[ -n "$NOTES_FILE" ]] || echo "En temps normal, c'est la CI qui fait ce bump au merge sur main (semantic-release)."

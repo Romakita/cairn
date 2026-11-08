@@ -255,7 +255,8 @@ traductions…
    specs et tâches dans `openspec/changes/` (voir [AGENTS.md](AGENTS.md)).
 3. Tout texte visible passe par `T("clé")` avec une entrée dans `en.lproj` **et** `fr.lproj` ; un test le vérifie.
 4. Toute opération destructive doit rester explicite, confirmée et disposer d'un mode simulation.
-5. `just test` doit passer ; noter le changement sous `[Unreleased]` dans [CHANGELOG.md](CHANGELOG.md).
+5. `just test` doit passer. Ne pas modifier [CHANGELOG.md](CHANGELOG.md) : il est généré à partir des sujets des
+   commits `feat` / `fix`, à rédiger comme des lignes de note de release.
 
 Ajouter un outil IA = ajouter un profil JSON dans `Sources/CairnCore/Resources/ai-tools/`. Ajouter une règle
 d'inventaire = éditer `Sources/CairnCore/Resources/rules/rules.json`. Détails dans [Cairn/README.md](Cairn/README.md).
@@ -275,11 +276,11 @@ revue → merge sur `main` → build → release. La version découle des
 | seulement des `fix` / `perf` | patch (`0.2.3` → `0.2.4`) |
 | seulement `docs`, `ci`, `chore`, `refactor`, `test`… | pas de release |
 
-Une fois le build de `main` passé, la CI met à jour `Cairn/VERSION`, la constante du code et `CHANGELOG.md` (la section
-`[Unreleased]` devient la section datée de la version), construit et teste l'archive, pousse un commit
-`chore(release): X.Y.Z` sur `main`, le tague `vX.Y.Z` et publie une release GitHub avec `Cairn-<version>-arm64.zip` et
-son empreinte SHA-256. Les notes de release sont la section `[Unreleased]` ; si elle est vide, ce sont les sujets des
-commits. Configuration : [.releaserc.json](.releaserc.json).
+Une fois le build de `main` passé, la CI met à jour `Cairn/VERSION`, la constante du code et `CHANGELOG.md` (nouvelle
+section datée de la version), construit et teste l'archive, pousse un commit `chore(release): X.Y.Z` sur `main`, le
+tague `vX.Y.Z` et publie une release GitHub avec `Cairn-<version>-arm64.zip` et son empreinte SHA-256. Les notes de
+release, dans le CHANGELOG et sur GitHub, sont générées à partir des sujets des commits (`feat` → Added, `fix` /
+`perf` → Fixed, breaking → Changed). Configuration : [.releaserc.json](.releaserc.json).
 
 ## Feuille de route
 
