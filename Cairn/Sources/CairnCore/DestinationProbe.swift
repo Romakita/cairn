@@ -90,16 +90,27 @@ public enum DestinationProbe {
         guard fm.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else { return .failed(.notFound(path)) }
         removeStaleWriteTests(in: folder)
         let probe = folder.appendingPathComponent(writeTestPrefix + UUID().uuidString)
-        guard fm.createFile(atPath: probe.path, contents: Data("cairn".utf8)) else { return .failed(.readOnly(path)) }
+        guard fm.createFile(atPath: probe.path, contents: writeTestContents) else { return .failed(.readOnly(path)) }
         try? fm.removeItem(at: probe)
         return .ok(freeBytes: freeSpace(at: folder), existingImages: existingImages(at: folder, machine: machine))
     }
 
+    /// Contenu exact du fichier témoin : seul un fichier identique est reconnu comme laissé par Cairn.
+    static let writeTestContents = Data("cairn".utf8)
+
     /// Supprime les fichiers témoins restés d'une vérification interrompue (plantage, partage coupé).
+    /// Seuls les fichiers ordinaires au nom `<préfixe><UUID>` et au contenu du témoin sont supprimés :
+    /// un dossier, un lien ou un fichier de l'utilisateur au nom semblable n'est jamais touché.
     static func removeStaleWriteTests(in folder: URL) {
-        let names = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
-        for n in names where n.hasPrefix(writeTestPrefix) {
-            try? FileManager.default.removeItem(at: folder.appendingPathComponent(n))
+        let fm = FileManager.default
+        let names = (try? fm.contentsOfDirectory(atPath: folder.path)) ?? []
+        for n in names where n.hasPrefix(writeTestPrefix) && UUID(uuidString: String(n.dropFirst(writeTestPrefix.count))) != nil {
+            let url = folder.appendingPathComponent(n)
+            guard let attrs = try? fm.attributesOfItem(atPath: url.path),
+                  attrs[.type] as? FileAttributeType == .typeRegular,
+                  (attrs[.size] as? NSNumber)?.intValue == writeTestContents.count,
+                  fm.contents(atPath: url.path) == writeTestContents else { continue }
+            try? fm.removeItem(at: url)
         }
     }
 

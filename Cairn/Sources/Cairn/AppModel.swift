@@ -80,7 +80,7 @@ final class AppModel: ObservableObject {
     @Published var showAddDestination = false
     /// Destination à ouvrir dans la restauration (« Restaurer cette sauvegarde » depuis l'assistant) et mot de passe
     /// du partage saisi pour la session.
-    @Published var pendingRestore: (CairnConfig.Destination, String?)?
+    @Published var pendingRestore: (destination: CairnConfig.Destination, password: String?, image: String?)?
     @Published var languageRevision = 0
     let background = BackgroundController()
 

@@ -43,10 +43,27 @@ let destinationProbeTests: [TestCase] = [
     },
     TestCase("stale_write_test_files_are_removed") {
         try withTempDir { dir in
-            try writeFile(dir.appendingPathComponent(DestinationProbe.writeTestPrefix + "ancien"), size: 1)
+            let stale = dir.appendingPathComponent(DestinationProbe.writeTestPrefix + UUID().uuidString)
+            try Data("cairn".utf8).write(to: stale)
             try writeFile(dir.appendingPathComponent(".autre-fichier-cache"), size: 1)
             _ = DestinationProbe.checkFolder(dir)
             try expectEqual(visibleNames(dir), [".autre-fichier-cache"])
+        }
+    },
+    TestCase("stale_cleanup_never_touches_user_entries") {
+        try withTempDir { dir in
+            let p = DestinationProbe.writeTestPrefix
+            // Dossier au nom de témoin, avec du contenu : ne doit jamais être supprimé.
+            let folder = dir.appendingPathComponent(p + UUID().uuidString)
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            try writeFile(folder.appendingPathComponent("photo.jpg"), size: 5)
+            // Nom sans UUID, ou contenu différent du témoin : fichiers de l'utilisateur.
+            try Data("cairn".utf8).write(to: dir.appendingPathComponent(p + "archives"))
+            try Data("autre".utf8).write(to: dir.appendingPathComponent(p + UUID().uuidString))
+            let before = visibleNames(dir)
+            _ = DestinationProbe.checkFolder(dir)
+            try expectEqual(visibleNames(dir), before)
+            try expect(FileManager.default.fileExists(atPath: folder.appendingPathComponent("photo.jpg").path))
         }
     },
 
