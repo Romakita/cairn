@@ -45,30 +45,37 @@ struct RootView: View {
 /// Disposition principale : rail, barre latérale et contenu.
 struct MainShell: View {
     @EnvironmentObject var model: AppModel
+    @ViewState private var sidebarVisible = true
 
     var body: some View {
-        HStack(spacing: 0) {
-            VStack(spacing: 0) {
-                Color.clear.frame(height: 44) // place des boutons de fenêtre
-                HStack(alignment: .top, spacing: 0) {
-                    Rail().zIndex(1) // les infobulles débordent sur la barre latérale
-                    SidebarView()
-                        .frame(width: 248)
+        // Comme Codex : cadre gris (barre du haut et rail), corps blanc arrondi et ombré qui flotte dedans.
+        VStack(spacing: 0) {
+            TopBar(sidebarVisible: $sidebarVisible)
+            HStack(alignment: .top, spacing: 0) {
+                Rail().zIndex(1) // les infobulles débordent sur le corps
+                HStack(spacing: 0) {
+                    if sidebarVisible {
+                        SidebarView()
+                            .frame(width: 248)
+                            .overlay(alignment: .trailing) { Rectangle().fill(Palette.border).frame(width: 1) }
+                            .transition(.move(edge: .leading).combined(with: .opacity))
+                    }
+                    VStack(spacing: 0) {
+                        content
+                        if let msg = model.lastMessage {
+                            MessageBar(text: msg) { model.lastMessage = nil }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
+                .background(Palette.content)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Palette.border))
+                .shadow(color: .black.opacity(0.10), radius: 12, y: 3)
+                .padding(.trailing, 10).padding(.bottom, 10)
             }
-            .frame(width: 304)
-            .background(Palette.sidebar)
-            .overlay(alignment: .trailing) { Rectangle().fill(Palette.border).frame(width: 1) }
-
-            VStack(spacing: 0) {
-                content
-                if let msg = model.lastMessage {
-                    MessageBar(text: msg) { model.lastMessage = nil }
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Palette.content)
         }
+        .background(Palette.rail)
     }
 
     @ViewBuilder var content: some View {
@@ -83,6 +90,30 @@ struct MainShell: View {
         case .restore: RestoreView()
         default: ComingSoonView(section: model.section)
         }
+    }
+}
+
+/// Barre du haut : place des boutons de fenêtre, bascule de la barre latérale, logo de Cairn à droite.
+struct TopBar: View {
+    @Binding var sidebarVisible: Bool
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Color.clear.frame(width: 70) // boutons de fenêtre
+            IconButton(systemName: "sidebar.left", label: T("shell.toggle_sidebar")) {
+                withAnimation(.snappy(duration: 0.25)) { sidebarVisible.toggle() }
+            }
+            Spacer()
+            HStack(spacing: 8) {
+                CairnLogo(size: 17, color: Palette.primaryButtonText)
+                    .frame(width: 28, height: 28)
+                    .background(Palette.primaryButton, in: Circle())
+                Text(verbatim: "Cairn").font(.system(size: 16, weight: .semibold)).foregroundStyle(Palette.text)
+            }
+            .padding(.trailing, 20)
+            .accessibilityElement(children: .combine)
+        }
+        .frame(height: 48)
     }
 }
 
@@ -254,11 +285,7 @@ struct SidebarView: View {
     }
 
     @ViewBuilder var homeSidebar: some View {
-        HStack(spacing: 8) {
-            CairnLogo()
-            Text(verbatim: "Cairn").font(.system(size: 17, weight: .semibold))
-        }
-        .padding(.horizontal, 8).padding(.top, 6)
+        Text(AppSection.home.title).font(.system(size: 17, weight: .semibold)).padding(.horizontal, 8).padding(.top, 8)
         foldersSection
         SidebarHeader(title: T("sidebar.destinations"))
         if let dests = model.config?.destinations, !dests.isEmpty {

@@ -227,6 +227,7 @@
 "hub.activity.disk_critical" = "Alert: %@ nearly full";
 "hub.activity.check_ok" = "Full check: everything is in order";
 "hub.activity.check_issues" = "Full check: %lld things to look at";
+"shell.toggle_sidebar" = "Show or hide the sidebar";
 "menu.open" = "Open Cairn";
 "menu.quit" = "Quit Cairn";
 "placeholder.soon" = "This section arrives in an upcoming version.";
