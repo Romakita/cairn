@@ -38,11 +38,11 @@ Toute tâche qui ajoute un texte visible (interface, notification, aide, message
 
 ## 5. Inventaire des outils (`tool-inventory`)
 
-- [ ] 5.1 Écrire les adaptateurs de sources (brew formules et taps sans casks, mise, npm global, uv avec extras et Python, pipx, cargo, go, `~/.local/bin` avec rattachement des liens) ; vérifier par des tests sur des sorties enregistrées et par un inventaire réel sans aucun cask
-- [ ] 5.2 Écrire les règles d'affinage dans `rules.json` (configuration du home vers l'outil, marqueur de projet vers l'outil, historique zsh et bash avec au moins 3 utilisations) avec les statuts utilisé, non utilisé et requis manquant ; vérifier par des tests (`~/.kube` sans `kubectl` donne « requis manquant » avec sa raison)
-- [ ] 5.3 Ajouter l'export `tools.toml` et `Brewfile` (sans `cask` ni `mas`) et la mémorisation des outils exclus dans `[tools].excluded` ; vérifier que `brew bundle check --file` accepte le `Brewfile` exporté et qu'un outil décoché le reste après un nouvel inventaire
-- [ ] 5.4 Construire la vue Outils (liste par source, filtres de statut, cases à cocher, export) et `cairn tools [--json] [--export DIR]` ; vérifier que l'export en ligne de commande produit les deux fichiers
-- [ ] 5.5 Documenter l'inventaire et l'ajout d'une règle dans `rules.json` dans `Cairn/README.md`
+- [x] 5.1 Écrire les adaptateurs de sources (brew formules et taps sans casks, mise, npm global, uv avec extras et Python, pipx, cargo, go, `~/.local/bin` avec rattachement des liens) ; vérifier par des tests sur des sorties enregistrées et par un inventaire réel sans aucun cask
+- [x] 5.2 Écrire les règles d'affinage dans `rules.json` (configuration du home vers l'outil, marqueur de projet vers l'outil, historique zsh et bash avec au moins 3 utilisations) avec les statuts utilisé, non utilisé et requis manquant ; vérifier par des tests (`~/.kube` sans `kubectl` donne « requis manquant » avec sa raison)
+- [x] 5.3 Ajouter l'export `tools.toml` et `Brewfile` (sans `cask` ni `mas`) et la mémorisation des outils exclus dans `[tools].excluded` ; vérifier que `brew bundle check --file` accepte le `Brewfile` exporté et qu'un outil décoché le reste après un nouvel inventaire
+- [x] 5.4 Construire la vue Outils (liste par source, filtres de statut, cases à cocher, export) et `cairn tools [--json] [--export DIR]` ; vérifier que l'export en ligne de commande produit les deux fichiers
+- [x] 5.5 Documenter l'inventaire et l'ajout d'une règle dans `rules.json` dans `Cairn/README.md`
 
 ## 6. Maintenance git (`git-maintenance`)
 

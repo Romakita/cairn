@@ -54,3 +54,30 @@ Règles :
 
 Les journaux sont dans `~/.cairn/logs/` ; ceux de plus de `logs.retention_days` jours sont supprimés, sauf ceux
 des versions de sauvegarde encore gardées.
+
+## Inventaire des outils CLI
+
+`cairn tools` (et la section « Outils CLI » de l'app) liste les outils installés par Homebrew (formules et taps),
+mise, npm global, uv, pipx, cargo, go et `~/.local/bin`. Les applications (casks, `/Applications`, Mac App Store) ne
+sont jamais inventoriées. Les liens de `~/.local/bin` vers un environnement uv ou pipx sont rattachés à leur source.
+
+Chaque outil est marqué :
+
+- **utilisé** s'il a une configuration dans le home, s'il est requis par un fichier de projet dans un dossier suivi,
+  ou s'il apparaît au moins 3 fois dans l'historique zsh/bash ;
+- **non utilisé** sinon (à décocher si besoin : le choix est gardé dans `[tools].excluded`) ;
+- **requis manquant** quand une configuration ou un projet le demande mais qu'il n'est pas installé.
+
+`cairn tools --export DOSSIER` écrit `tools.toml` (outils retenus, par source, avec version, extras et version de
+Python) et un `Brewfile` compatible `brew bundle` (taps et formules, jamais de `cask` ni de `mas`).
+
+### Ajouter une règle
+
+Les règles sont dans `Sources/CairnCore/Resources/rules/rules.json` :
+
+- `home` : chemin relatif à `~` → commandes (ex. `".kube": ["kubectl"]`) ;
+- `projects` : nom de fichier dans un dossier suivi → commandes (ex. `"go.mod": ["go"]`) ;
+- `aliases` : nom de paquet → commandes fournies (ex. `"ripgrep": ["rg"]`) ;
+- `history_min_uses` : nombre d'utilisations dans l'historique pour compter comme « utilisé ».
+
+Aucune recompilation de la logique n'est nécessaire ; `just test Inventory` vérifie que le fichier se charge.

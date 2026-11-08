@@ -12,6 +12,7 @@ final class AppModel: ObservableObject {
     @Published var unavailableFolders: [String] = []
     @Published var bigObjects: [BigObject] = []
     @Published var projects: [Project] = []
+    @Published var inventory: Inventory?
     @Published var volume: VolumeInfo?
     @Published var isScanning = false
     @Published var scannedFiles = 0

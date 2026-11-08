@@ -75,6 +75,7 @@ struct MainShell: View {
         case .home: HomeView()
         case .analysis: AnalysisSection()
         case .settings: SettingsView()
+        case .cli: ToolsView()
         default: ComingSoonView(section: model.section)
         }
     }
@@ -150,6 +151,7 @@ struct SidebarView: View {
                 case .home: homeSidebar
                 case .analysis: analysisSidebar
                 case .settings: settingsSidebar
+                case .cli: toolsSidebar
                 default:
                     Text(model.section.title).font(.system(size: 17, weight: .semibold)).padding(8)
                 }
@@ -214,6 +216,21 @@ struct SidebarView: View {
             }
             Text(T("sidebar.files_count", Fmt.count(root.fileCount)))
                 .font(.system(size: 12)).foregroundStyle(Palette.secondary).padding(8)
+        }
+    }
+
+    @ViewBuilder var toolsSidebar: some View {
+        Text(AppSection.cli.title).font(.system(size: 17, weight: .semibold)).padding(.horizontal, 8).padding(.top, 8)
+        if let inv = model.inventory {
+            SidebarHeader(title: T("sidebar.sources"))
+            let tools = inv.entries.compactMap(\.tool)
+            ForEach(ToolSource.allCases.filter { s in tools.contains { $0.source == s } }, id: \.self) { s in
+                SidebarRow(icon: "shippingbox", title: T("source.\(s.rawValue)"), meta: "\(tools.filter { $0.source == s }.count)")
+            }
+            SidebarHeader(title: T("sidebar.status"))
+            SidebarRow(dot: Palette.foreground(.success), title: T("inventory.status.used"), meta: "\(inv.entries.filter { $0.status == .used }.count)")
+            SidebarRow(dot: Palette.secondary, title: T("inventory.status.unused"), meta: "\(inv.entries.filter { $0.status == .unused }.count)")
+            SidebarRow(dot: Palette.foreground(.danger), title: T("inventory.status.missing"), meta: "\(inv.entries.filter { $0.status == .missing }.count)")
         }
     }
 

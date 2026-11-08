@@ -5,7 +5,7 @@ public enum CLI {
     /// Codes de sortie : 0 succès, 1 échec, 2 erreur d'usage ou de configuration.
     public enum Exit: Int32 { case ok = 0, failure = 1, usage = 2 }
 
-    static let commands: Set<String> = ["analyze", "config", "help"]
+    static let commands: Set<String> = ["analyze", "config", "tools", "help"]
 
     /// Indique si les arguments demandent le mode ligne de commande (et pas l'interface).
     public static func isCommandLine(_ args: [String]) -> Bool {
@@ -50,6 +50,8 @@ public enum CLI {
             return analyze(rest, store: store, out: out, err: err)
         case "config":
             return config(rest, store: store, out: out, err: err)
+        case "tools":
+            return tools(rest, store: store, out: out, err: err)
         default:
             err(L10n.tr("cli.unknown_command", command))
             err(L10n.tr("cli.help"))
@@ -102,6 +104,68 @@ public enum CLI {
             err(L10n.tr("cli.config.help"))
             return .usage
         }
+    }
+
+    /// Configuration courante, lue sans migration ni écriture (valeurs par défaut sinon).
+    static func readConfig(_ store: ConfigStore) -> CairnConfig {
+        guard store.exists, let text = try? String(contentsOf: store.fileURL, encoding: .utf8),
+              let doc = try? TOMLDocument(parsing: text), let (c, _) = try? ConfigDecoder.decode(doc) else { return CairnConfig() }
+        return c
+    }
+
+    static func tools(_ args: [String], store: ConfigStore, out: (String) -> Void, err: (String) -> Void) -> Exit {
+        if args.contains("-h") || args.contains("--help") { out(L10n.tr("cli.tools.help")); return .ok }
+        var json = false
+        var exportDir: String?
+        var i = 0
+        while i < args.count {
+            switch args[i] {
+            case "--json": json = true
+            case "--export":
+                guard i + 1 < args.count else { err(L10n.tr("cli.missing_value", "--export")); return .usage }
+                exportDir = (args[i + 1] as NSString).expandingTildeInPath
+                i += 1
+            default: err(L10n.tr("cli.unknown_option", args[i])); return .usage
+            }
+            i += 1
+        }
+        let inv = InventoryCollector.collect(config: readConfig(store))
+        if let exportDir {
+            do { try InventoryExport.write(inv, to: URL(fileURLWithPath: exportDir)) } catch {
+                err(String(describing: error)); return .failure
+            }
+            err(L10n.tr("cli.tools.exported", inv.retained.count, exportDir))
+        }
+        if json {
+            let list: [[String: Any]] = inv.entries.map { e in
+                var d: [String: Any] = ["name": e.name, "status": e.status.rawValue, "reasons": e.reasons, "excluded": e.excluded]
+                if let t = e.tool {
+                    d["source"] = t.source.rawValue
+                    d["version"] = t.version ?? NSNull()
+                    d["commands"] = t.commands
+                    d["details"] = t.details
+                }
+                return d
+            }
+            let obj: [String: Any] = ["tools": list, "taps": inv.taps]
+            if let data = try? JSONSerialization.data(withJSONObject: obj, options: [.prettyPrinted, .sortedKeys]),
+               let s = String(data: data, encoding: .utf8) { out(s) }
+        } else if exportDir == nil {
+            for status in [InventoryEntry.Status.missing, .used, .unused] {
+                let group = inv.entries.filter { $0.status == status }
+                guard !group.isEmpty else { continue }
+                out(L10n.tr("inventory.status.\(status.rawValue)") + " (\(group.count))")
+                for e in group {
+                    let src = e.tool?.source.rawValue ?? "—"
+                    let ver = e.tool?.version ?? ""
+                    let mark = e.excluded ? " ✗" : ""
+                    out("  " + e.name.padding(toLength: 28, withPad: " ", startingAt: 0) + " "
+                        + src.padding(toLength: 10, withPad: " ", startingAt: 0) + " "
+                        + ver.padding(toLength: 12, withPad: " ", startingAt: 0) + " " + e.reasons.joined(separator: ", ") + mark)
+                }
+            }
+        }
+        return .ok
     }
 
     static func analyze(_ args: [String], store: ConfigStore, out: (String) -> Void, err: (String) -> Void) -> Exit {
