@@ -28,6 +28,8 @@ final class AppModel: ObservableObject {
     @Published var isBackingUp = false {
         didSet {
             guard oldValue != isBackingUp else { return }
+            // Le panneau de mise à jour n'observe que `updates` : on le prévient, son bouton dépend de la sauvegarde.
+            updates.objectWillChange.send()
             menuBarTimer?.invalidate()
             menuBarTimer = nil
             menuBarFrame = 0
