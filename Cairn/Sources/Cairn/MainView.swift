@@ -29,14 +29,13 @@ struct RootView: View {
     var body: some View {
         Group {
             if model.showOnboarding {
-                OnboardingView()
+                OnboardingView().background(Palette.content)
             } else {
                 MainShell()
             }
         }
         .id(model.languageRevision)
         .frame(minWidth: 1100, minHeight: 720)
-        .background(Palette.content)
         .tint(Palette.accent)
         .ignoresSafeArea()
     }
@@ -69,13 +68,14 @@ struct MainShell: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
                 .background(Palette.content)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Palette.border))
-                .shadow(color: .black.opacity(0.10), radius: 12, y: 3)
-                .padding(.trailing, 10).padding(.bottom, 10)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.border))
+                .shadow(color: .black.opacity(0.10), radius: 10, y: 2)
+                .padding(.trailing, 6).padding(.bottom, 6)
             }
         }
-        .background(Palette.rail)
+        // Cadre translucide (matériau de barre latérale de macOS), comme le cadre de Codex.
+        .background(WindowMaterial())
     }
 
     @ViewBuilder var content: some View {
@@ -93,27 +93,28 @@ struct MainShell: View {
     }
 }
 
-/// Barre du haut : place des boutons de fenêtre, bascule de la barre latérale, logo de Cairn à droite.
+/// Barre du haut : place des boutons de fenêtre, bascule de la barre latérale, logo de Cairn au centre.
 struct TopBar: View {
     @Binding var sidebarVisible: Bool
 
     var body: some View {
-        HStack(spacing: 10) {
-            Color.clear.frame(width: 70) // boutons de fenêtre
-            IconButton(systemName: "sidebar.left", label: T("shell.toggle_sidebar")) {
-                withAnimation(.snappy(duration: 0.25)) { sidebarVisible.toggle() }
+        ZStack {
+            HStack(spacing: 10) {
+                Color.clear.frame(width: 70) // boutons de fenêtre
+                IconButton(systemName: "sidebar.left", label: T("shell.toggle_sidebar")) {
+                    withAnimation(.snappy(duration: 0.25)) { sidebarVisible.toggle() }
+                }
+                Spacer()
             }
-            Spacer()
             HStack(spacing: 8) {
-                CairnLogo(size: 17, color: Palette.primaryButtonText)
-                    .frame(width: 28, height: 28)
+                CairnLogo(size: 15, color: Palette.primaryButtonText)
+                    .frame(width: 24, height: 24)
                     .background(Palette.primaryButton, in: Circle())
-                Text(verbatim: "Cairn").font(.system(size: 16, weight: .semibold)).foregroundStyle(Palette.text)
+                Text(verbatim: "Cairn").font(.system(size: 14.5, weight: .semibold)).foregroundStyle(Palette.text)
             }
-            .padding(.trailing, 20)
             .accessibilityElement(children: .combine)
         }
-        .frame(height: 48)
+        .frame(height: 44)
     }
 }
 
@@ -135,7 +136,6 @@ struct Rail: View {
         .padding(.top, 8).padding(.bottom, 14)
         .frame(width: 56)
         .frame(maxHeight: .infinity)
-        .background(Palette.rail)
     }
 }
 

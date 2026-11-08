@@ -1,3 +1,4 @@
+import AppKit
 import CairnCore
 import SwiftUI
 
@@ -410,6 +411,18 @@ struct FillBar: View {
         }
         .frame(height: 8)
     }
+}
+
+/// Matériau translucide de macOS derrière la fenêtre (cadre gris de Codex : barre du haut et rail).
+struct WindowMaterial: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let v = NSVisualEffectView()
+        v.material = .sidebar
+        v.blendingMode = .behindWindow
+        v.state = .followsWindowActiveState
+        return v
+    }
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
 }
 
 /// Logo de Cairn : trois pierres empilées.
