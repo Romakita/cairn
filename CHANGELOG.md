@@ -5,6 +5,11 @@ versions follow [SemVer](https://semver.org/). The current version is in `Cairn/
 
 ## [Unreleased]
 
+### Fixed
+- A backup no longer fails with "Could not copy the state_5.sqlite database": SQLite databases that an AI tool closed
+  in WAL mode without keeping their `-shm` file (Codex) are now copied read-only without a lock, then checked. A
+  database that still cannot be copied only produces a warning instead of stopping the whole backup.
+
 ## [0.3.0] - 2026-11-08
 
 ### Added
@@ -45,10 +50,6 @@ versions follow [SemVer](https://semver.org/). The current version is in `Cairn/
 ### Fixed
 - **Add a destination** in the app opens the destination form instead of sending you to Settings, which had no
   destinations section.
-- Backups no longer fail with "Could not snapshot the database state_5.sqlite": a WAL database whose tool has closed
-  it (Codex) has no `-shm` file, which a read-only SQLite connection cannot create. Cairn now reads such a database
-  without locks or side files and checks that it did not change during the copy. A database that still cannot be
-  copied is reported as a warning instead of stopping the whole backup.
 - The wizard's button to pick a destination folder was labelled "Analyze".
 - No more crash when the resource bundle cannot be found: `Bundle.module` (which asserts) is no longer called, and
   the app starts with untranslated strings.
