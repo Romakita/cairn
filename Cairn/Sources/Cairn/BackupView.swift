@@ -32,6 +32,7 @@ struct BackupView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .sheet(isPresented: $model.showAddDestination) { AddDestinationSheet().environmentObject(model) }
         .alert(T("backup.image_password.title"), isPresented: Binding(get: { model.newImagePassword != nil }, set: { if !$0 { model.newImagePassword = nil } })) {
             Button(T("backup.image_password.copy")) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(model.newImagePassword?.1 ?? "", forType: .string) }
             Button(T("backup.image_password.noted"), role: .cancel) {}
@@ -329,11 +330,6 @@ struct BackupView: View {
 }
 
 extension AppModel {
-    func addDestination() {
-        section = .settings
-        lastMessage = T("backup.add_hint")
-    }
-
     /// Liste les versions d'une destination (monte puis démonte).
     func loadVersions(_ d: CairnConfig.Destination) {
         Task.detached(priority: .userInitiated) {

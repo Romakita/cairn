@@ -10,20 +10,17 @@ struct OnboardingView: View {
     @ViewState private var step = 0
     @ViewState private var reached = 0 // étape la plus avancée atteinte (navigation directe par le stepper)
     @ViewState private var forward = true // sens de l'animation de transition
-    @ViewState private var destinationKind = 0 // 0 plus tard, 1 dossier, 2 NAS
-    @ViewState private var localPath = ""
-    @ViewState private var smbURL = "smb://"
-    @ViewState private var smbUser = NSUserName()
-    @ViewState private var password = ""
+    /// Destination : vérifiée avant « Continuer », démontée à la fermeture de l'assistant.
+    @StateObject private var form: DestinationFormModel
     @ViewState private var notifications = true
     @ViewState private var newHomeItem = ""
-    @ViewState private var confirmUnencrypted = false
 
     static let steps = ["folders", "home", "ai", "destination", "schedule", "notifications"]
 
-    init(step: Int = 0) {
+    init(step: Int = 0, form: DestinationFormModel? = nil) {
         _step = ViewState(initialValue: step)
         _reached = ViewState(initialValue: step)
+        _form = StateObject(wrappedValue: form ?? DestinationFormModel())
     }
 
     var body: some View {
@@ -50,6 +47,7 @@ struct OnboardingView: View {
             navigation
         }
         .background(Palette.content)
+        .onDisappear { form.close() }
     }
 
     // MARK: En-tête et page
@@ -59,7 +57,7 @@ struct OnboardingView: View {
             CairnLogo(size: 22)
             Text(T("onboarding.welcome")).font(.system(size: 14, weight: .semibold))
             Spacer()
-            Button { model.restoreInsteadOfOnboarding() } label: {
+            Button { form.close(); model.restoreInsteadOfOnboarding() } label: {
                 Label(T("onboarding.restore_instead"), systemImage: "arrow.counterclockwise")
             }
             .buttonStyle(.pillOutline)
@@ -168,64 +166,7 @@ struct OnboardingView: View {
     }
 
     var destinationStep: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 12) {
-                ChoiceTile(icon: "clock", title: T("onboarding.destination.later"),
-                           subtitle: T("onboarding.destination.later.text"), selected: destinationKind == 0) { pickDestination(0) }
-                ChoiceTile(icon: "externaldrive", title: T("onboarding.destination.local"),
-                           subtitle: T("onboarding.destination.local.text"), selected: destinationKind == 1) { pickDestination(1) }
-                ChoiceTile(icon: "server.rack", title: T("onboarding.destination.smb"),
-                           subtitle: T("onboarding.destination.smb.text"), selected: destinationKind == 2) { pickDestination(2) }
-            }
-            if destinationKind == 1 {
-                Card(padding: 0) {
-                    SettingsRow(title: T("onboarding.destination.path")) {
-                        TextField("", text: $localPath, prompt: Text(verbatim: "/Volumes/Backup")).cairnField().frame(width: 260)
-                        Button(T("action.choose_folder")) { chooseLocal() }.buttonStyle(.pill)
-                    }
-                }
-                .transition(.opacity)
-            } else if destinationKind == 2 {
-                Card(padding: 0) {
-                    VStack(spacing: 0) {
-                        SettingsRow(title: T("onboarding.destination.url_label")) {
-                            TextField("", text: $smbURL, prompt: Text(verbatim: "smb://nas.local/backups")).cairnField().frame(width: 300)
-                        }
-                        RowDivider()
-                        SettingsRow(title: T("onboarding.destination.user")) {
-                            TextField("", text: $smbUser).cairnField().frame(width: 300)
-                        }
-                        RowDivider()
-                        SettingsRow(title: T("onboarding.destination.password"), subtitle: T("onboarding.destination.keychain")) {
-                            SecureField("", text: $password).cairnField().frame(width: 300)
-                        }
-                    }
-                }
-                .transition(.opacity)
-            }
-            if destinationKind != 0 {
-                Card(padding: 0) {
-                    // Décocher le chiffrement demande une confirmation explicite.
-                    SettingsRow(icon: draft.encrypted ? "lock.shield" : "lock.open", title: T("onboarding.destination.encrypted"),
-                                subtitle: T("onboarding.destination.encrypted.text")) {
-                        Toggle("", isOn: Binding(get: { draft.encrypted }, set: { on in
-                            if on { draft.encrypted = true } else { confirmUnencrypted = true }
-                        }))
-                        .labelsHidden().toggleStyle(.switch)
-                    }
-                }
-                if !draft.encrypted {
-                    Banner(icon: "exclamationmark.triangle", text: T("onboarding.destination.unencrypted_warning"), tone: .warning)
-                }
-            }
-        }
-        .confirmationDialog(T("onboarding.destination.disable_encryption.title"), isPresented: $confirmUnencrypted,
-                            titleVisibility: .visible) {
-            Button(T("onboarding.destination.disable_encryption.confirm"), role: .destructive) { draft.encrypted = false }
-            Button(T("action.cancel"), role: .cancel) {}
-        } message: {
-            Text(T("onboarding.destination.disable_encryption.message"))
-        }
+        DestinationForm(form: form, allowsLater: true) { _ in model.restoreFromOnboarding(form) }
     }
 
     var scheduleStep: some View {
@@ -358,6 +299,8 @@ struct OnboardingView: View {
             } else {
                 Button {
                     syncDestination()
+                    let password = form.kind == .smb ? form.password : ""
+                    form.close()
                     model.finishOnboarding(draft, password: password, notifications: notifications)
                 } label: {
                     HStack(spacing: 6) { Image(systemName: "checkmark"); Text(T("action.finish")) }
@@ -387,16 +330,13 @@ struct OnboardingView: View {
         }
     }
 
-    func pickDestination(_ kind: Int) {
-        withAnimation(.snappy(duration: 0.25)) { destinationKind = kind }
-    }
-
     func validationProblem(at index: Int) -> String? {
         switch Self.steps[index] {
         case "folders" where !draft.folders.contains(where: \.selected): return T("onboarding.need_folder")
-        case "destination" where destinationKind == 1 && localPath.isEmpty: return T("onboarding.need_path")
-        case "destination" where destinationKind == 2 && (!smbURL.lowercased().hasPrefix("smb://") || smbURL.count < 7):
+        case "destination" where form.kind == .local && form.localPath.isEmpty: return T("onboarding.need_path")
+        case "destination" where form.kind == .smb && DestinationProbe.smbParts(form.smbAddress) == nil:
             return T("config.issue.smb_url")
+        case "destination" where form.kind != .later && !form.isVerified: return T("probe.need_verification")
         case "schedule" where draft.time.range(of: #"^([01]\d|2[0-3]):[0-5]\d$"#, options: .regularExpression) == nil:
             return T("config.issue.time")
         default: return nil
@@ -405,19 +345,15 @@ struct OnboardingView: View {
 
     var previewConfig: CairnConfig {
         var d = draft
-        d.destination = destinationChoice
+        d.destination = form.choice
+        d.encrypted = form.encrypted
         return d.makeConfig()
     }
 
-    var destinationChoice: OnboardingDraft.DestinationChoice {
-        switch destinationKind {
-        case 1: .local(path: localPath)
-        case 2: .smb(url: smbURL, username: smbUser)
-        default: .later
-        }
+    func syncDestination() {
+        draft.destination = form.choice
+        draft.encrypted = form.encrypted
     }
-
-    func syncDestination() { draft.destination = destinationChoice }
 
     func addFolder() {
         let panel = NSOpenPanel()
@@ -435,14 +371,6 @@ struct OnboardingView: View {
         guard !item.isEmpty, !draft.home.contains(where: { $0.path == item }) else { return }
         withAnimation(.snappy) { draft.home.append(.init(path: item, selected: true)) }
         newHomeItem = ""
-    }
-
-    func chooseLocal() {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.canCreateDirectories = true
-        if panel.runModal() == .OK, let url = panel.url { localPath = url.path }
     }
 }
 
@@ -580,7 +508,7 @@ private struct ChoiceChip: View {
 }
 
 /// Tuile de choix exclusif (type de destination).
-private struct ChoiceTile: View {
+struct ChoiceTile: View {
     let icon: String
     let title: String
     let subtitle: String

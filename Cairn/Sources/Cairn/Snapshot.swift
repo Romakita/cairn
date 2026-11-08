@@ -41,6 +41,7 @@ enum Snapshot {
                 model.storage.check()
                 render(MenuBarPanel().environmentObject(model).background(Palette.content), size: CGSize(width: 360, height: 640),
                        dark: dark, to: "\(outDir)/menubar-\(suffix).png")
+                renderDestinationStates(model: model, outDir: outDir, suffix: suffix, size: size, dark: dark)
                 for step in OnboardingView.steps.indices {
                     render(OnboardingView(step: step).environmentObject(model).frame(width: size.width, height: size.height)
                             .background(Palette.content),
@@ -48,6 +49,42 @@ enum Snapshot {
                 }
             }
         }
+    }
+
+    /// Étape Destination de l'assistant : dossier local vérifié (avec une sauvegarde d'un autre Mac), NAS dont le
+    /// mot de passe est refusé, serveur injoignable ; et la feuille « Ajouter une destination » de l'app.
+    /// Aucun réseau : les états NAS sont posés directement, le dossier local est un vrai dossier de démonstration.
+    static func renderDestinationStates(model: AppModel, outDir: String, suffix: String, size: CGSize, dark: Bool) {
+        let step = OnboardingView.steps.firstIndex(of: "destination")!
+        let demo = URL(fileURLWithPath: outDir).appendingPathComponent("destination-demo/Sauvegardes")
+        for sub in ["cairn-MacBook-Pro.sparsebundle", "Archives", "Photos", "Mac mini"] {
+            try? FileManager.default.createDirectory(at: demo.appendingPathComponent(sub), withIntermediateDirectories: true)
+        }
+        let local = DestinationFormModel(kind: .local)
+        local.open(demo, verify: false)
+        if case let .ok(free, images) = DestinationProbe.checkFolder(demo) { local.status = .verified(freeBytes: free, images: images) }
+
+        let auth = DestinationFormModel(kind: .smb)
+        auth.smbAddress = "smb://nas.local/backups"
+        auth.smbUser = "romain"
+        auth.password = "secret"
+        auth.status = .failed(.authenticationFailed)
+
+        let unreachable = DestinationFormModel(kind: .smb)
+        unreachable.smbAddress = "smb://nas.local/backups"
+        unreachable.smbUser = "romain"
+        unreachable.status = .failed(.unreachable("nas.local"))
+
+        for (name, form) in [("local", local), ("nas", auth), ("error", unreachable)] {
+            render(OnboardingView(step: step, form: form).environmentObject(model).frame(width: size.width, height: 1100)
+                    .background(Palette.content),
+                   size: CGSize(width: size.width, height: 1100), dark: dark, to: "\(outDir)/destination-\(name)-\(suffix).png")
+        }
+        let sheet = DestinationFormModel(kind: .local)
+        sheet.open(demo, verify: false)
+        render(AddDestinationSheet(form: sheet).environmentObject(model), size: CGSize(width: 760, height: 720), dark: dark,
+               to: "\(outDir)/add-destination-\(suffix).png")
+        for f in [local, auth, unreachable, sheet] { f.close() }
     }
 
     static func render<V: View>(_ view: V, size: CGSize, dark: Bool, to path: String) {

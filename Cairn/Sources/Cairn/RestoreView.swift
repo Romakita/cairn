@@ -72,6 +72,14 @@ struct RestoreView: View {
             Button(T("restore.run"), role: .destructive) { run() }
             Button(T("action.cancel"), role: .cancel) {}
         }
+        .onAppear {
+            // Arrivée depuis l'assistant (« Restaurer cette sauvegarde ») : destination présélectionnée.
+            guard let (d, pw) = model.pendingRestore else { return }
+            model.pendingRestore = nil
+            sharePassword = pw
+            imagePassword = nil
+            openDestination(d)
+        }
         .onDisappear { session?.close() }
     }
 
