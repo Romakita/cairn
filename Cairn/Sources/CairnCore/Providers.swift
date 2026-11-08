@@ -225,15 +225,18 @@ public final class SparseImage: @unchecked Sendable {
     /// Mot de passe de l'image (Trousseau).
     public var password: String? { Keychain.password(service: keychainService, account: keychainAccount) }
 
-    /// Crée l'image ; renvoie le mot de passe généré (à montrer une seule fois) si elle est chiffrée.
+    /// Crée l'image ; renvoie son mot de passe (à montrer une seule fois) si elle est chiffrée. Un mot de passe déjà
+    /// rangé pour cette destination et cette machine est repris, jamais remplacé : il ouvre peut-être une image
+    /// laissée à l'ancien emplacement de la destination (dossier modifié).
     @discardableResult
     public func create(size: String = "4t", password provided: String? = nil) throws -> String? {
         var args = ["create", "-size", size, "-type", "SPARSEBUNDLE", "-fs", "APFS", "-volname", "Cairn", path]
         var pw: String?
         if encrypted {
-            pw = provided ?? Self.generatePassword()
+            let existing = password
+            pw = provided ?? existing ?? Self.generatePassword()
             args += ["-encryption", "AES-256", "-stdinpass"]
-            try Keychain.setPassword(pw!, service: keychainService, account: keychainAccount)
+            if pw != existing { try Keychain.setPassword(pw!, service: keychainService, account: keychainAccount) }
         }
         let (code, out) = Self.hdiutil(args, stdin: pw)
         guard code == 0 else { throw ProviderError.image(out.trimmingCharacters(in: .whitespacesAndNewlines)) }

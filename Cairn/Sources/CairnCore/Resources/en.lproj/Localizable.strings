@@ -760,11 +760,10 @@
 "destination.delete.preview_title" = "What will be removed";
 "destination.delete.item.config" = "Entry “%@” in config.toml";
 "destination.delete.item.state" = "Backup status (last backup, checks)";
-"destination.delete.item.password" = "Disk image password in the Keychain";
 "destination.delete.item.backups" = "This Mac's backups — %@";
 "destination.delete.no_backups" = "No backup of this Mac on the destination.";
 "destination.delete.kept_note" = "Kept: the backups on the destination, the image password and the share password in the Keychain.";
-"destination.delete.kept_share_password" = "Kept: the share password in the Keychain (shared with the Finder).";
+"destination.delete.kept_passwords" = "Kept: the disk image password and the share password in the Keychain (they may still open backups left at an earlier location).";
 "destination.delete.need_simulation" = "Simulate first to see what will be deleted.";
 "destination.delete.confirm" = "Delete";
 "destination.delete.confirm_all" = "Delete with backups (%@)";
@@ -774,3 +773,4 @@
 "destination.copy_address" = "Copy address";
 "backup.verify.short" = "Check";
 "backup.verify_full.short" = "Check all";
+"destination.delete.error.config" = "config.toml could not be saved: nothing was deleted.";

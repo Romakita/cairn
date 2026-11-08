@@ -21,6 +21,10 @@ Depuis la page d'une destination, Cairn SHALL permettre de modifier sa connexion
 - **WHEN** l'utilisateur vérifie une nouvelle adresse puis ferme la feuille par « Annuler »
 - **THEN** la configuration et le Trousseau sont inchangés, et ce que Cairn a monté pour vérifier est démonté
 
+#### Scenario: Nouvel emplacement vide
+- **WHEN** l'utilisateur déplace une destination chiffrée vers un dossier vide puis lance une sauvegarde
+- **THEN** la nouvelle image reprend le mot de passe déjà rangé dans le Trousseau, qui ouvre toujours l'image laissée à l'ancien emplacement
+
 #### Scenario: Historique conservé
 - **WHEN** l'utilisateur enregistre une modification de la destination `main`
 - **THEN** la destination garde l'identifiant `main`, sa rétention, son chiffrement, l'état de ses dernières sauvegardes et le mot de passe de son image
@@ -34,19 +38,19 @@ Cairn SHALL permettre de supprimer une destination après une confirmation expli
 
 #### Scenario: Simulation de la suppression des sauvegardes
 - **WHEN** l'utilisateur choisit de supprimer aussi les sauvegardes et lance la simulation
-- **THEN** Cairn liste l'image ou le dossier de ce Mac sur la destination avec sa taille, et les éléments retirés de la configuration et du Trousseau, sans rien supprimer
+- **THEN** Cairn liste l'image ou le dossier de ce Mac sur la destination avec sa taille, et les éléments retirés de la configuration, sans rien supprimer
 
 #### Scenario: Suppression des sauvegardes confirmée
 - **WHEN** l'utilisateur confirme la suppression avec les sauvegardes après la simulation
-- **THEN** les sauvegardes de ce Mac sont supprimées de la destination, puis la destination est retirée de la configuration et le mot de passe de l'image du Trousseau ; le mot de passe du partage, partagé avec le Finder, est conservé
+- **THEN** la destination est retirée de la configuration puis les sauvegardes de ce Mac sont supprimées de la destination ; le mot de passe de l'image et celui du partage restent dans le Trousseau (ils ouvrent peut-être des sauvegardes laissées à un ancien emplacement)
 
 #### Scenario: Destination injoignable
 - **WHEN** l'utilisateur demande la suppression des sauvegardes et la destination ne répond pas
 - **THEN** la simulation indique que les sauvegardes ne peuvent pas être supprimées, la confirmation reste indisponible pour ce choix, et la configuration est inchangée
 
 #### Scenario: Échec pendant la suppression
-- **WHEN** la suppression des sauvegardes échoue sur la destination
-- **THEN** la destination reste dans la configuration et Cairn affiche la cause
+- **WHEN** la suppression des sauvegardes échoue sur la destination, ou `config.toml` ne peut pas être enregistré
+- **THEN** la destination reste dans la configuration (remise à sa place si elle venait d'en être retirée), rien n'est supprimé si `config.toml` est illisible en écriture, et Cairn affiche la cause
 
 #### Scenario: Sauvegarde en cours
 - **WHEN** une sauvegarde ou une vérification est en cours
@@ -62,6 +66,10 @@ La page d'une destination SHALL afficher l'historique des sauvegardes de ce Mac 
 #### Scenario: Destination injoignable
 - **WHEN** l'utilisateur ouvre la page d'une destination injoignable
 - **THEN** l'historique indique que la destination est injoignable et propose de réessayer, sans tentative de montage
+
+#### Scenario: Destination de nouveau joignable
+- **WHEN** la lecture de l'historique a échoué, puis la destination redevient joignable ou la page est rouverte
+- **THEN** Cairn relit l'historique sans clic, sans boucle de nouvelles tentatives tant que l'état ne change pas
 
 #### Scenario: Après une sauvegarde
 - **WHEN** une sauvegarde de cette destination se termine

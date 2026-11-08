@@ -46,7 +46,7 @@ let destinationEditTests: [TestCase] = [
             try expect(plan.backupBytes >= 8192, "taille des sauvegardes : \(plan.backupBytes)")
         }
     },
-    TestCase("plan_encrypted_lists_image_and_its_password") {
+    TestCase("plan_encrypted_lists_image_but_never_its_password") {
         try withTempDir { dir in
             let image = dir.appendingPathComponent("cairn-Ce-Mac.sparsebundle")
             try writeFile(image.appendingPathComponent("bands/0"), size: 4096)
@@ -54,7 +54,7 @@ let destinationEditTests: [TestCase] = [
             let d = CairnConfig.Destination(id: "usb", provider: .local, path: dir.path, encrypted: true)
             let plan = DestinationRemoval.plan(d, includeBackups: true, machine: "Ce-Mac")
             try expect(plan.items.contains(.backups(path: image.path, bytes: plan.backupBytes)), "image de ce Mac absente du plan")
-            try expect(plan.items.contains(.imagePassword(service: Keychain.servicePrefix + "image.usb", account: "Ce-Mac")))
+            try expectEqual(plan.items.count, 3, "config, état, image : le mot de passe de l'image reste au Trousseau")
             try expect(!plan.items.contains { if case let .backups(p, _) = $0 { p.contains("Autre-Mac") } else { false } },
                        "l'image d'un autre Mac ne doit jamais être listée")
         }
@@ -70,7 +70,7 @@ let destinationEditTests: [TestCase] = [
 
     // MARK: Exécution
 
-    TestCase("execute_removes_backups_password_and_state") {
+    TestCase("execute_removes_backups_and_state") {
         try withTempDir { dir in
             let paths = CairnPaths(root: dir.appendingPathComponent("home"))
             try stateWith(["usb", "nas"], paths: paths)
@@ -79,26 +79,22 @@ let destinationEditTests: [TestCase] = [
             try writeFile(dest.appendingPathComponent("cairn-Autre-Mac.sparsebundle/bands/0"), size: 10)
             let d = CairnConfig.Destination(id: "usb", provider: .local, path: dest.path, encrypted: true)
             let plan = DestinationRemoval.plan(d, includeBackups: true, machine: "Ce-Mac")
-            var deleted: [String] = []
-            try DestinationRemoval.execute(plan, paths: paths) { s, a in deleted.append(s + "/" + a) }
+            try DestinationRemoval.execute(plan, paths: paths)
             try expect(!FileManager.default.fileExists(atPath: dest.appendingPathComponent("cairn-Ce-Mac.sparsebundle").path))
             try expect(FileManager.default.fileExists(atPath: dest.appendingPathComponent("cairn-Autre-Mac.sparsebundle").path),
                        "l'image d'un autre Mac doit rester")
-            try expectEqual(deleted, [Keychain.servicePrefix + "image.usb/Ce-Mac"])
             try expectEqual(Array(RunState.load(paths).destinations.keys), ["nas"])
         }
     },
-    TestCase("execute_keeping_backups_leaves_destination_and_password") {
+    TestCase("execute_keeping_backups_leaves_destination") {
         try withTempDir { dir in
             let paths = CairnPaths(root: dir.appendingPathComponent("home"))
             try stateWith(["usb"], paths: paths)
             let dest = dir.appendingPathComponent("dest")
             try writeFile(dest.appendingPathComponent("cairn-Ce-Mac.sparsebundle/bands/0"), size: 10)
             let d = CairnConfig.Destination(id: "usb", provider: .local, path: dest.path, encrypted: true)
-            var deleted = 0
-            try DestinationRemoval.execute(DestinationRemoval.plan(d, includeBackups: false, machine: "Ce-Mac"), paths: paths) { _, _ in deleted += 1 }
+            try DestinationRemoval.execute(DestinationRemoval.plan(d, includeBackups: false, machine: "Ce-Mac"), paths: paths)
             try expect(FileManager.default.fileExists(atPath: dest.appendingPathComponent("cairn-Ce-Mac.sparsebundle").path))
-            try expectEqual(deleted, 0, "le mot de passe de l'image sert à restaurer les sauvegardes gardées")
             try expect(RunState.load(paths).destinations.isEmpty)
         }
     },
@@ -111,7 +107,7 @@ let destinationEditTests: [TestCase] = [
             defer { lock.release() }
             let d = CairnConfig.Destination(id: "usb", provider: .local, path: dir.path, encrypted: false)
             try expectThrows(OperationLock.Failure.alreadyHeld) {
-                try DestinationRemoval.execute(DestinationRemoval.plan(d, includeBackups: false, machine: "Ce-Mac"), paths: paths) { _, _ in }
+                try DestinationRemoval.execute(DestinationRemoval.plan(d, includeBackups: false, machine: "Ce-Mac"), paths: paths)
             }
             try expectEqual(Array(RunState.load(paths).destinations.keys), ["usb"], "rien n'est retiré")
         }
@@ -123,7 +119,7 @@ let destinationEditTests: [TestCase] = [
             let d = CairnConfig.Destination(id: "usb", provider: .local, path: "/Volumes/cairn-absent-\(UUID().uuidString)/B", encrypted: false)
             let plan = DestinationRemoval.plan(d, includeBackups: true, machine: "Ce-Mac")
             do {
-                try DestinationRemoval.execute(plan, paths: paths) { _, _ in }
+                try DestinationRemoval.execute(plan, paths: paths)
                 throw TestFailure(message: "exécution acceptée", file: #filePath, line: #line)
             } catch is DestinationRemoval.Failure {}
             try expectEqual(Array(RunState.load(paths).destinations.keys), ["usb"])

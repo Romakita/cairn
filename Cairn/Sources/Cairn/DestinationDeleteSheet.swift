@@ -101,10 +101,8 @@ struct DeleteDestinationSheet: View {
                 if let why = plan.backupsUnavailable {
                     Banner(icon: "exclamationmark.triangle", text: T("destination.delete.error.unavailable", why), tone: .danger)
                 }
-                if !includeBackups || destination.provider == .smb {
-                    Text(T(includeBackups ? "destination.delete.kept_share_password" : "destination.delete.kept_note"))
-                        .font(.system(size: 12.5)).foregroundStyle(Palette.secondary)
-                }
+                Text(T(includeBackups ? "destination.delete.kept_passwords" : "destination.delete.kept_note"))
+                    .font(.system(size: 12.5)).foregroundStyle(Palette.secondary)
             }
         }
     }
@@ -115,8 +113,6 @@ struct DeleteDestinationSheet: View {
             SettingsRow(icon: "doc.text", title: T("destination.delete.item.config", id)) { EmptyView() }
         case .state:
             SettingsRow(icon: "clock.arrow.circlepath", title: T("destination.delete.item.state")) { EmptyView() }
-        case .imagePassword:
-            SettingsRow(icon: "key", title: T("destination.delete.item.password")) { EmptyView() }
         case let .backups(path, bytes):
             SettingsRow(icon: "trash", title: T("destination.delete.item.backups", Fmt.bytes(bytes)), subtitle: path) {
                 EmptyView()
@@ -146,10 +142,17 @@ struct DeleteDestinationSheet: View {
         }
     }
 
+    /// La destination sort d'abord de `config.toml` : si l'écriture échoue, rien n'est supprimé ; si la suppression
+    /// échoue ensuite, la destination est remise à sa place.
     func delete() {
         guard let plan, plan.canExecute else { return }
-        deleting = true
         error = nil
+        let d = plan.destination
+        guard let index = model.removeDestinationFromConfig(d) else {
+            error = model.lastMessage ?? T("destination.delete.error.config")
+            return
+        }
+        deleting = true
         let paths = model.paths
         Task.detached(priority: .userInitiated) {
             var failure: String?
@@ -159,8 +162,12 @@ struct DeleteDestinationSheet: View {
             let f = failure
             await MainActor.run {
                 deleting = false
-                if let f { error = f; return }
-                model.removeDestination(plan.destination)
+                if let f {
+                    model.restoreDestination(d, at: index)
+                    error = f
+                    return
+                }
+                model.finishRemoval(d)
                 dismiss()
             }
         }
@@ -168,9 +175,26 @@ struct DeleteDestinationSheet: View {
 }
 
 extension AppModel {
-    /// Retire une destination de `config.toml` et de l'état de l'interface (après `DestinationRemoval.execute`).
-    func removeDestination(_ d: CairnConfig.Destination) {
-        updateConfig { $0.destinations.removeAll { $0.id == d.id } }
+    /// Retire une destination de `config.toml` ; renvoie sa position, ou `nil` si l'écriture a échoué (la
+    /// configuration est alors inchangée).
+    func removeDestinationFromConfig(_ d: CairnConfig.Destination) -> Int? {
+        guard let index = config?.destinations.firstIndex(where: { $0.id == d.id }) else { return nil }
+        guard updateConfig({ $0.destinations.removeAll { $0.id == d.id } }),
+              config?.destinations.contains(where: { $0.id == d.id }) == false else { return nil }
+        return index
+    }
+
+    /// Remet une destination retirée (suppression des sauvegardes en échec).
+    func restoreDestination(_ d: CairnConfig.Destination, at index: Int) {
+        updateConfig { c in
+            guard !c.destinations.contains(where: { $0.id == d.id }) else { return }
+            c.destinations.insert(d, at: min(index, c.destinations.count))
+        }
+        selectedDestination = d.id
+    }
+
+    /// Nettoie l'état de l'interface après la suppression d'une destination.
+    func finishRemoval(_ d: CairnConfig.Destination) {
         runState = RunState.load(paths)
         versions[d.id] = nil
         versionsError[d.id] = nil

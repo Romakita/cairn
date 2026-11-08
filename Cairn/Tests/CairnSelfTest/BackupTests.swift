@@ -187,6 +187,23 @@ let backupTests: [TestCase] = [
             img.detach()
         }
     },
+    TestCase("new_image_reuses_keychain_password_after_relocation") {
+        // Destination déplacée vers un dossier vide : la nouvelle image reprend le mot de passe du Trousseau, qui ouvre
+        // toujours l'image laissée à l'ancien emplacement.
+        try withTempDir { dir in
+            let id = "selftest-\(UUID().uuidString)"
+            let old = SparseImage(root: dir.appendingPathComponent("ancien"), destinationID: id, encrypted: true, machine: "m")
+            defer { Keychain.deletePassword(service: old.keychainService, account: "m") }
+            try FileManager.default.createDirectory(at: dir.appendingPathComponent("ancien"), withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(at: dir.appendingPathComponent("nouveau"), withIntermediateDirectories: true)
+            let pw = try old.create(size: "50m")
+            let moved = SparseImage(root: dir.appendingPathComponent("nouveau"), destinationID: id, encrypted: true, machine: "m")
+            try expectEqual(try moved.create(size: "50m"), pw, "le mot de passe existant est repris")
+            try expectEqual(moved.password, pw)
+            _ = try old.attach()
+            old.detach()
+        }
+    },
     TestCase("schedule_decisions") {
         var s = CairnConfig.Schedule()
         s.frequency = .daily
