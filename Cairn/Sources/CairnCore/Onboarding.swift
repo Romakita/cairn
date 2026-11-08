@@ -45,10 +45,33 @@ public struct OnboardingDraft: Equatable, Sendable {
         ".config/git", ".config/starship.toml", ".oh-my-zsh/custom", ".zsh_history", ".gnupg",
     ]
 
+    /// Dossiers cachés à la racine du home (sans suivre les liens symboliques).
+    public static func listHiddenFolders(_ home: URL) -> [String] {
+        let fm = FileManager.default
+        let names = (try? fm.contentsOfDirectory(atPath: home.path)) ?? []
+        return names.filter { name in
+            guard name.hasPrefix("."), name != ".", name != ".." else { return false }
+            let values = try? home.appendingPathComponent(name).resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+            return values?.isDirectory == true && values?.isSymbolicLink != true
+        }
+    }
+
+    /// Dossiers cachés jamais proposés : outils IA (gérés à part), caches et corbeille, dossier de Cairn.
+    static func homeSkipped(_ name: String, profiles: [AIProfile]) -> Bool {
+        if name == ".cairn" || Scanner.alwaysRegenerable[name] != nil { return true }
+        let excludes = BackupExclusions.homeExcludes.map { $0.hasSuffix("/") ? String($0.dropLast()) : $0 }
+        if excludes.contains(name) { return true }
+        return BackupExclusions.aiManaged(profiles: profiles).contains(name)
+    }
+
+    /// Clé de tri : sans le point initial, pour ranger `.aws` avec les `a`.
+    static func sortKey(_ path: String) -> String { path.hasPrefix(".") ? String(path.dropFirst()) : path }
+
     /// Propositions détectées sur la machine.
     public static func detect(home: URL = FileManager.default.homeDirectoryForCurrentUser,
                               legacyRootPath: String? = nil,
                               exists: (String) -> Bool = { FileManager.default.fileExists(atPath: $0) },
+                              hiddenFolders: (URL) -> [String] = OnboardingDraft.listHiddenFolders,
                               profiles: [AIProfile] = AIProfiles.bundled) -> OnboardingDraft {
         var d = OnboardingDraft()
         var seen = Set<String>()
@@ -61,7 +84,13 @@ public struct OnboardingDraft: Equatable, Sendable {
         }
         if !d.folders.contains(where: \.selected), !d.folders.isEmpty { d.folders[0].selected = true }
 
-        d.home = homeCandidates.filter { exists(home.appendingPathComponent($0).path) }.map { .init(path: $0, selected: true) }
+        // Fichiers connus (cochés) puis tous les autres dossiers cachés du home (à cocher), triés par nom.
+        let known = homeCandidates.filter { exists(home.appendingPathComponent($0).path) }
+        let others = hiddenFolders(home).filter { name in
+            !known.contains(name) && !homeSkipped(name, profiles: profiles)
+        }
+        d.home = (known.map { Choice(path: $0, selected: true) } + others.map { Choice(path: $0, selected: false) })
+            .sorted { sortKey($0.path).localizedStandardCompare(sortKey($1.path)) == .orderedAscending }
 
         // Outils IA : un par profil ; présélection des catégories que l'outil remplit vraiment
         // (pas d'« identifiants » pour un outil qui les range dans le Trousseau).

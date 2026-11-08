@@ -9,8 +9,18 @@ let onboardingTests: [TestCase] = [
         let d = OnboardingDraft.detect(home: home, legacyRootPath: "/Volumes/workspaces", exists: existing.contains)
         try expectEqual(d.folders.map(\.path), ["/Volumes/workspaces", "/Users/test/Projets"])
         try expectEqual(d.folders.map(\.selected), [true, false])
-        try expectEqual(d.home.map(\.path), [".zshrc", ".ssh"])
+        try expectEqual(d.home.map(\.path), [".ssh", ".zshrc"])
         try expectEqual(d.ai.filter(\.detected).map(\.id), ["claude-code", "codex"])
+    },
+    TestCase("home_lists_hidden_folders_sorted") {
+        let home = URL(fileURLWithPath: "/Users/test")
+        let existing: Set<String> = ["/Users/test/.zshrc", "/Users/test/.ssh", "/Users/test/.aws", "/Users/test/.config/gh"]
+        let hidden = [".ssh", ".aws", ".config", ".oh-my-zsh", ".Trash", ".cache", ".npm", ".claude", ".codex", ".cairn"]
+        let d = OnboardingDraft.detect(home: home, exists: existing.contains, hiddenFolders: { _ in hidden })
+        // Tri alphabétique sans tenir compte du point ; caches, corbeille, outils IA et Cairn écartés.
+        try expectEqual(d.home.map(\.path), [".aws", ".config", ".config/gh", ".oh-my-zsh", ".ssh", ".zshrc"])
+        // Les fichiers connus restent cochés, les autres dossiers cachés sont à cocher.
+        try expectEqual(d.home.filter(\.selected).map(\.path), [".aws", ".config/gh", ".ssh", ".zshrc"])
     },
     TestCase("make_config_is_valid") {
         var d = OnboardingDraft.detect(home: URL(fileURLWithPath: "/Users/test"),
