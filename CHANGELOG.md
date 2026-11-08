@@ -10,6 +10,12 @@ versions follow [SemVer](https://semver.org/). The current version is in `Cairn/
   of the icon bar. It shows the release notes and offers **Install and relaunch**: the archive is checked against its
   SHA-256, and the previous app is put back if the swap fails. **Check for Updates…** menu item, and an
   `[updates] check` setting to turn off the automatic check.
+- A destination is verified before it is saved, in the first-run wizard and in the app: the server answers, the
+  credentials are accepted and the folder is writable. **Continue** stays disabled until it succeeds (**Later** is
+  still there). Nothing is left behind: a test file deleted right away, and whatever Cairn mounted is unmounted.
+- A folder browser on the destination (breadcrumb, subfolders, **New folder**), inside the SMB share once connected,
+  or from the mounted volumes and the home for a local folder. Existing Cairn backups in the folder are flagged, with
+  **Restore this backup** in the wizard.
 
 ### Changed
 - Releases are automatic, with semantic-release: after a successful build on `main`, the version is computed from the
@@ -26,6 +32,8 @@ versions follow [SemVer](https://semver.org/). The current version is in `Cairn/
 - The project is released under the MIT license.
 
 ### Fixed
+- **Add a destination** in the app opens the destination form instead of sending you to Settings, which had no
+  destinations section.
 - The wizard's button to pick a destination folder was labelled "Analyze".
 - No more crash when the resource bundle cannot be found: `Bundle.module` (which asserts) is no longer called, and
   the app starts with untranslated strings.
