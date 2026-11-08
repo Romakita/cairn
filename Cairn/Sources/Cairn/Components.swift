@@ -72,26 +72,31 @@ struct SidebarRow: View {
     }
 }
 
-/// Sélecteur segmenté à la Codex (bascule « Chat / Work ») : capsule grise, segment choisi blanc et ombré.
+/// Sélecteur segmenté à la Codex (bascule « Chat / Work ») : piste grise bordée, segments de même largeur,
+/// libellés gris foncé, segment choisi blanc, ombré, qui glisse d'une option à l'autre.
 struct PillPicker<Value: Hashable>: View {
     let options: [(Value, String)]
     @Binding var selection: Value
+    @Namespace private var pill
 
     var body: some View {
         HStack(spacing: 0) {
             ForEach(options.indices, id: \.self) { i in
                 let (value, title) = options[i]
                 let on = value == selection
-                Button { withAnimation(.snappy(duration: 0.22)) { selection = value } } label: {
+                Button { withAnimation(.snappy(duration: 0.25)) { selection = value } } label: {
                     Text(title)
-                        .font(.system(size: 13.5))
-                        .foregroundStyle(on ? Palette.text : Palette.secondary)
-                        .padding(.horizontal, 20).padding(.vertical, 7)
+                        .font(.system(size: 14))
+                        .foregroundStyle(on ? Palette.text : Palette.tertiary)
+                        .lineLimit(1)
+                        .padding(.horizontal, 22)
+                        .frame(maxWidth: .infinity, minHeight: 32)
                         .background {
                             if on {
                                 Capsule().fill(Palette.content)
-                                    .shadow(color: .black.opacity(0.10), radius: 3, y: 1)
-                                    .overlay(Capsule().stroke(Palette.border))
+                                    .overlay(Capsule().strokeBorder(Palette.border, lineWidth: 0.5))
+                                    .shadow(color: .black.opacity(0.08), radius: 4, y: 1)
+                                    .matchedGeometryEffect(id: "pill", in: pill)
                             }
                         }
                         .contentShape(Capsule())
@@ -102,6 +107,8 @@ struct PillPicker<Value: Hashable>: View {
         }
         .padding(3)
         .background(Palette.field, in: Capsule())
+        .overlay(Capsule().strokeBorder(Palette.border.opacity(0.6), lineWidth: 0.5))
+        .fixedSize()
     }
 }
 
