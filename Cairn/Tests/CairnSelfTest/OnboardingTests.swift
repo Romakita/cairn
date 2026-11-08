@@ -20,7 +20,9 @@ let onboardingTests: [TestCase] = [
         d.background = true
         let c = d.makeConfig()
         try expectEqual(c.folders.map(\.path), ["/tmp"])
-        try expectEqual(c.destinations.first?.keychain, OnboardingDraft.destinationID)
+        // Pas de clé `keychain` : l'entrée du Trousseau se déduit de url + username.
+        try expectEqual(c.destinations.first?.keychain, nil)
+        try expectEqual(c.destinations.first?.username, "romain")
         try expectEqual(c.ai.first?.categories, ["conversations", "config", "memories", "credentials"])
         let (back, issues) = try ConfigDecoder.decode(try TOMLDocument(parsing: ConfigWriter.newDocument(c).render()))
         try expect(!issues.contains { $0.severity == .error }, "\(issues)")

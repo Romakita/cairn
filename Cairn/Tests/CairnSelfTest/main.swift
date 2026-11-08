@@ -1,6 +1,10 @@
 import CairnCore
 import Foundation
 
+// Les tests ne touchent jamais au vrai ~/.cairn (CLI.run crée et protège ce dossier).
+setenv("CAIRN_HOME", FileManager.default.temporaryDirectory.appendingPathComponent("cairn-selftest-home-\(getpid())").path, 1)
+atexit { try? FileManager.default.removeItem(at: FileManager.default.temporaryDirectory.appendingPathComponent("cairn-selftest-home-\(getpid())")) }
+
 // Processus auxiliaire du test de verrou : prend le verrou, l'annonce, attend puis se termine sans le libérer.
 if CommandLine.arguments.count >= 3 && CommandLine.arguments[1] == "--hold-lock" {
     let lock = OperationLock(url: URL(fileURLWithPath: CommandLine.arguments[2]))
@@ -26,6 +30,7 @@ var suites: [(String, [TestCase])] = [
     ("TOML", tomlTests),
     ("Config", configTests),
     ("Onboarding", onboardingTests),
+    ("ConfigWarnings", configWarningTests),
     ("Analysis", analysisTests),
     ("Inventory", inventoryTests),
     ("Git", gitTests),

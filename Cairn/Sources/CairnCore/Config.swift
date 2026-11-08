@@ -49,6 +49,8 @@ public struct CairnConfig: Equatable, Sendable {
         public var path: String?
         public var url: String?
         public var username: String?
+        /// Ancienne clé, lue et conservée sans être utilisée : le mot de passe d'un NAS est le mot de passe Internet
+        /// du Trousseau pour l'hôte de `url` et `username` (celui du Finder s'il existe). Cairn ne l'écrit plus.
         public var keychain: String?
         public var encrypted = true
         public var retention = Retention.recommended
@@ -110,9 +112,15 @@ public struct ConfigIssue: Equatable, Sendable, CustomStringConvertible {
     public let line: Int?
     public let message: String
 
+    public init(severity: Severity, key: String, line: Int?, message: String) {
+        self.severity = severity; self.key = key; self.line = line; self.message = message
+    }
+
     public var description: String {
         let where_ = line.map { L10n.tr("config.issue.line", $0) } ?? ""
-        return "\(severity == .error ? L10n.tr("config.issue.error") : L10n.tr("config.issue.warning")) \(where_)\(key): \(message)"
+        // Clé vide : problème qui concerne tout le fichier (syntaxe, lecture).
+        let what = key.isEmpty ? message : "\(key): \(message)"
+        return "\(severity == .error ? L10n.tr("config.issue.error") : L10n.tr("config.issue.warning")) \(where_)\(what)"
     }
 }
 
@@ -348,6 +356,11 @@ public enum ConfigWriter {
         doc.set(.array(c.home.include.map { .string($0) }), section: ["home"], key: ["include"])
         doc.set(.array(c.home.exclude.map { .string($0) }), section: ["home"], key: ["exclude"])
 
+        // Outil IA désélectionné : sa table `[ai.<id>]` disparaît (le reste du fichier est conservé).
+        let kept = Set(c.ai.map(\.id))
+        for id in ((try? doc.tree().table("ai")?.keys) ?? []) where !kept.contains(id) {
+            doc.removeTable(["ai", id])
+        }
         for tool in c.ai {
             doc.set(.array(tool.categories.map { .string($0) }), section: ["ai", tool.id], key: ["categories"])
         }
@@ -389,6 +402,7 @@ public enum ConfigWriter {
         var doc = try! TOMLDocument(parsing: """
         # Configuration de Cairn — modifiable à la main ou depuis les réglages de l'app.
         # Les mots de passe ne sont jamais écrits ici : ils sont dans le Trousseau macOS.
+        # NAS (smb) : l'entrée du Trousseau est celle de l'hôte de `url` et de `username`.
 
         """)
         apply(c, to: &doc)

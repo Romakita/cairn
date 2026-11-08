@@ -71,7 +71,7 @@ struct ToolsView: View {
                 }
                 .width(min: 70, ideal: 90)
                 TableColumn(T("col.why")) { r in
-                    Text(r.entry.reasons.joined(separator: ", ")).foregroundStyle(Palette.secondary).lineLimit(1).help(r.entry.reasons.joined(separator: "\n"))
+                    Text(r.entry.reasonTexts.joined(separator: ", ")).foregroundStyle(Palette.secondary).lineLimit(1).help(r.entry.reasonTexts.joined(separator: "\n"))
                 }
                 TableColumn(T("col.status"), value: \.status) { r in
                     let tone: Palette.Tone = switch r.entry.status { case .used: .success; case .unused: .neutral; case .missing: .danger }

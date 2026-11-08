@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Plurals: these keys take precedence over Localizable.strings (which keeps a fallback text). -->
+<plist version="1.0">
+<dict>
+	<key>cli.git.summary</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>
+%1$#@repos@, .git total %2$@ — %3$#@branches@ and %4$#@worktrees@ to remove, about %5$@ freed (with --prune-now)</string>
+		<key>repos</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%1$lld repository</string>
+			<key>other</key>
+			<string>%1$lld repositories</string>
+		</dict>
+		<key>branches</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%3$lld branch</string>
+			<key>other</key>
+			<string>%3$lld branches</string>
+		</dict>
+		<key>worktrees</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%4$lld worktree</string>
+			<key>other</key>
+			<string>%4$lld worktrees</string>
+		</dict>
+	</dict>
+	<key>cli.git.repo_line</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%1$@  .git %2$@  loose %3$@  %4$#@delete@ (%5$@)  %6$#@kept@</string>
+		<key>delete</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%4$lld branch to delete</string>
+			<key>other</key>
+			<string>%4$lld branches to delete</string>
+		</dict>
+		<key>kept</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%6$lld kept</string>
+			<key>other</key>
+			<string>%6$lld kept</string>
+		</dict>
+	</dict>
+	<key>cli.git.confirm</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>Delete %1$#@branches@ and %2$#@worktrees@? SHAs are written to .git/cleanup-deleted-branches.log.%3$@</string>
+		<key>branches</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%1$lld branch</string>
+			<key>other</key>
+			<string>%1$lld branches</string>
+		</dict>
+		<key>worktrees</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%2$lld worktree</string>
+			<key>other</key>
+			<string>%2$lld worktrees</string>
+		</dict>
+	</dict>
+	<key>git.confirm.title</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>Delete %1$#@branches@ and %2$#@worktrees@?</string>
+		<key>branches</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%1$lld branch</string>
+			<key>other</key>
+			<string>%1$lld branches</string>
+		</dict>
+		<key>worktrees</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%2$lld worktree</string>
+			<key>other</key>
+			<string>%2$lld worktrees</string>
+		</dict>
+	</dict>
+	<key>git.done</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%1$#@branches@ and %2$#@worktrees@ deleted.</string>
+		<key>branches</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%1$lld branch</string>
+			<key>other</key>
+			<string>%1$lld branches</string>
+		</dict>
+		<key>worktrees</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%2$lld worktree</string>
+			<key>other</key>
+			<string>%2$lld worktrees</string>
+		</dict>
+	</dict>
+	<key>list.repos</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@repos@</string>
+		<key>repos</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld repository</string>
+			<key>other</key>
+			<string>%lld repositories</string>
+		</dict>
+	</dict>
+	<key>onboarding.summary.folders</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld tracked folder</string>
+			<key>other</key>
+			<string>%lld tracked folders</string>
+		</dict>
+	</dict>
+	<key>onboarding.summary.home</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld home item</string>
+			<key>other</key>
+			<string>%lld home items</string>
+		</dict>
+	</dict>
+	<key>onboarding.summary.ai</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld AI tool</string>
+			<key>other</key>
+			<string>%lld AI tools</string>
+		</dict>
+	</dict>
+</dict>
+</plist>

@@ -536,3 +536,7 @@
 "restore.nas.user" = "User name";
 "restore.nas.connect" = "Connect";
 "restore.version.partial" = "partial";
+
+/* Lot avertissements : configuration, langues, inventaire */
+"config.save.refused" = "config.toml contains an error: fix the file before changing settings (%@)";
+"settings.blocked" = "Settings and scheduled backups are paused until config.toml is fixed.";

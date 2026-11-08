@@ -536,3 +536,7 @@
 "restore.nas.user" = "Nom d'utilisateur";
 "restore.nas.connect" = "Se connecter";
 "restore.version.partial" = "partielle";
+
+/* Lot avertissements : configuration, langues, inventaire */
+"config.save.refused" = "config.toml contient une erreur : corrigez le fichier avant de modifier les réglages (%@)";
+"settings.blocked" = "Les réglages et les sauvegardes planifiées sont suspendus jusqu’à la correction de config.toml.";

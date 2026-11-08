@@ -20,6 +20,30 @@ public final class ConfigStore: @unchecked Sendable {
             case let .unreadable(m): m
             }
         }
+
+        /// Problème bloquant équivalent : une erreur de syntaxe désactive les sauvegardes comme une erreur de schéma.
+        public var issue: ConfigIssue {
+            switch self {
+            case let .syntax(e): ConfigIssue(severity: .error, key: "", line: e.line, message: e.message)
+            case let .unreadable(m): ConfigIssue(severity: .error, key: "", line: nil, message: m)
+            }
+        }
+    }
+
+    /// Enregistrement refusé : le fichier sur disque est invalide, l'écraser ferait perdre les modifications à la main.
+    public enum SaveError: Error, CustomStringConvertible {
+        case invalidFile([ConfigIssue])
+        public var description: String {
+            switch self {
+            case let .invalidFile(issues): L10n.tr("config.save.refused", issues.first.map(\.description) ?? "")
+            }
+        }
+    }
+
+    /// Problèmes à afficher pour une erreur de chargement (erreur de syntaxe avec sa ligne, fichier illisible…).
+    public static func issues(for error: Error) -> [ConfigIssue] {
+        if let e = error as? LoadError { return [e.issue] }
+        return [ConfigIssue(severity: .error, key: "", line: nil, message: String(describing: error))]
     }
 
     public let paths: CairnPaths
@@ -57,10 +81,23 @@ public final class ConfigStore: @unchecked Sendable {
     }
 
     /// Enregistre la configuration en réécrivant le document existant (commentaires conservés).
+    /// Refuse (`SaveError.invalidFile`) si le fichier sur disque contient une erreur : la configuration en mémoire est
+    /// alors la dernière valide, et l'appliquer écraserait ce que l'utilisateur est en train de corriger à la main.
     public func save(_ config: CairnConfig) throws {
         var doc: TOMLDocument
-        if let text = try? String(contentsOf: fileURL, encoding: .utf8), let existing = try? TOMLDocument(parsing: text) {
-            doc = existing
+        if exists {
+            let text: String
+            do { text = try String(contentsOf: fileURL, encoding: .utf8) } catch {
+                throw SaveError.invalidFile([LoadError.unreadable(error.localizedDescription).issue])
+            }
+            let errors: [ConfigIssue]
+            do {
+                doc = try TOMLDocument(parsing: text)
+                errors = try ConfigDecoder.decode(doc).1.filter { $0.severity == .error }
+            } catch let e as TOMLError {
+                throw SaveError.invalidFile([LoadError.syntax(e).issue])
+            }
+            if !errors.isEmpty { throw SaveError.invalidFile(errors) }
             ConfigWriter.apply(config, to: &doc)
         } else {
             doc = ConfigWriter.newDocument(config)
@@ -70,14 +107,21 @@ public final class ConfigStore: @unchecked Sendable {
 
     /// Écriture atomique ; crée `~/.cairn` (700) si besoin.
     public func write(_ doc: TOMLDocument) throws {
+        try ensureDirectory()
+        try doc.render().write(to: fileURL, atomically: true, encoding: .utf8)
+    }
+
+    /// Crée le dossier du fichier : `~/.cairn` (700, avec `logs/` et `state/`), ou le dossier de `--config`.
+    func ensureDirectory() throws {
         if fileURL.deletingLastPathComponent().standardizedFileURL.path == paths.root.standardizedFileURL.path { try paths.ensure() }
         else { try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true) }
-        try doc.render().write(to: fileURL, atomically: true, encoding: .utf8)
     }
 
     /// Surveille le fichier (y compris les remplacements atomiques des éditeurs) et appelle `onChange`.
     public func watch(queue: DispatchQueue = .main, onChange: @escaping () -> Void) -> FileWatcher {
-        FileWatcher(url: fileURL, queue: queue, onChange: onChange)
+        // Le dossier doit exister (et être en 700) avant que le FileWatcher ne l'ouvre.
+        try? ensureDirectory()
+        return FileWatcher(url: fileURL, queue: queue, onChange: onChange)
     }
 }
 
@@ -95,7 +139,6 @@ public final class FileWatcher: @unchecked Sendable {
         self.onChange = onChange
         lastStamp = Self.stamp(url)
         let dir = url.deletingLastPathComponent().path
-        try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
         let fd = open(dir, O_EVTONLY)
         guard fd >= 0 else { return }
         let s = DispatchSource.makeFileSystemObjectSource(fileDescriptor: fd, eventMask: [.write, .rename, .delete, .extend, .attrib], queue: queue)

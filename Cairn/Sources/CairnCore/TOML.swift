@@ -285,6 +285,44 @@ public struct TOMLDocument: Sendable {
         renumber()
     }
 
+    /// Supprime une table et tout ce qu'elle contient : en-têtes `[path]` et `[path.x]` avec leurs lignes,
+    /// et clés pointées (`x.y = …` sous une table parente). Les commentaires qui précèdent l'en-tête suivant restent.
+    public mutating func removeTable(_ path: [String]) {
+        func under(_ p: [String]) -> Bool { p.count >= path.count && Array(p.prefix(path.count)) == path }
+        let secs = sections()
+        var drop = IndexSet()
+        var i = 0
+        while i < items.count {
+            let header: [String]? = switch items[i].kind {
+            case let .table(p), let .arrayTable(p): p
+            default: nil
+            }
+            if let header, under(header) {
+                // Bloc de l'en-tête : jusqu'à l'en-tête suivant, sans les lignes vides et commentaires de fin.
+                var end = i + 1
+                while end < items.count, secs[end] == secs[i] { end += 1 }
+                var last = end - 1
+                while last > i, items[last].kind == .trivia { last -= 1 }
+                drop.insert(integersIn: i...last)
+                i = end
+                continue
+            }
+            if case let .keyValue(k) = items[i].kind, secs[i].arrayIndex == nil, under(secs[i].path + k) { drop.insert(i) }
+            i += 1
+        }
+        guard !drop.isEmpty else { return }
+        for r in drop.rangeView.reversed() {
+            items.removeSubrange(r)
+            // Pas deux lignes vides de suite à la jonction.
+            let at = r.lowerBound
+            if at > 0, at < items.count, items[at - 1].raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               items[at].raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                items.remove(at: at)
+            }
+        }
+        renumber()
+    }
+
     private mutating func ensureTrailingNewline() {
         if let last = items.indices.last, !items[last].raw.hasSuffix("\n") { items[last].raw += "\n" }
     }

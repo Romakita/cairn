@@ -12,7 +12,8 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 18) {
                 Text(T("section.settings")).font(.system(size: 26, weight: .medium)).padding(.top, 24)
                 if let e = model.configIssues.first(where: { $0.severity == .error }) {
-                    Banner(icon: "exclamationmark.octagon", text: e.description, tone: .danger)
+                    // Erreur de syntaxe ou de schéma : rien n'est enregistré tant que le fichier n'est pas corrigé.
+                    Banner(icon: "exclamationmark.octagon", text: e.description + "\n" + T("settings.blocked"), tone: .danger)
                 }
 
                 section(T("settings.general")) {
@@ -121,6 +122,8 @@ struct SettingsView: View {
             }
             .font(.system(size: 13.5))
         }
+        // Le fichier sur disque est invalide : l'enregistrement serait refusé (ConfigStore.SaveError).
+        .disabled(model.configIssues.contains { $0.severity == .error })
     }
 
     func addHomeItem() {

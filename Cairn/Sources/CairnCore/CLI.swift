@@ -31,6 +31,8 @@ public enum CLI {
             let url = URL(fileURLWithPath: p)
             return ConfigStore(paths: CairnPaths(root: url.deletingLastPathComponent()), fileURL: url)
         } ?? ConfigStore()
+        // `~/.cairn` en 700 avant toute écriture (journaux, état, verrou). Le dossier d'un --config n'est pas modifié.
+        if configPath == nil { try? store.paths.ensure() }
         var lang: String?
         if let i = args.firstIndex(of: "--lang") {
             guard i + 1 < args.count else { err(L10n.tr("cli.missing_value", "--lang")); return .usage }
@@ -155,19 +157,8 @@ public enum CLI {
             err(L10n.tr("cli.tools.exported", inv.retained.count, exportDir))
         }
         if json {
-            let list: [[String: Any]] = inv.entries.map { e in
-                var d: [String: Any] = ["name": e.name, "status": e.status.rawValue, "reasons": e.reasons, "excluded": e.excluded]
-                if let t = e.tool {
-                    d["source"] = t.source.rawValue
-                    d["version"] = t.version ?? NSNull()
-                    d["commands"] = t.commands
-                    d["details"] = t.details
-                }
-                return d
-            }
-            let obj: [String: Any] = ["tools": list, "taps": inv.taps]
-            if let data = try? JSONSerialization.data(withJSONObject: obj, options: [.prettyPrinted, .sortedKeys]),
-               let s = String(data: data, encoding: .utf8) { out(s) }
+            // Codes stables (`{"code":"history","uses":5}`) : la langue ne change que la sortie texte.
+            out(InventoryExport.json(inv))
         } else if exportDir == nil {
             for status in [InventoryEntry.Status.missing, .used, .unused] {
                 let group = inv.entries.filter { $0.status == status }
@@ -179,7 +170,7 @@ public enum CLI {
                     let mark = e.excluded ? " ✗" : ""
                     out("  " + e.name.padding(toLength: 28, withPad: " ", startingAt: 0) + " "
                         + src.padding(toLength: 10, withPad: " ", startingAt: 0) + " "
-                        + ver.padding(toLength: 12, withPad: " ", startingAt: 0) + " " + e.reasons.joined(separator: ", ") + mark)
+                        + ver.padding(toLength: 12, withPad: " ", startingAt: 0) + " " + e.reasonTexts.joined(separator: ", ") + mark)
                 }
             }
         }

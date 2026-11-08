@@ -64,14 +64,47 @@ public enum L10n {
         return t
     }
 
+    nonisolated(unsafe) private static var pluralCache: [AppLanguage: (keys: Set<String>, bundle: Bundle?)] = [:]
+
+    /// Clés au pluriel (`Localizable.stringsdict`) d'une langue, avec le bundle `.lproj` qui les résout.
+    private static func plurals(_ lang: AppLanguage) -> (keys: Set<String>, bundle: Bundle?) {
+        lock.lock()
+        defer { lock.unlock() }
+        if let p = pluralCache[lang] { return p }
+        var p: (keys: Set<String>, bundle: Bundle?) = ([], nil)
+        if let url = Bundle.module.url(forResource: "Localizable", withExtension: "stringsdict", subdirectory: nil,
+                                       localization: lang.lproj),
+           let dict = NSDictionary(contentsOf: url) as? [String: Any] {
+            p = (Set(dict.keys), Bundle(url: url.deletingLastPathComponent()))
+        }
+        pluralCache[lang] = p
+        return p
+    }
+
+    /// Clés définies dans le `.stringsdict` d'une langue (contrôle de parité).
+    public static func pluralKeys(_ lang: AppLanguage) -> Set<String> { plurals(lang).keys }
+
+    /// Format d'une clé : `.stringsdict` puis `.strings` de la langue, sinon les mêmes en anglais, sinon la clé.
+    /// Le format issu du `.stringsdict` porte ses règles de pluriel, appliquées par `String(format:locale:arguments:)`.
+    static func format(_ key: String, _ lang: AppLanguage) -> String? {
+        let p = plurals(lang)
+        if p.keys.contains(key), let b = p.bundle { return b.localizedString(forKey: key, value: nil, table: nil) }
+        return table(lang)[key]
+    }
+
+    /// Repli : langue demandée, puis anglais, puis la clé elle-même. `lookup` est remplaçable dans les tests.
+    public static func resolve(_ key: String, in lang: AppLanguage, lookup: (String, AppLanguage) -> String?) -> String {
+        lookup(key, lang) ?? (lang == .enUS ? nil : lookup(key, .enUS)) ?? key
+    }
+
     /// Texte traduit ; repli en anglais, puis sur la clé.
     public static func tr(_ key: String, _ args: CVarArg...) -> String {
         tr(key, args: args)
     }
 
     public static func tr(_ key: String, args: [CVarArg]) -> String {
-        let format = table(current)[key] ?? table(.enUS)[key] ?? key
-        return args.isEmpty ? format : String(format: format, locale: locale, arguments: args)
+        let f = resolve(key, in: current, lookup: format)
+        return args.isEmpty ? f : String(format: f, locale: locale, arguments: args)
     }
 }
 
@@ -109,7 +142,12 @@ public enum Fmt {
         d.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened).locale(L10n.locale))
     }
 
+    /// Durées : « 12,3 s » / « 12.3 s » sous la minute, puis heures, minutes et secondes abrégées selon la langue
+    /// (« 2 min 5 s », « 2 min, 5 sec »).
     public static func duration(_ seconds: TimeInterval) -> String {
-        number(seconds, digits: 1) + " s"
+        guard seconds >= 60 else { return number(max(seconds, 0), digits: 1) + " s" }
+        let style = Duration.UnitsFormatStyle(allowedUnits: [.hours, .minutes, .seconds], width: .abbreviated)
+            .locale(L10n.locale)
+        return Duration.seconds(Int64(seconds.rounded())).formatted(style)
     }
 }
