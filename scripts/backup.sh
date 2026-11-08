@@ -434,7 +434,9 @@ fi
 # ===========================================================================
 cp "$SCRIPT_DIR/backup.sh" "$DEST/backup.sh"
 [ -f "$SCRIPT_DIR/restore.sh" ] && cp "$SCRIPT_DIR/restore.sh" "$DEST/restore.sh"
-[ -f "$SCRIPT_DIR/README.md" ] && cp "$SCRIPT_DIR/README.md" "$DEST/README.md"
+for r in "$SCRIPT_DIR/README.md" "$SCRIPT_DIR/../README.md"; do
+  [ -f "$r" ] && { cp "$r" "$DEST/README.md"; break; }
+done
 chmod +x "$DEST"/*.sh
 
 c_info "Terminé. Log : $LOG"
