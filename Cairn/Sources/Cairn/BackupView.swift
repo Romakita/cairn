@@ -95,6 +95,9 @@ struct BackupView: View {
                             Text(p.current).font(.system(size: 11.5)).foregroundStyle(Palette.secondary).lineLimit(1).truncationMode(.middle)
                         }
                     }
+                } else if model.isBackingUp && model.backupProgress == nil {
+                    // Préparation commune à toutes les destinations (copie des bases des outils IA…) : pas encore de progression.
+                    Card { HStack { ProgressView().controlSize(.small); Text(T("backup.preparing")).fontWeight(.medium) } }
                 }
                 if let r = model.lastBackupResults.first(where: { $0.destination == d.id }) {
                     lastResultCard(d, r)

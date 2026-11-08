@@ -242,6 +242,7 @@
 "status.ok" = "Everything is fine";
 "status.attention" = "Needs attention";
 "status.error" = "Error";
+"status.backing_up" = "Backup in progress";
 "sidebar.folders" = "Tracked folders";
 "sidebar.destinations" = "Destinations";
 "sidebar.add_destination" = "Add a destination";
@@ -473,6 +474,7 @@
 "backup.simulate" = "Simulate";
 "backup.verify" = "Check integrity";
 "backup.running" = "Backing up %@…";
+"backup.preparing" = "Preparing the backup…";
 "backup.never" = "never";
 "backup.transferred" = "%1$@ copied in %2$@";
 "backup.next" = "Next";
