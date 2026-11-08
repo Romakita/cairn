@@ -1,9 +1,13 @@
 name: Release
 
-# Pousser un tag vX.Y.Z égal à Cairn/VERSION publie une release avec Cairn.app zippée.
+# Publie une release GitHub (tag vX.Y.Z + Cairn.app zippée) pour la version de Cairn/VERSION.
+# - Appelé par CI après un build réussi sur main : crée le tag et la release si v<VERSION> n'existe pas encore
+#   (il suffit donc de passer `just bump X.Y.Z` dans la PR).
+# - Pousser à la main un tag vX.Y.Z égal à Cairn/VERSION publie aussi la release.
 on:
   push:
     tags: ['v*']
+  workflow_call:
 
 permissions:
   contents: write
@@ -11,37 +15,55 @@ permissions:
 jobs:
   release:
     runs-on: macos-15
+    concurrency:   # une release à la fois, jamais annulée en cours de route
+      group: release
+      cancel-in-progress: false
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0   # numéro de build = nombre de commits, et liste des tags
+
+      - name: Version and tag
+        id: version
+        run: |
+          VERSION="$(tr -d '[:space:]' < Cairn/VERSION)"
+          TAG="v${VERSION}"
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+          echo "TAG=${TAG}" >> "$GITHUB_ENV"
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            if [ "${GITHUB_REF_NAME}" != "${TAG}" ]; then
+              echo "::error::tag ${GITHUB_REF_NAME} ≠ ${TAG} (Cairn/VERSION)"; exit 1
+            fi
+          elif git ls-remote --exit-code --tags origin "refs/tags/${TAG}" > /dev/null; then
+            echo "${TAG} existe déjà : pas de nouvelle release (passer \`just bump\` dans la PR pour en publier une)."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
 
       - name: Swift toolchain
+        if: steps.version.outputs.skip != 'true'
         run: |
           sudo xcode-select -s "$(ls -d /Applications/Xcode_16*.app | sort -V | tail -1)"
           swift --version
 
-      - name: Tag matches Cairn/VERSION
-        run: |
-          VERSION="$(tr -d '[:space:]' < Cairn/VERSION)"
-          if [ "${GITHUB_REF_NAME}" != "v${VERSION}" ]; then
-            echo "::error::tag ${GITHUB_REF_NAME} ≠ v${VERSION} (Cairn/VERSION)"; exit 1
-          fi
-          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
-
       - name: Self-tests
+        if: steps.version.outputs.skip != 'true'
         run: |
           swift build --package-path Cairn
           Cairn/.build/debug/cairn-selftest
 
       - name: Build app and archive
+        if: steps.version.outputs.skip != 'true'
         run: Cairn/build-app.sh --no-install --zip
 
       - name: Archive runs outside the build folder
+        if: steps.version.outputs.skip != 'true'
         run: Cairn/scripts/smoke-test-app.sh Cairn/build/Cairn-${VERSION}-*.zip
 
       - name: Release notes from CHANGELOG
+        if: steps.version.outputs.skip != 'true'
         run: |
           awk -v v="${VERSION}" '
             $0 ~ "^## \\[" v "\\]" {on=1; next}
@@ -58,11 +80,21 @@ jobs:
           Later updates install from the app (**Update available** button, or **Cairn → Check for Updates…**).
           NOTES
 
-      - name: Publish
+      - name: Keep the archive with the run
+        if: steps.version.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cairn-${{ env.VERSION }}
+          path: |
+            Cairn/build/Cairn-${{ env.VERSION }}-*.zip
+            Cairn/build/Cairn-${{ env.VERSION }}-*.zip.sha256
+
+      - name: Publish (creates the tag on this commit if needed)
+        if: steps.version.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           PRE=""
           case "${VERSION}" in *-*) PRE="--prerelease" ;; esac
-          gh release create "${GITHUB_REF_NAME}" Cairn/build/Cairn-${VERSION}-*.zip Cairn/build/Cairn-${VERSION}-*.zip.sha256 \
-            --title "Cairn ${VERSION}" --notes-file build-notes.md ${PRE}
+          gh release create "${TAG}" Cairn/build/Cairn-${VERSION}-*.zip Cairn/build/Cairn-${VERSION}-*.zip.sha256 \
+            --target "${GITHUB_SHA}" --title "Cairn ${VERSION}" --notes-file build-notes.md ${PRE}
