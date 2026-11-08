@@ -125,7 +125,7 @@ struct OnboardingView: View {
                 Card {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
-                            Text(T("ai.\(tool.id)")).font(.system(size: 15, weight: .semibold))
+                            Text(AIProfiles.name(for: tool.id)).font(.system(size: 15, weight: .semibold))
                             Spacer()
                             Badge(text: tool.detected ? T("onboarding.ai.detected") : T("onboarding.ai.not_detected"),
                                   tone: tool.detected ? .success : .neutral)

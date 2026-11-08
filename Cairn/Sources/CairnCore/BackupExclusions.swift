@@ -70,8 +70,15 @@ public enum BackupExclusions {
 
     // MARK: Home
 
-    /// Dossiers des outils IA : sauvegardés par la partie IA, jamais par la sélection du home.
-    public static let aiManaged = [".claude", ".claude.json", ".codex", "Library/Application Support/Claude"]
+    /// Dossiers des outils IA (racines et marqueurs des profils) : sauvegardés par la partie IA,
+    /// jamais par la sélection du home.
+    public static func aiManaged(profiles: [AIProfile]) -> [String] {
+        var out: [String] = []
+        for p in profiles { for path in p.homePaths where !out.contains(path) { out.append(path) } }
+        return out
+    }
+
+    public static var aiManaged: [String] { aiManaged(profiles: AIProfiles.bundled) }
 
     /// Caches et installations reconstructibles, exclus même dans un élément sélectionné.
     public static let homeExcludes = [
@@ -83,8 +90,9 @@ public enum BackupExclusions {
     ]
 
     /// Éléments du home à copier (chemins relatifs), sans les dossiers des outils IA ni les éléments absents.
-    public static func homeItems(_ include: [String], home: String) -> [String] {
-        include.map { $0.hasPrefix("~/") ? String($0.dropFirst(2)) : $0 }
+    public static func homeItems(_ include: [String], home: String, profiles: [AIProfile] = AIProfiles.bundled) -> [String] {
+        let aiManaged = aiManaged(profiles: profiles)
+        return include.map { $0.hasPrefix("~/") ? String($0.dropFirst(2)) : $0 }
             .filter { item in !aiManaged.contains { item == $0 || item.hasPrefix($0 + "/") } }
             .filter { FileManager.default.fileExists(atPath: home + "/" + $0) }
     }

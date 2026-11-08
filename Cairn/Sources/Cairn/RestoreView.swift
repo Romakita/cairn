@@ -32,6 +32,10 @@ struct RestoreView: View {
     @ViewState private var nasURL = ""
     @ViewState private var nasUser = NSUserName()
     @ViewState private var quitMessage: String?
+    /// Incrémenté après la création du volume : l'état « cible absente » est relu.
+    @ViewState private var volumeRefresh = 0
+    /// Résultat du bouton « Vérifier » (outils présents / manquants, rien n'est modifié).
+    @ViewState private var checkResult: (present: [String], missing: [String])?
 
     static let steps = ["source", "version", "parts", "summary"]
 
@@ -136,6 +140,7 @@ struct RestoreView: View {
 
     var partsStep: some View {
         let s = source!
+        _ = volumeRefresh
         return Card(padding: 4) {
             VStack(alignment: .leading, spacing: 0) {
                 partToggle(T("restore.part.tools"), T("restore.part.tools_detail"), isOn: $plan.tools).disabled(s.toolsDir == nil)
@@ -143,7 +148,7 @@ struct RestoreView: View {
                 partToggle(T("settings.home"), T("restore.part.home_detail"), isOn: $plan.home).disabled(s.home == nil)
                 ForEach(s.aiTools, id: \.self) { id in
                     Divider()
-                    partToggle(T("ai.\(id)"), T("restore.part.ai_detail"), isOn: Binding(
+                    partToggle(AIProfiles.name(for: id), T("restore.part.ai_detail"), isOn: Binding(
                         get: { plan.ai.contains(id) }, set: { on in plan.ai.removeAll { $0 == id }; if on { plan.ai.append(id) } }))
                 }
                 if !s.aiTools.isEmpty {
@@ -160,7 +165,7 @@ struct RestoreView: View {
                                 Button(T("restore.change")) { chooseTarget(f.name) }.buttonStyle(.pill)
                             }
                             .padding(.horizontal, 14)
-                            if !FileManager.default.fileExists(atPath: (target as NSString).deletingLastPathComponent) {
+                            if RestoreService.targetIsMissing(target) {
                                 Banner(icon: "externaldrive.badge.exclamationmark", text: T("restore.missing_volume", target), tone: .warning) {
                                     if target.hasPrefix("/Volumes/workspaces") {
                                         Button(T("restore.create_volume")) { createVolume() }.buttonStyle(.pill)
@@ -212,6 +217,17 @@ struct RestoreView: View {
                 row(T("restore.format"), s.kind == .legacy ? "backup.sh" : "Cairn")
                 if !s.archMatches { Text(T("cli.restore.arch_warning", s.arch, BackupEngine.arch())).font(.system(size: 12)).foregroundStyle(Palette.foreground(.warning)) }
                 Text(T("restore.terminal_note")).font(.system(size: 12)).foregroundStyle(Palette.secondary).fixedSize(horizontal: false, vertical: true)
+                if s.toolsDir != nil {
+                    Divider()
+                    Button(T("restore.verify")) { verify(s) }.buttonStyle(.pill).disabled(busy)
+                    Text(T("restore.verify_note")).font(.system(size: 12)).foregroundStyle(Palette.secondary).fixedSize(horizontal: false, vertical: true)
+                    if let c = checkResult {
+                        Text(T("cli.restore.check", c.present.count, c.missing.count)).fontWeight(.medium)
+                        ForEach(c.missing, id: \.self) { name in
+                            Label(name, systemImage: "xmark.circle").font(.system(size: 12.5)).foregroundStyle(Palette.foreground(.warning))
+                        }
+                    }
+                }
             }
             .font(.system(size: 13.5))
         }
@@ -284,6 +300,7 @@ struct RestoreView: View {
         for f in s.folders { p.folders[f.name] = f.originalPath }
         plan = p
         error = nil
+        checkResult = nil
         step = 2
     }
 
@@ -299,7 +316,16 @@ struct RestoreView: View {
         busy = true
         Task.detached {
             let (ok, out) = RestoreService.createWorkspacesVolume()
-            await MainActor.run { busy = false; if !ok { error = out } }
+            await MainActor.run { busy = false; volumeRefresh += 1; if !ok { error = out } }
+        }
+    }
+
+    /// Vérification seule : outils de l'inventaire présents ou manquants sur ce Mac.
+    func verify(_ s: RestoreSource) {
+        busy = true
+        Task.detached(priority: .userInitiated) {
+            let r = RestoreService(source: s).check()
+            await MainActor.run { checkResult = r; busy = false }
         }
     }
 
@@ -325,9 +351,9 @@ struct RestoreView: View {
                 try lock.acquire(operation: "restore")
                 res = RestoreService(source: s).run(p, apply: true, waitForAdmin: { cmd in
                     RestoreService.openInTerminal(cmd)
-                    return RestoreService.waitFor("brew")
+                    return RestoreService.waitAfterAdmin(cmd)
                 }, waitForQuit: { tool in
-                    let m = T("restore.quit_tool", T("ai.\(tool.id)"))
+                    let m = T("restore.quit_tool", tool.displayName)
                     DispatchQueue.main.async { quitMessage = m }
                     let ok = RestoreService.waitUntilQuit(tool)
                     DispatchQueue.main.async { quitMessage = nil }

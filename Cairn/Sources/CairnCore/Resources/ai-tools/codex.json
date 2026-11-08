@@ -1,5 +1,6 @@
 {
   "id": "codex",
+  "name": "Codex",
   "version": 1,
   "root": "~/.codex",
   "detect": [".codex"],

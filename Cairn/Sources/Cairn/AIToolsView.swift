@@ -4,14 +4,14 @@ import SwiftUI
 /// Outils IA : catégories sauvegardées par outil (config.toml), tailles, ce qui n'est jamais copié.
 struct AIToolsView: View {
     @EnvironmentObject var model: AppModel
-    @ViewState private var pendingCredentials: String?
 
     var body: some View {
-        let unencrypted = model.config?.destinations.contains { !$0.encrypted } ?? false
+        // Identifiants sauvegardés seulement si toutes les destinations sont chiffrées (sinon ignorés, même cochés).
+        let unencrypted = !AIBackup.credentialsAllowed(config: model.config ?? CairnConfig())
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text(AppSection.ai.title).font(.system(size: 26, weight: .medium)).padding(.top, 20)
-                Banner(icon: unencrypted ? "lock.open" : "lock", text: T(unencrypted ? "ai.banner.unencrypted" : "ai.banner.encrypted"),
+                Banner(icon: unencrypted ? "lock.open" : "lock", text: T(unencrypted ? "ai.banner.credentials_ignored" : "ai.banner.encrypted"),
                        tone: unencrypted ? .warning : .info)
                 if let stats = model.aiStats {
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14), GridItem(.flexible())], spacing: 14) {
@@ -31,28 +31,25 @@ struct AIToolsView: View {
             .padding(.horizontal, 32).padding(.bottom, 24)
         }
         .onAppear { if model.aiStats == nil { model.refreshAIStats() } }
-        .confirmationDialog(T("ai.credentials.confirm"), isPresented: Binding(get: { pendingCredentials != nil }, set: { if !$0 { pendingCredentials = nil } }),
-                            titleVisibility: .visible) {
-            Button(T("ai.credentials.include"), role: .destructive) {
-                if let id = pendingCredentials { model.setAICategory(id, "credentials", on: true) }
-                pendingCredentials = nil
-            }
-            Button(T("action.cancel"), role: .cancel) { pendingCredentials = nil }
-        } message: { Text(T("onboarding.destination.unencrypted_warning")) }
     }
 
     func card(_ s: AIBackup.ToolStats, unencrypted: Bool) -> some View {
-        let selected = model.config?.ai.first { $0.id == s.profile.id }?.categories ?? []
+        let tool = model.config?.ai.first { $0.id == s.profile.id }
+        let selected = tool?.categories ?? []
+        // Taille de ce qui sera sauvegardé : catégories cochées, identifiants retirés s'ils sont ignorés.
+        let saved = tool.map { AIBackup.effectiveCategories($0, config: model.config ?? CairnConfig()) } ?? []
         return Card {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text(T("ai.\(s.profile.id)")).font(.system(size: 15, weight: .semibold))
+                    Text(s.profile.displayName).font(.system(size: 15, weight: .semibold))
                     Spacer()
-                    if s.detected { Text(Fmt.bytes(s.totalBytes)).fontWeight(.semibold) }
+                    if s.detected { Text(Fmt.bytes(s.bytes(of: saved))).fontWeight(.semibold).help(T("ai.size.saved_help")) }
                     else { Badge(text: T("onboarding.ai.not_detected")) }
                 }
                 Text(s.profile.root).font(.system(size: 12, design: .monospaced)).foregroundStyle(Palette.secondary)
                 if s.detected {
+                    Text(T("ai.last_backup", s.lastBackup.map(Fmt.date) ?? T("ai.last_backup.never")))
+                        .font(.system(size: 12.5)).foregroundStyle(Palette.secondary)
                     if s.conversations > 0 {
                         Text(T("cli.ai.conversations", s.conversations, s.latestConversation.map(Fmt.date) ?? "—"))
                             .font(.system(size: 12.5)).foregroundStyle(Palette.secondary)
@@ -61,13 +58,16 @@ struct AIToolsView: View {
                     ForEach(CairnConfig.AITool.categories.filter { !(s.profile.categories[$0] ?? []).isEmpty }, id: \.self) { cat in
                         HStack {
                             Toggle(T("ai.category.\(cat)"), isOn: Binding(get: { selected.contains(cat) }, set: { on in
-                                if on && cat == "credentials" && unencrypted { pendingCredentials = s.profile.id }
-                                else { model.setAICategory(s.profile.id, cat, on: on) }
+                                model.setAICategory(s.profile.id, cat, on: on)
                             }))
                             .toggleStyle(.checkbox)
                             Spacer()
                             Text(Fmt.bytes(s.bytesByCategory[cat] ?? 0)).font(.system(size: 12.5)).monospacedDigit().foregroundStyle(Palette.secondary)
                         }
+                    }
+                    if unencrypted && selected.contains("credentials") {
+                        Text(T("ai.credentials.ignored")).font(.system(size: 12)).foregroundStyle(Palette.foreground(.warning))
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     if s.profile.credentialsInKeychain {
                         Text(T("cli.ai.keychain")).font(.system(size: 12)).foregroundStyle(Palette.foreground(.warning))
@@ -86,8 +86,15 @@ struct AIToolsView: View {
 
 extension AppModel {
     func refreshAIStats() {
+        let config = self.config ?? CairnConfig()
+        let paths = self.paths
         Task.detached(priority: .utility) {
-            let stats = AIProfiles.bundled.map { AIBackup.stats($0) }
+            let state = RunState.load(paths)
+            let stats = AIProfiles.bundled.map { p -> AIBackup.ToolStats in
+                var s = AIBackup.stats(p)
+                s.lastBackup = AIBackup.lastBackup(toolID: p.id, config: config, state: state)
+                return s
+            }
             await MainActor.run { self.aiStats = stats }
         }
     }

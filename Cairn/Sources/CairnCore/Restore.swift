@@ -214,10 +214,39 @@ public final class RestoreService: @unchecked Sendable {
     /// Taille à copier par partie (récapitulatif avant confirmation).
     public func sizes(_ plan: Plan) -> [String: Int64] {
         var s: [String: Int64] = [:]
-        if plan.home, let h = source.home { s["home"] = Scanner.measure(h.path).size }
+        if plan.home, let h = source.home {
+            var size = Scanner.measure(h.path).size
+            // Sauvegarde héritée : les dossiers des outils IA de home/ passent par la fusion IA, pas par le home.
+            if source.kind == .legacy {
+                for rel in BackupExclusions.aiManaged { size -= Scanner.measure(h.appendingPathComponent(rel).path).size }
+            }
+            s["home"] = max(0, size)
+        }
         for f in source.folders where plan.folders[f.name] != nil { s["folders/" + f.name] = Scanner.measure(f.dir.path).size }
-        for t in plan.ai { s["ai/" + t] = Scanner.measure(source.root.appendingPathComponent("ai/\(t)").path).size }
+        for t in plan.ai { s["ai/" + t] = aiDirs(t).reduce(Int64(0)) { $0 + Scanner.measure($1.path).size } }
         return s
+    }
+
+    /// Dossiers d'un outil IA dans la sauvegarde (`ai/<outil>`, ou emplacements hérités de scripts/backup.sh).
+    func aiDirs(_ tool: String) -> [URL] {
+        guard source.kind == .legacy else { return [source.root.appendingPathComponent("ai/\(tool)")] }
+        switch tool {
+        case "claude-code": return ["home/.claude", "home/.claude.json"].map { source.root.appendingPathComponent($0) }
+        case "codex": return [source.root.appendingPathComponent("home/.codex")]
+        case "claude-desktop": return [source.root.appendingPathComponent("ai/claude-desktop")]
+        default: return []
+        }
+    }
+
+    /// Le dossier cible d'une restauration est-il absent ? Sous `/Volumes/<nom>/…`, c'est le volume lui-même
+    /// qui doit exister (`/Volumes` existe toujours) ; ailleurs, le dossier parent.
+    public static func targetIsMissing(_ target: String, exists: (String) -> Bool = { FileManager.default.fileExists(atPath: $0) }) -> Bool {
+        let path = (target as NSString).standardizingPath
+        if path.hasPrefix("/Volumes/") {
+            guard let name = path.dropFirst("/Volumes/".count).split(separator: "/").first else { return true }
+            return !exists("/Volumes/" + name)
+        }
+        return !exists((path as NSString).deletingLastPathComponent)
     }
 
     /// Copie avec rsync ; les fichiers remplacés sont gardés avec le suffixe .pre-restore.
@@ -247,7 +276,8 @@ public final class RestoreService: @unchecked Sendable {
     }
 
     /// Exécute la restauration choisie. `waitForAdmin` est appelé pour une étape qui demande un mot de passe
-    /// administrateur (installation de Homebrew) : elle s'ouvre dans Terminal, jamais dans Cairn.
+    /// administrateur (Command Line Tools, Homebrew) : elle s'ouvre dans Terminal, jamais dans Cairn ;
+    /// `waitAfterAdmin(cmd)` attend la fin de l'étape correspondante.
     /// `waitForQuit` est appelé quand un outil IA à restaurer est ouvert : il demande de le quitter et renvoie
     /// `true` une fois l'outil fermé (sinon l'outil est passé).
     public func run(_ plan: Plan, apply: Bool, waitForAdmin: (String) -> Bool = { _ in false },
@@ -315,7 +345,21 @@ public final class RestoreService: @unchecked Sendable {
         if plan.tools, let dir = source.toolsDir {
             reinstallTools(dir, apply: apply, waitForAdmin: waitForAdmin, record: record)
         }
+        // Vérification finale (lecture seule) : outils de l'inventaire présents ou manquants.
+        if apply, source.toolsDir != nil {
+            let (present, missing) = check()
+            var detail = L10n.tr("cli.restore.check", present.count, missing.count)
+            if !missing.isEmpty { detail += " — " + missing.joined(separator: ", ") }
+            record("check", !plan.tools || missing.isEmpty, detail)
+        }
         return log
+    }
+
+    /// Commande d'installation des Command Line Tools (fenêtre système, ouverte depuis Terminal).
+    public static let commandLineToolsInstall = "xcode-select --install"
+
+    func commandLineToolsInstalled() -> Bool {
+        runner.run(["/usr/bin/xcode-select", "-p"]).status == 0
     }
 
     func available(_ cmd: String) -> Bool {
@@ -325,6 +369,13 @@ public final class RestoreService: @unchecked Sendable {
     /// Réinstalle dans l'ordre du design ; les outils présents sont ignorés, chaque échec est noté sans arrêter la suite.
     func reinstallTools(_ dir: URL, apply: Bool, waitForAdmin: (String) -> Bool, record: (String, Bool, String) -> Void) {
         let (tools, taps, _) = ToolPlan.read(dir)
+        // Command Line Tools d'abord : Homebrew et les compilations en dépendent.
+        if commandLineToolsInstalled() {
+            record("command-line-tools", true, "present")
+        } else {
+            let ok = apply ? waitForAdmin(Self.commandLineToolsInstall) : false
+            record("command-line-tools", ok || !apply, apply ? "" : "would install: " + Self.commandLineToolsInstall)
+        }
         if !available("brew") && tools.contains(where: { $0.source == .brew }) {
             let cmd = "/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
             let ok = apply ? waitForAdmin(cmd) : false
@@ -376,6 +427,21 @@ public final class RestoreService: @unchecked Sendable {
         p.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
         p.arguments = ["-e", "tell application \"Terminal\" to do script \"\(escaped)\"", "-e", "tell application \"Terminal\" to activate"]
         try? p.run()
+    }
+
+    /// Attente après une étape ouverte dans Terminal : Command Line Tools ou Homebrew selon la commande.
+    public static func waitAfterAdmin(_ command: String) -> Bool {
+        command == commandLineToolsInstall ? waitForCommandLineTools() : waitFor("brew")
+    }
+
+    /// Attend que `xcode-select -p` réussisse (vérification toutes les 5 s).
+    public static func waitForCommandLineTools(timeout: TimeInterval = 3600, runner: CommandRunner = SystemRunner()) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if runner.run(["/usr/bin/xcode-select", "-p"]).status == 0 { return true }
+            Thread.sleep(forTimeInterval: 5)
+        }
+        return false
     }
 
     /// Attend qu'une commande devienne disponible (vérification toutes les 5 s).

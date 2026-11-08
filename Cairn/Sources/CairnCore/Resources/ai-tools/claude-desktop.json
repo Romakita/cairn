@@ -1,5 +1,6 @@
 {
   "id": "claude-desktop",
+  "name": "Claude Desktop",
   "version": 1,
   "root": "~/Library/Application Support/Claude",
   "detect": ["Library/Application Support/Claude"],
