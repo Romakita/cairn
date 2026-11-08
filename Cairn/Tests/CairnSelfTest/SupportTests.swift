@@ -53,4 +53,18 @@ let supportTests: [TestCase] = [
             try expect(log.url.lastPathComponent.hasPrefix("analyze-"))
         }
     },
+    TestCase("resources_missing_bundle_does_not_crash") {
+        // L'app 0.1.0 plantait au lancement (assertion de Bundle.module) quand le bundle de ressources était introuvable.
+        try withTempDir { dir in
+            let b = CairnResources.resolve([dir.appendingPathComponent("absent/Cairn_CairnCore.bundle")])
+            try expect(b === Bundle.main)
+        }
+    },
+    TestCase("resources_bundle_has_catalogs") {
+        let b = CairnResources.bundle
+        try expect(b !== Bundle.main, "bundle de ressources introuvable")
+        for lang in ["en", "fr"] {
+            try expect(b.url(forResource: "Localizable", withExtension: "strings", subdirectory: nil, localization: lang) != nil)
+        }
+    },
 ]

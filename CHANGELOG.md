@@ -8,6 +8,12 @@ versions en [SemVer](https://semver.org/lang/fr/). Le numéro courant est dans `
 ### Modifié
 - Nouvelle icône : cairn de galets ombrés sur une crête au crépuscule.
 - README réécrit pour un projet open source, en anglais (`README.md`) et en français (`README.fr.md`).
+
+### Corrigé
+- Plus aucun plantage si le bundle de ressources est introuvable : `Bundle.module` (qui fait une assertion) n'est plus
+  appelé, l'app démarre avec les textes non traduits.
+- Le test de fumée lance aussi l'interface et vérifie qu'elle tourne encore après quelques secondes : le plantage de
+  la 0.1.0 (à la construction des menus) n'était pas couvert par les seules commandes CLI.
 - Le projet est publié sous licence MIT.
 
 ## [0.1.1] - 2026-11-08

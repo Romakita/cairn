@@ -109,17 +109,20 @@ public final class RunLog: @unchecked Sendable {
 }
 
 /// Bundle des ressources de CairnCore (catalogues, profils IA, règles).
-/// `Bundle.module` ne cherche qu'à la racine de l'app et dans le dossier de build de la machine qui a compilé : il
-/// plante donc dans une app téléchargée. On cherche d'abord aux emplacements réels, `Bundle.module` en dernier recours.
+/// `Bundle.module` n'est jamais utilisé : il ne cherche qu'à la racine de l'app et dans le dossier de build de la
+/// machine qui a compilé, et plante (assertion) s'il ne trouve rien, ce qui arrivait au lancement d'une app téléchargée.
+/// Sans bundle trouvé, on retombe sur `Bundle.main` : textes non traduits, mais l'app démarre.
 public enum CairnResources {
     static let name = "Cairn_CairnCore.bundle"
 
-    public static let bundle: Bundle = {
-        for url in candidates() {
+    public static let bundle: Bundle = resolve(candidates())
+
+    public static func resolve(_ urls: [URL]) -> Bundle {
+        for url in urls where FileManager.default.fileExists(atPath: url.path) {
             if let b = Bundle(url: url) { return b }
         }
-        return Bundle.module
-    }()
+        return Bundle.main
+    }
 
     static func candidates() -> [URL] {
         var out: [URL] = []
