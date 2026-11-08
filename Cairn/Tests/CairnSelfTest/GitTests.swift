@@ -1,0 +1,193 @@
+import CairnCore
+import Foundation
+
+@discardableResult
+private func git(_ dir: URL, _ args: String...) throws -> String {
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+    p.arguments = ["-C", dir.path, "-c", "user.name=Test", "-c", "user.email=t@example.com", "-c", "init.defaultBranch=main",
+                   "-c", "commit.gpgsign=false"] + args
+    let pipe = Pipe()
+    p.standardOutput = pipe
+    p.standardError = FileHandle.nullDevice
+    try p.run()
+    let out = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+    p.waitUntilExit()
+    guard p.terminationStatus == 0 else { throw TestFailure(message: "git \(args.joined(separator: " ")) a échoué", file: #filePath, line: #line) }
+    return out.trimmingCharacters(in: .whitespacesAndNewlines)
+}
+
+private func commit(_ dir: URL, _ file: String, _ content: String, _ msg: String) throws {
+    try writeText(dir.appendingPathComponent(file), content)
+    try git(dir, "add", file)
+    try git(dir, "commit", "-q", "-m", msg)
+}
+
+private func writeText(_ url: URL, _ s: String) throws {
+    try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try s.write(to: url, atomically: true, encoding: .utf8)
+}
+
+/// Dépôt cloné avec : branche fusionnée, branche squashée, branche non fusionnée (toutes « gone »),
+/// une branche gone extraite dans un worktree conservé, et des worktrees orphelin / fusionné / inactif / à risque.
+private func makeFixture(_ dir: URL) throws -> URL {
+    let remote = dir.appendingPathComponent("remote.git")
+    try FileManager.default.createDirectory(at: remote, withIntermediateDirectories: true)
+    try git(remote, "init", "-q", "--bare")
+    let repo = dir.appendingPathComponent("work/app")
+    try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+    try git(repo, "init", "-q")
+    try commit(repo, "README.md", "base\n", "base")
+    try git(repo, "remote", "add", "origin", remote.path)
+    try git(repo, "push", "-q", "-u", "origin", "main")
+
+    func branch(_ name: String, _ file: String) throws {
+        try git(repo, "checkout", "-q", "-b", name, "main")
+        try commit(repo, file, "\(name)\n", "feat \(name)")
+        try git(repo, "push", "-q", "-u", "origin", name)
+    }
+    try branch("feat-merged", "a.txt")
+    try branch("feat-squash", "b.txt")
+    try branch("feat-wip", "c.txt")
+    try branch("feat-wt", "d.txt")
+    try branch("feat-wt-risk", "e.txt")
+    try git(repo, "checkout", "-q", "main")
+    try git(repo, "merge", "-q", "--no-ff", "-m", "merge", "feat-merged")
+    try git(repo, "merge", "-q", "--squash", "feat-squash")
+    try git(repo, "commit", "-q", "-m", "squash b")
+    try git(repo, "merge", "-q", "--squash", "feat-wt")
+    try git(repo, "commit", "-q", "-m", "squash d")
+    try git(repo, "push", "-q", "origin", "main")
+    for b in ["feat-merged", "feat-squash", "feat-wip", "feat-wt", "feat-wt-risk"] { try git(repo, "push", "-q", "origin", "--delete", b) }
+    try git(repo, "fetch", "-q", "--prune")
+    try git(repo, "remote", "set-head", "origin", "main")
+
+    // Worktrees : fusionné (dans .claude/worktrees), à risque, orphelin, inactif.
+    try git(repo, "worktree", "add", "-q", repo.appendingPathComponent(".claude/worktrees/wt").path, "feat-wt")
+    let risk = dir.appendingPathComponent("work/app-risk")
+    try git(repo, "worktree", "add", "-q", risk.path, "feat-wt-risk")
+    try writeText(risk.appendingPathComponent("dirty.txt"), "en cours\n")
+    let orphan = dir.appendingPathComponent("work/app-orphan")
+    try git(repo, "worktree", "add", "-q", "-b", "orphan-branch", orphan.path, "main")
+    try FileManager.default.removeItem(at: orphan)
+    let old = dir.appendingPathComponent("work/app-old")
+    try git(repo, "worktree", "add", "-q", "-b", "old-branch", old.path, "main")
+    try commit(old, "old.txt", "x\n", "old work")
+    try git(old, "push", "-q", "-u", "origin", "old-branch")
+    let past = Date().addingTimeInterval(-60 * 86_400)
+    let fm = FileManager.default
+    if let e = fm.enumerator(atPath: old.path) {
+        for case let f as String in e { try? fm.setAttributes([.modificationDate: past], ofItemAtPath: old.appendingPathComponent(f).path) }
+    }
+    return repo
+}
+
+let gitTests: [TestCase] = [
+    TestCase("branch_statuses_and_protection") {
+        try withTempDir { dir in
+            let repo = try makeFixture(dir)
+            let r = GitMaintenance.analyze(repo: repo.path, options: GitOptions())
+            let st = Dictionary(uniqueKeysWithValues: r.branches.map { ($0.name, $0.status) })
+            try expectEqual(st["feat-merged"], .merged)
+            try expectEqual(st["feat-squash"], .squash)
+            try expectEqual(st["feat-wip"], .unmerged)
+            try expect(st["main"] == nil, "la branche principale n'est jamais proposée")
+            let wtBranch = r.branches.first { $0.name == "feat-wt" }
+            try expect(wtBranch?.checkedOutInWorktree != nil, "branche extraite dans un worktree")
+            try expect(!GitMaintenance.selectedByDefault(wtBranch!, options: GitOptions()), "branche d'un worktree gardé non proposée")
+            let selected = r.branches.filter { GitMaintenance.selectedByDefault($0, options: GitOptions()) }.map(\.name).sorted()
+            try expectEqual(selected, ["feat-merged", "feat-squash"])
+            try expect(r.reclaimableBytes >= 0)
+        }
+    },
+    TestCase("worktree_statuses") {
+        try withTempDir { dir in
+            let repo = try makeFixture(dir)
+            var o = GitOptions()
+            o.staleDays = 30
+            let r = GitMaintenance.analyze(repo: repo.path, options: o)
+            func wt(_ suffix: String) -> WorktreeInfo? { r.worktrees.first { $0.path.hasSuffix(suffix) } }
+            try expectEqual(wt("/wt")?.status, .merged)
+            try expect(wt("/wt").map { GitMaintenance.selectedByDefault($0, options: o) } == true)
+            try expectEqual(wt("app-orphan")?.status, .orphan)
+            try expectEqual(wt("app-old")?.status, .stale)
+            let risk = wt("app-risk")
+            try expectEqual(risk?.status, .risk)
+            try expect(risk.map { !GitMaintenance.selectedByDefault($0, options: o) } == true, "un worktree à risque n'est jamais présélectionné")
+        }
+    },
+    TestCase("simulation_changes_nothing") {
+        try withTempDir { dir in
+            let repo = try makeFixture(dir)
+            let before = try git(repo, "for-each-ref", "--format=%(refname)")
+            var out = ""
+            let code = CLI.run(["cairn", "git", "--root", dir.appendingPathComponent("work").path, "--lang", "en-US"],
+                               out: { out += $0 + "\n" }, err: { _ in })
+            try expectEqual(code, .ok)
+            try expect(out.contains("Simulation"), out)
+            try expectEqual(try git(repo, "for-each-ref", "--format=%(refname)"), before)
+        }
+    },
+    TestCase("apply_logs_sha_and_branch_can_be_recreated") {
+        try withTempDir { dir in
+            let repo = try makeFixture(dir)
+            let shaMerged = try git(repo, "rev-parse", "refs/heads/feat-merged")
+            var o = GitOptions()
+            o.gc = false
+            let r = GitMaintenance.analyze(repo: repo.path, options: o)
+            let wts = r.worktrees.filter { GitMaintenance.selectedByDefault($0, options: o) }
+            let res = GitMaintenance.apply(repo: repo.path, branches: ["feat-merged", "feat-squash", "feat-wt"], worktrees: wts, options: o)
+            try expect(res.failures.isEmpty, "\(res.failures)")
+            try expectEqual(res.deletedBranches.sorted(), ["feat-merged", "feat-squash", "feat-wt"])
+            try expect(!FileManager.default.fileExists(atPath: repo.appendingPathComponent(".claude/worktrees/wt").path))
+            try expect(FileManager.default.fileExists(atPath: dir.appendingPathComponent("work/app-risk/dirty.txt").path),
+                       "le worktree à risque est intact")
+            let log = try String(contentsOf: repo.appendingPathComponent(".git/cleanup-deleted-branches.log"), encoding: .utf8)
+            try expect(log.contains("feat-merged\t\(shaMerged)"), log)
+            try expect(log.contains("worktree\t"), log)
+            try git(repo, "branch", "feat-merged", shaMerged)
+            try expectEqual(try git(repo, "rev-parse", "refs/heads/feat-merged"), shaMerged)
+        }
+    },
+    TestCase("cli_apply_worktrees_only_and_tsv_report") {
+        try withTempDir { dir in
+            let repo = try makeFixture(dir)
+            let report = dir.appendingPathComponent("report.tsv")
+            let code = CLI.run(["cairn", "git", "--root", dir.appendingPathComponent("work").path, "--worktrees-only", "--apply",
+                                "--yes", "--no-gc", "--report", report.path], out: { _ in }, err: { _ in })
+            try expectEqual(code, .ok)
+            let tsv = try String(contentsOf: report, encoding: .utf8)
+            try expect(tsv.hasPrefix("repo\tbranche\tstatut\tsha\tdernier_commit\tsujet\n"))
+            try expect(tsv.contains("\tfeat-squash\tsquash\t"), tsv)
+            // Branches intactes (worktrees seulement), worktree à risque gardé, orphelin retiré de git.
+            let kept = try git(repo, "branch", "--list", "feat-merged")
+            try expect(kept.contains("feat-merged"))
+            let list = try git(repo, "worktree", "list")
+            try expect(list.contains("app-risk") && !list.contains("app-orphan") && !list.contains("/wt "), list)
+        }
+    },
+    TestCase("worker_pool_matches_in_process_and_enforces_memory_limit") {
+        let exe = (CommandLine.arguments[0] as NSString).deletingLastPathComponent + "/Cairn"
+        guard FileManager.default.isExecutableFile(atPath: exe) else {
+            throw TestFailure(message: "binaire Cairn introuvable à côté de cairn-selftest (swift build)", file: #filePath, line: #line)
+        }
+        try withTempDir { dir in
+            _ = try makeFixture(dir)
+            let root = dir.appendingPathComponent("work").path
+            GitMaintenance.workerExecutable = nil
+            let local = GitMaintenance.analyzeAll(folders: [root], options: GitOptions())
+            GitMaintenance.workerExecutable = exe
+            defer { GitMaintenance.workerExecutable = nil }
+            var last: GitMaintenance.PoolProgress?
+            let pooled = GitMaintenance.analyzeAll(folders: [root], options: GitOptions()) { last = $0 }
+            try expectEqual(pooled.map(\.path), local.map(\.path))
+            try expectEqual(pooled.first?.branches.map(\.status), local.first?.branches.map(\.status))
+            try expectEqual(pooled.first?.worktrees.map(\.status), local.first?.worktrees.map(\.status))
+            try expectEqual(last?.done, last?.total)
+            // Limite de mémoire ridicule : le worker est arrêté, l'analyse continue sans planter.
+            var p2: GitMaintenance.PoolProgress?
+            let limited = GitMaintenance.analyzeAll(folders: [root], options: GitOptions(), memoryLimit: 1) { p2 = $0 }
+            try expect(limited.isEmpty || p2?.failed.isEmpty == false, "le worker trop gourmand doit être arrêté")
+        }
+    },
+]

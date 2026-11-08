@@ -9,6 +9,8 @@ if CommandLine.arguments.count >= 3 && CommandLine.arguments[1] == "--snapshot" 
     }
     exit(0)
 }
+// Les workers git sont des sous-processus de ce même binaire.
+GitMaintenance.workerExecutable = Bundle.main.executablePath ?? CommandLine.arguments[0]
 if CLI.isCommandLine(CommandLine.arguments) {
     exit(CLI.run(CommandLine.arguments).rawValue)
 }

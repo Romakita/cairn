@@ -76,6 +76,8 @@ struct MainShell: View {
         case .analysis: AnalysisSection()
         case .settings: SettingsView()
         case .cli: ToolsView()
+        case .git: GitView()
+        case .backup: BackupView()
         default: ComingSoonView(section: model.section)
         }
     }
@@ -152,6 +154,7 @@ struct SidebarView: View {
                 case .analysis: analysisSidebar
                 case .settings: settingsSidebar
                 case .cli: toolsSidebar
+                case .backup: backupSidebar
                 default:
                     Text(model.section.title).font(.system(size: 17, weight: .semibold)).padding(8)
                 }
@@ -217,6 +220,27 @@ struct SidebarView: View {
             Text(T("sidebar.files_count", Fmt.count(root.fileCount)))
                 .font(.system(size: 12)).foregroundStyle(Palette.secondary).padding(8)
         }
+    }
+
+    @ViewBuilder var backupSidebar: some View {
+        Text(AppSection.backup.title).font(.system(size: 17, weight: .semibold)).padding(.horizontal, 8).padding(.top, 8)
+        SidebarHeader(title: T("sidebar.destinations"))
+        ForEach(model.config?.destinations ?? [], id: \.id) { d in
+            let waiting = model.destinationWaiting[d.id] ?? false
+            SidebarRow(dot: waiting ? .orange : Palette.foreground(.success), title: model.destinationLabel(d),
+                       meta: waiting ? T("backup.badge.waiting") : T("backup.badge.reachable"),
+                       selected: (model.selectedDestination ?? model.config?.destinations.first?.id) == d.id) {
+                model.selectedDestination = d.id
+            }
+        }
+        SidebarRow(icon: "plus", title: T("sidebar.add_destination")) { model.addDestination() }
+        SidebarHeader(title: T("backup.content"))
+        ForEach((model.config?.folders ?? []).filter(\.backup), id: \.path) { f in
+            SidebarRow(icon: "folder", title: (f.path as NSString).lastPathComponent)
+        }
+        SidebarRow(icon: "house", title: T("settings.home"), meta: "\(model.config?.home.include.count ?? 0)")
+        SidebarRow(icon: "sparkles", title: AppSection.ai.title, meta: "\(model.config?.ai.count ?? 0)")
+        SidebarRow(icon: "terminal", title: AppSection.cli.title)
     }
 
     @ViewBuilder var toolsSidebar: some View {

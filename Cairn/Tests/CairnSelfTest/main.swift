@@ -11,6 +11,12 @@ if CommandLine.arguments.count >= 3 && CommandLine.arguments[1] == "--hold-lock"
     _exit(0) // fin brutale : le système doit libérer le verrou
 }
 
+// Outil de comparaison avec scripts/backup.sh : liste d'exclusions de Cairn pour un dossier.
+if CommandLine.arguments.count >= 3 && CommandLine.arguments[1] == "--excludes" {
+    for line in BackupExclusions.forFolder(CommandLine.arguments[2], userPatterns: [], destinations: []) { print(line) }
+    exit(0)
+}
+
 var suites: [(String, [TestCase])] = [
     ("Harness", harnessTests),
     ("L10n", localizationTests),
@@ -22,6 +28,8 @@ var suites: [(String, [TestCase])] = [
     ("Onboarding", onboardingTests),
     ("Analysis", analysisTests),
     ("Inventory", inventoryTests),
+    ("Git", gitTests),
+    ("Backup", backupTests),
 ]
 
 let filter = CommandLine.arguments.dropFirst().first { !$0.hasPrefix("-") }

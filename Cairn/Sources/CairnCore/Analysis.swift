@@ -23,6 +23,45 @@ extension Scanner {
     }
 }
 
+extension Scanner {
+    /// Taille totale et part régénérable d'un dossier, sans construire d'arbre (mémoire constante).
+    public static func measure(_ root: String) -> (size: Int64, regenerable: Int64) {
+        let cRoot = strdup(root)
+        defer { free(cRoot) }
+        var argv: [UnsafeMutablePointer<CChar>?] = [cRoot, nil]
+        guard let fts = fts_open(&argv, FTS_PHYSICAL | FTS_NOCHDIR | FTS_XDEV, nil) else { return (0, 0) }
+        defer { fts_close(fts) }
+        var size: Int64 = 0, regen: Int64 = 0
+        var regenLevel = -1
+        var paths: [String] = []
+        while let ent = fts_read(fts) {
+            let e = ent.pointee
+            let level = Int(e.fts_level)
+            switch Int32(e.fts_info) {
+            case FTS_D:
+                let path = String(cString: e.fts_path)
+                if regenLevel < 0 {
+                    let parent = paths.last ?? (path as NSString).deletingLastPathComponent
+                    if classify(name: (path as NSString).lastPathComponent, parentPath: parent).isRegenerable { regenLevel = level }
+                }
+                paths.append(path)
+                let b = Int64(e.fts_statp.pointee.st_blocks) * 512
+                size += b
+                if regenLevel >= 0 { regen += b }
+            case FTS_DP, FTS_DNR:
+                if !paths.isEmpty { paths.removeLast() }
+                if level == regenLevel { regenLevel = -1 }
+            case FTS_F, FTS_SL, FTS_SLNONE, FTS_DEFAULT:
+                let b = Int64(e.fts_statp.pointee.st_blocks) * 512
+                size += b
+                if regenLevel >= 0 { regen += b }
+            default: break
+            }
+        }
+        return (size, regen)
+    }
+}
+
 // MARK: - Gros objets
 
 public struct BigObject: Identifiable, Hashable, Sendable {

@@ -81,3 +81,18 @@ Les règles sont dans `Sources/CairnCore/Resources/rules/rules.json` :
 - `history_min_uses` : nombre d'utilisations dans l'historique pour compter comme « utilisé ».
 
 Aucune recompilation de la logique n'est nécessaire ; `just test Inventory` vérifie que le fichier se charge.
+
+## Sauvegarde : écarts voulus avec scripts/backup.sh
+
+Comparaison des exclusions sur `/Volumes/workspaces` (8 nov. 2026) : 587 dossiers générés exclus en commun.
+
+- Le script liste en plus 38 dossiers situés dans `bower_components/` ou `.next/`, déjà exclus en entier des deux côtés.
+- Cairn exclut en plus les types régénérables de l'analyse : `.build` de SwiftPM, `Carthage`, `.expo`, `storybook-static`,
+  `venv`, `.tox`, `.sass-cache`, `.eslintcache`.
+- `.gradle` n'est exclu qu'à côté d'un projet Gradle (le script l'excluait partout).
+- Le home n'est plus « tout sauf une liste » : seuls les éléments choisis (`[home].include`) sont copiés.
+- Les applications (casks) ne sont plus inventoriées.
+
+Maintenance git : sur 381 branches « gone », 374 ont le même statut que `git-cleanup.sh`. Les 7 autres sont des squash
+merges que le script classait « non fusionnée » à cause de `set -o pipefail` combiné à `grep -q` (interruption du
+pipeline dès la première correspondance) ; vérifié à la main sur `clubmed/digital-api`.

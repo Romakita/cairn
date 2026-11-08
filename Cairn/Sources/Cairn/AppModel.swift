@@ -13,6 +13,22 @@ final class AppModel: ObservableObject {
     @Published var bigObjects: [BigObject] = []
     @Published var projects: [Project] = []
     @Published var inventory: Inventory?
+    @Published var gitReports: [RepoReport]?
+    @Published var isAnalyzingGit = false
+    @Published var selectedBranches = Set<String>()
+    @Published var selectedWorktrees = Set<String>()
+    @Published var gitOptions = GitOptions()
+    // Sauvegardes.
+    @Published var runState = RunState()
+    @Published var isBackingUp = false
+    @Published var backupProgress: (String, BackupProgress)?
+    @Published var lastBackupResults: [BackupService.Result] = []
+    @Published var newImagePassword: (String, String)?
+    @Published var destinationWaiting: [String: Bool] = [:]
+    @Published var selectedDestination: String?
+    @Published var versions: [String: [VersionInfo]] = [:]
+    var pendingRetentionDestination: String?
+    let backups = BackupController()
     @Published var volume: VolumeInfo?
     @Published var isScanning = false
     @Published var scannedFiles = 0
@@ -48,6 +64,7 @@ final class AppModel: ObservableObject {
             MainActor.assumeIsolated { self?.loadConfig(reloaded: true) }
         }
         pruneLogs()
+        runState = RunState.load(paths)
         janitorTimer = Timer.scheduledTimer(withTimeInterval: 86_400, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.pruneLogs() }
         }

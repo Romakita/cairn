@@ -39,6 +39,7 @@ struct CairnApp: App {
                 .environmentObject(model)
                 .environment(\.locale, L10n.locale)
                 .onAppear {
+                    if AppDelegate.model == nil { model.backups.start(model: model) }
                     AppDelegate.model = model
                     model.background.windowOpened()
                     if !model.showOnboarding && model.root == nil && !model.isScanning

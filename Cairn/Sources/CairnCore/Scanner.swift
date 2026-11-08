@@ -48,7 +48,7 @@ public enum Scanner {
     /// Fichiers affichés individuellement dans l'explorateur.
     public static let listedFileThreshold: Int64 = 10 * 1024 * 1024
 
-    private static let alwaysRegenerable: [String: Category] = [
+    static let alwaysRegenerable: [String: Category] = [
         ".git": .git,
         "node_modules": .deps, ".pnpm-store": .deps, "bower_components": .deps, "jspm_packages": .deps,
         "Pods": .ios, "DerivedData": .ios, "Carthage": .ios,
@@ -62,7 +62,7 @@ public enum Scanner {
     ]
 
     /// Dossiers génériques qui ne sont considérés comme générés qu'à côté d'un fichier de projet.
-    private static let conditional: [String: (Category, [String])] = [
+    static let conditional: [String: (Category, [String])] = [
         "build": (.build, ["package.json", "build.gradle", "build.gradle.kts", "settings.gradle", "CMakeLists.txt", "pubspec.yaml"]),
         "out": (.build, ["package.json", "tsconfig.json"]),
         "target": (.build, ["Cargo.toml", "pom.xml"]),

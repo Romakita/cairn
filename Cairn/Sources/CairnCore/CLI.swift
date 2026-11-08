@@ -5,7 +5,7 @@ public enum CLI {
     /// Codes de sortie : 0 succès, 1 échec, 2 erreur d'usage ou de configuration.
     public enum Exit: Int32 { case ok = 0, failure = 1, usage = 2 }
 
-    static let commands: Set<String> = ["analyze", "config", "tools", "help"]
+    static let commands: Set<String> = ["analyze", "config", "tools", "git", "git-worker", "backup", "verify", "help"]
 
     /// Indique si les arguments demandent le mode ligne de commande (et pas l'interface).
     public static func isCommandLine(_ args: [String]) -> Bool {
@@ -26,7 +26,11 @@ public enum CLI {
             configPath = (args[i + 1] as NSString).expandingTildeInPath
             args.removeSubrange(i...(i + 1))
         }
-        let store = ConfigStore(fileURL: configPath.map { URL(fileURLWithPath: $0) })
+        // Avec --config, l'état, les journaux et le verrou vivent à côté de ce fichier.
+        let store = configPath.map { p -> ConfigStore in
+            let url = URL(fileURLWithPath: p)
+            return ConfigStore(paths: CairnPaths(root: url.deletingLastPathComponent()), fileURL: url)
+        } ?? ConfigStore()
         var lang: String?
         if let i = args.firstIndex(of: "--lang") {
             guard i + 1 < args.count else { err(L10n.tr("cli.missing_value", "--lang")); return .usage }
@@ -42,6 +46,10 @@ public enum CLI {
         L10n.configure(explicit: lang)
 
         guard let command = args.first else { out(L10n.tr("cli.help")); return .ok }
+        // Worker interne du pool git (non documenté).
+        if command == "git-worker", args.count >= 3 {
+            return Exit(rawValue: GitMaintenance.workerMain(repo: args[1], optionsJSON: args[2])) ?? .failure
+        }
         let rest = Array(args.dropFirst())
         switch command {
         case "help", "-h", "--help":
@@ -52,6 +60,12 @@ public enum CLI {
             return config(rest, store: store, out: out, err: err)
         case "tools":
             return tools(rest, store: store, out: out, err: err)
+        case "git":
+            return gitCommand(rest, store: store, out: out, err: err)
+        case "backup":
+            return backup(rest, store: store, out: out, err: err)
+        case "verify":
+            return verify(rest, store: store, out: out, err: err)
         default:
             err(L10n.tr("cli.unknown_command", command))
             err(L10n.tr("cli.help"))
@@ -166,6 +180,265 @@ public enum CLI {
             }
         }
         return .ok
+    }
+
+    /// Confirmation interactive (sautée avec --yes).
+    nonisolated(unsafe) static var confirm: (String) -> Bool = { question in
+        FileHandle.standardError.write(Data((question + " [o/N] ").utf8))
+        guard let answer = readLine()?.lowercased() else { return false }
+        return ["o", "oui", "y", "yes"].contains(answer)
+    }
+
+    static func gitCommand(_ args: [String], store: ConfigStore, out: (String) -> Void, err: (String) -> Void) -> Exit {
+        if args.contains("-h") || args.contains("--help") { out(L10n.tr("cli.git.help")); return .ok }
+        let config = readConfig(store)
+        var o = GitOptions()
+        o.gc = config.git.gc
+        o.fetch = config.git.fetchBefore
+        o.staleDays = config.git.worktreeStaleDays
+        var apply = false, yes = false, json = false
+        var roots: [String] = []
+        var reportPath: String?
+        var i = 0
+        func value(_ name: String) -> String? {
+            guard i + 1 < args.count else { err(L10n.tr("cli.missing_value", name)); return nil }
+            i += 1
+            return args[i]
+        }
+        while i < args.count {
+            switch args[i] {
+            case "--apply": apply = true
+            case "--yes", "-y": yes = true
+            case "--json": json = true
+            case "--fetch": o.fetch = true
+            case "--include-unmerged": o.includeUnmerged = true
+            case "--prune-now": o.pruneNow = true
+            case "--no-gc": o.gc = false
+            case "--worktrees-only": o.worktreesOnly = true
+            case "--include-at-risk": o.includeAtRisk = true
+            case "--only": guard let v = value("--only") else { return .usage }; o.only = v
+            case "--root": guard let v = value("--root") else { return .usage }; roots.append((v as NSString).expandingTildeInPath)
+            case "--report": guard let v = value("--report") else { return .usage }; reportPath = (v as NSString).expandingTildeInPath
+            case "--stale-days":
+                guard let v = value("--stale-days"), let n = Int(v), n > 0 else { err(L10n.tr("cli.missing_value", "--stale-days")); return .usage }
+                o.staleDays = n
+            default: err(L10n.tr("cli.unknown_option", args[i])); return .usage
+            }
+            i += 1
+        }
+        if roots.isEmpty { roots = config.folders.map(\.expandedPath) }
+        if roots.isEmpty { roots = ["/Volumes/workspaces"] }
+
+        let reports = GitMaintenance.analyzeAll(folders: roots, options: o) { p in
+            if !json, p.total > 0 {
+                FileHandle.standardError.write(Data((L10n.tr("git.worker.progress", p.done, p.total, p.running.count,
+                                                             Fmt.bytes(p.running.values.max() ?? 0)) + "\r").utf8))
+            }
+        }
+        if !json { FileHandle.standardError.write(Data("\n".utf8)) }
+        let root = roots.count == 1 ? roots[0] : ""
+        func rel(_ p: String) -> String { !root.isEmpty && p.hasPrefix(root + "/") ? String(p.dropFirst(root.count + 1)) : p }
+
+        // Sélection : branches et worktrees proposés par défaut.
+        let plan: [(RepoReport, [GoneBranch], [WorktreeInfo])] = reports.map { r in
+            let wts = r.worktrees.filter { GitMaintenance.selectedByDefault($0, options: o) }
+            let removedBranches = Set(wts.compactMap(\.branch))
+            let branches = o.worktreesOnly ? [] : r.branches.filter {
+                GitMaintenance.selectedByDefault($0, options: o)
+                    || ($0.checkedOutInWorktree != nil && removedBranches.contains($0.name) && $0.status != .unmerged)
+            }
+            return (r, branches, wts)
+        }
+
+        if let reportPath {
+            do { try GitMaintenance.tsv(reports, root: root).write(toFile: reportPath, atomically: true, encoding: .utf8) }
+            catch { err(String(describing: error)); return .failure }
+        }
+
+        if json {
+            let obj: [String: Any] = ["repos": plan.map { (r, branches, wts) -> [String: Any] in
+                [
+                    "path": r.path, "git_bytes": r.gitBytes, "loose_bytes": r.looseBytes, "main": r.mainRef ?? NSNull(),
+                    "reclaimable_bytes": r.reclaimableBytes,
+                    "branches": r.branches.map { b in ["name": b.name, "status": b.status.rawValue, "sha": b.sha, "date": b.date,
+                                                       "subject": b.subject, "selected": branches.contains(b),
+                                                       "worktree": b.checkedOutInWorktree ?? NSNull()] as [String: Any] },
+                    "worktrees": r.worktrees.map { w in ["path": w.path, "branch": w.branch ?? NSNull(), "status": w.status.rawValue,
+                                                         "stale_reason": w.staleReason?.rawValue ?? NSNull(), "size": w.size,
+                                                         "modified": w.modifiedFiles, "untracked": w.untrackedFiles,
+                                                         "unpushed": w.unpushedCommits, "selected": wts.contains(w)] as [String: Any] },
+                ]
+            }]
+            if let data = try? JSONSerialization.data(withJSONObject: obj, options: [.prettyPrinted, .sortedKeys]),
+               let s = String(data: data, encoding: .utf8) { out(s) }
+        } else {
+            out(L10n.tr(apply ? "cli.git.mode_apply" : "cli.git.mode_simulation", roots.joined(separator: ", ")))
+            for (r, branches, wts) in plan where !r.branches.isEmpty || !r.worktrees.isEmpty || r.looseBytes > 50_000_000 {
+                out(L10n.tr("cli.git.repo_line", rel(r.path), Fmt.bytes(r.gitBytes), Fmt.bytes(r.looseBytes), branches.count,
+                            Fmt.bytes(r.reclaimableBytes), r.branches.count - branches.count))
+                for w in r.worktrees {
+                    out("    " + L10n.tr("cli.git.worktree_line", rel(w.path), w.branch ?? "-", L10n.tr("worktree.status.\(w.status.rawValue)"),
+                                     Fmt.bytes(w.size)) + (wts.contains(w) ? " ✓" : ""))
+                }
+            }
+            let totalGit = reports.reduce(Int64(0)) { $0 + $1.gitBytes }
+            out(L10n.tr("cli.git.summary", reports.count, Fmt.bytes(totalGit), plan.reduce(0) { $0 + $1.1.count },
+                        plan.reduce(0) { $0 + $1.2.count }, Fmt.bytes(plan.reduce(Int64(0)) { $0 + $1.0.reclaimableBytes })))
+            if !apply { out(L10n.tr("cli.git.simulation_note")) }
+        }
+
+        guard apply else { return .ok }
+        let nb = plan.reduce(0) { $0 + $1.1.count }, nw = plan.reduce(0) { $0 + $1.2.count }
+        guard nb + nw > 0 else { return .ok }
+        if !yes && !confirm(L10n.tr("cli.git.confirm", nb, nw, o.pruneNow ? L10n.tr("cli.git.prune_warning") : "")) {
+            err(L10n.tr("cli.cancelled")); return .failure
+        }
+        var failures = 0
+        for (r, branches, wts) in plan where !branches.isEmpty || !wts.isEmpty || o.gc {
+            let res = GitMaintenance.apply(repo: r.path, branches: branches.map(\.name), worktrees: wts, options: o)
+            failures += res.failures.count
+            res.failures.forEach { err(L10n.tr("cli.git.failed", $0)) }
+        }
+        return failures == 0 ? .ok : .failure
+    }
+
+    /// Parties IA fournies par la capacité ai-tools (branchées au démarrage).
+    nonisolated(unsafe) public static var aiParts: ((CairnConfig, URL) throws -> [BackupPart])?
+
+    static func backup(_ args: [String], store: ConfigStore, out: (String) -> Void, err: (String) -> Void) -> Exit {
+        if args.contains("-h") || args.contains("--help") { out(L10n.tr("cli.backup.help")); return .ok }
+        var req = BackupService.Request()
+        var json = false
+        var i = 0
+        while i < args.count {
+            switch args[i] {
+            case "--dry-run": req.dryRun = true
+            case "--json": json = true
+            case "--destination":
+                guard i + 1 < args.count else { err(L10n.tr("cli.missing_value", "--destination")); return .usage }
+                i += 1; req.destinationIDs = (req.destinationIDs ?? []) + [args[i]]
+            case "--only":
+                guard i + 1 < args.count else { err(L10n.tr("cli.missing_value", "--only")); return .usage }
+                i += 1
+                let map: [String: BackupPart.Kind] = ["folders": .folder, "home": .home, "tools": .tools, "ai": .ai]
+                guard let k = map[args[i]] else { err(L10n.tr("cli.unknown_option", args[i])); return .usage }
+                req.only = (req.only ?? []).union([k])
+            case "--tool":
+                guard i + 1 < args.count else { err(L10n.tr("cli.missing_value", "--tool")); return .usage }
+                i += 1; req.aiTools = (req.aiTools ?? []) + [args[i]]
+            default: err(L10n.tr("cli.unknown_option", args[i])); return .usage
+            }
+            i += 1
+        }
+        guard store.exists else { err(L10n.tr("cli.config.missing", store.fileURL.path)); return .usage }
+        let loaded: ConfigStore.Loaded
+        do { loaded = try store.load() } catch { err(String(describing: error)); return .usage }
+        if loaded.hasErrors { loaded.issues.forEach { err($0.description) }; return .usage }
+        if loaded.config.destinations.isEmpty { err(L10n.tr("cli.backup.no_destination")); return .usage }
+        if let ids = req.destinationIDs, let bad = ids.first(where: { id in !loaded.config.destinations.contains { $0.id == id } }) {
+            err(L10n.tr("cli.backup.unknown_destination", bad)); return .usage
+        }
+        let service = BackupService(paths: store.paths, config: loaded.config)
+        service.extraParts = aiParts.map { f in { c, staging in try f(c, staging) } }
+        if let tools = req.aiTools {
+            var c = loaded.config
+            c.ai = c.ai.filter { tools.contains($0.id) }
+            let s2 = BackupService(paths: store.paths, config: c)
+            s2.extraParts = service.extraParts
+            return runBackup(s2, req, json: json, out: out, err: err)
+        }
+        return runBackup(service, req, json: json, out: out, err: err)
+    }
+
+    static func runBackup(_ service: BackupService, _ req: BackupService.Request, json: Bool,
+                          out: (String) -> Void, err: (String) -> Void) -> Exit {
+        let results: [BackupService.Result]
+        do {
+            results = try service.run(req) { dest, p in
+                if !p.current.isEmpty, p.files % 1000 == 0 {
+                    FileHandle.standardError.write(Data((L10n.tr("cli.backup.progress", dest, p.part, Fmt.count(p.files)) + "\n").utf8))
+                }
+            }
+        } catch OperationLock.Failure.alreadyHeld {
+            err(L10n.tr("cli.busy")); return .failure
+        } catch {
+            err(String(describing: error)); return .failure
+        }
+        if json {
+            let list: [[String: Any]] = results.map { r in
+                var d: [String: Any] = ["destination": r.destination, "waiting": r.waiting, "error": r.error ?? NSNull()]
+                if let o = r.outcome {
+                    d["version"] = o.version ?? NSNull()
+                    d["dry_run"] = o.dryRun
+                    d["bytes_by_part"] = o.bytesByPart
+                    d["files_transferred"] = o.filesTransferred
+                    d["bytes_transferred"] = o.bytesTransferred
+                    d["deleted_versions"] = o.deletedVersions
+                    d["warnings"] = o.warnings
+                }
+                return d
+            }
+            if let data = try? JSONSerialization.data(withJSONObject: ["results": list], options: [.prettyPrinted, .sortedKeys]),
+               let s = String(data: data, encoding: .utf8) { out(s) }
+        } else {
+            for r in results {
+                if let o = r.outcome {
+                    out(o.dryRun ? L10n.tr("cli.backup.dry_result", r.destination, Fmt.count(o.filesTransferred), Fmt.bytes(o.bytesTransferred))
+                                 : L10n.tr("cli.backup.result", r.destination, o.version ?? "-", Fmt.count(o.filesTransferred),
+                                           Fmt.bytes(o.bytesTransferred), Fmt.duration(o.duration)))
+                    for (part, b) in o.bytesByPart.sorted(by: { $0.key < $1.key }) { out("  " + part.padding(toLength: 30, withPad: " ", startingAt: 0) + " " + Fmt.bytes(b)) }
+                    o.warnings.forEach { err("  " + $0) }
+                    if !o.deletedVersions.isEmpty { out(L10n.tr("cli.backup.deleted", o.deletedVersions.count)) }
+                } else if r.waiting {
+                    err(L10n.tr("cli.backup.waiting", r.destination))
+                } else {
+                    err(L10n.tr("cli.backup.failed", r.destination, r.error ?? ""))
+                }
+                if let pw = r.newImagePassword { out(L10n.tr("cli.backup.image_password", r.destination, pw)) }
+            }
+        }
+        return results.allSatisfy { $0.outcome != nil } ? .ok : .failure
+    }
+
+    static func verify(_ args: [String], store: ConfigStore, out: (String) -> Void, err: (String) -> Void) -> Exit {
+        if args.contains("-h") || args.contains("--help") { out(L10n.tr("cli.verify.help")); return .ok }
+        var full = false
+        var destID: String?
+        var version: String?
+        var i = 0
+        while i < args.count {
+            switch args[i] {
+            case "--full": full = true
+            case "--destination": guard i + 1 < args.count else { return .usage }; i += 1; destID = args[i]
+            case "--version": guard i + 1 < args.count else { return .usage }; i += 1; version = args[i]
+            default: err(L10n.tr("cli.unknown_option", args[i])); return .usage
+            }
+            i += 1
+        }
+        let config = readConfig(store)
+        let dests = config.destinations.filter { destID == nil || $0.id == destID }
+        guard !dests.isEmpty else { err(L10n.tr("cli.backup.no_destination")); return .usage }
+        var damaged = 0
+        for d in dests {
+            let session = DestinationSession(d)
+            do {
+                let root = try session.open(createIfMissing: false)
+                defer { session.close() }
+                let dir = BackupEngine.versionsDir(root: root)
+                let all = BackupEngine.versions(in: dir)
+                let targets = version.map { [$0] } ?? (full ? all : Array(all.suffix(1)))
+                for v in targets {
+                    let r = Integrity.verify(version: dir.appendingPathComponent(v), full: full)
+                    damaged += r.damaged.count
+                    out(r.missingChecksums ? L10n.tr("cli.verify.pending", d.id, v)
+                                           : L10n.tr("cli.verify.result", d.id, v, Fmt.count(r.checked), r.damaged.count))
+                    r.damaged.prefix(20).forEach { err("  ✗ " + $0) }
+                }
+            } catch {
+                err(String(describing: error)); damaged += 1
+            }
+        }
+        return damaged == 0 ? .ok : .failure
     }
 
     static func analyze(_ args: [String], store: ConfigStore, out: (String) -> Void, err: (String) -> Void) -> Exit {
