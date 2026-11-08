@@ -61,6 +61,8 @@ public struct RunState: Codable, Equatable, Sendable {
         public var lastSuccess: Date?
         public var lastAttempt: Date?
         public var lastError: String?
+        /// Dernier échec réel (pas une destination injoignable) : la planification attend avant de relancer.
+        public var lastFailure: Date?
         public var waitingSince: Date?          // destination injoignable
         public var lastOverdueNotice: Date?
         public var lastVerification: Date?

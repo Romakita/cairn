@@ -216,9 +216,9 @@ let backupTests: [TestCase] = [
         try expectEqual(BackupSchedule.decide(s, lastSuccess: nil, now: at("2026-11-08T150000"), running: false,
                                               power: .init(onBattery: true, percent: 15, lowPowerMode: false), reachable: true, calendar: cal), .waitingPower)
         try expectEqual(BackupSchedule.decide(s, lastSuccess: nil, now: at("2026-11-08T150000"), running: false, power: .ac, reachable: false, calendar: cal), .waitingDestination)
-        try expectEqual(BackupSchedule.decide(s, lastSuccess: nil, lastAttempt: at("2026-11-08T144000"), now: at("2026-11-08T150000"), running: false, power: .ac, reachable: true, calendar: cal), .retryLater, "échec il y a 20 min → pas de relance")
-        try expectEqual(BackupSchedule.decide(s, lastSuccess: nil, lastAttempt: at("2026-11-08T135000"), now: at("2026-11-08T150000"), running: false, power: .ac, reachable: true, calendar: cal), .run, "échec il y a plus d'une heure → relance")
-        try expectEqual(BackupSchedule.decide(s, lastSuccess: at("2026-11-07T120500"), lastAttempt: at("2026-11-07T120500"), now: at("2026-11-08T150000"), running: false, power: .ac, reachable: true, calendar: cal), .run, "dernière tentative réussie → pas de délai")
+        try expectEqual(BackupSchedule.decide(s, lastSuccess: nil, lastFailure: at("2026-11-08T144000"), now: at("2026-11-08T150000"), running: false, power: .ac, reachable: true, calendar: cal), .retryLater, "échec il y a 20 min → pas de relance")
+        try expectEqual(BackupSchedule.decide(s, lastSuccess: nil, lastFailure: at("2026-11-08T135000"), now: at("2026-11-08T150000"), running: false, power: .ac, reachable: true, calendar: cal), .run, "échec il y a plus d'une heure → relance")
+        try expectEqual(BackupSchedule.decide(s, lastSuccess: at("2026-11-07T120500"), lastFailure: at("2026-11-06T120500"), now: at("2026-11-08T150000"), running: false, power: .ac, reachable: true, calendar: cal), .run, "échec antérieur à la dernière réussite → pas de délai")
         var w = s
         w.frequency = .weekly
         w.weekday = "monday" // 2026-11-09 est un lundi
@@ -288,6 +288,27 @@ let backupTests: [TestCase] = [
                 try expect(r2.first?.error == nil, "\(name): \(String(describing: r2.first?.error))")
                 try expectEqual(try fm.contentsOfDirectory(atPath: dest.path), [], "\(name) : rien d'écrit")
             }
+        }
+    },
+    TestCase("unreachable_destination_is_not_a_failure") {
+        try withTempDir { dir in
+            let src = dir.appendingPathComponent("src")
+            try writeFile(src.appendingPathComponent("a.bin"), size: 1000)
+            let paths = CairnPaths(root: dir.appendingPathComponent(".cairn"))
+            var c = CairnConfig()
+            c.folders = [.init(path: src.path)]
+            c.destinations = [.init(id: "usb", provider: .local, path: "/Volumes/cairn-absent-\(UUID().uuidString)/dest", encrypted: false)]
+            var req = BackupService.Request()
+            req.only = [.folder]
+            let r = try BackupService(paths: paths, config: c).run(req)
+            try expect(r.first?.waiting == true)
+            let ds = RunState.load(paths)["usb"]
+            try expect(ds.lastAttempt != nil)
+            try expect(ds.lastFailure == nil, "une destination injoignable n'est pas un échec")
+            // Le disque revient : la sauvegarde due repart tout de suite, sans le délai d'après échec.
+            try expectEqual(BackupSchedule.decide(c.schedule, lastSuccess: ds.lastSuccess, lastFailure: ds.lastFailure, now: Date(),
+                                                  running: false, power: .ac, reachable: true),
+                            c.schedule.frequency == .manual ? .manual : .run)
         }
     },
     TestCase("partial_version_does_not_break_links_retention_or_restore") {
