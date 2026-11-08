@@ -445,6 +445,7 @@
 "git.done" = "%1$lld branche(s) et %2$lld worktree(s) supprimés.";
 "backup.error.rsync" = "Échec de la copie de %1$@ (code rsync %2$lld)";
 "backup.error.cancelled" = "Sauvegarde annulée";
+"backup.warning.ai_database" = "%1$@ : une base n'a pas été sauvegardée (%2$@)";
 "backup.warning.partial" = "%1$@ : certains fichiers n'ont pas pu être copiés (code rsync %2$lld)";
 "destination.error.unreachable" = "Destination « %@ » injoignable";
 "destination.error.password" = "Aucun mot de passe dans le Trousseau pour « %@ »";

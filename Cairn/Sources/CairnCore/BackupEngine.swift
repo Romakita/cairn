@@ -152,6 +152,7 @@ public final class BackupEngine: @unchecked Sendable {
     public func run(parts: [BackupPart], root: URL, retention: CairnConfig.Retention, dryRun: Bool,
                     machine: String = BackupEngine.machineName(), now: Date = Date(),
                     manifestExtra: [String: Any] = [:], forceRecopy: [String: [String]] = [:], partial: Bool = false,
+                    warnings initialWarnings: [String] = [],
                     progress: @escaping (BackupProgress) -> Void = { _ in }) throws -> BackupOutcome {
         let start = Date()
         let fm = FileManager.default
@@ -180,7 +181,7 @@ public final class BackupEngine: @unchecked Sendable {
         var transferred: [String: [String]] = [:]
         var files = 0
         var bytes: Int64 = 0
-        var warnings: [String] = []
+        var warnings = initialWarnings
         for part in parts {
             if isCancelled { throw BackupError.cancelled }
             let dest = work.appendingPathComponent(part.target)

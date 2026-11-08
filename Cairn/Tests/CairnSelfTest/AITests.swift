@@ -80,6 +80,46 @@ let aiTests: [TestCase] = [
             try expect(!FileManager.default.fileExists(atPath: dst + "-wal"), "pas de -wal dans la copie")
         }
     },
+    TestCase("sqlite_snapshot_of_closed_wal_database_without_shm") {
+        // Outil fermé proprement (SQLite embarqué de Codex) : base en WAL sans -wal ni -shm à côté.
+        // Une ouverture en lecture seule échoue alors (SQLITE_CANTOPEN) : « Impossible de copier la base ».
+        try withTempDir { dir in
+            let src = dir.appendingPathComponent("state_5.sqlite").path
+            makeDB(src, rows: 100)
+            for s in ["-wal", "-shm"] { try? FileManager.default.removeItem(atPath: src + s) }
+            let before = try FileManager.default.attributesOfItem(atPath: src)
+            let dst = dir.appendingPathComponent("snap/state_5.sqlite").path
+            try AIBackup.snapshot(src, to: dst)
+            try expect(integrityOK(dst), "integrity_check")
+            var db: OpaquePointer?
+            sqlite3_open_v2(dst, &db, SQLITE_OPEN_READONLY, nil)
+            var stmt: OpaquePointer?
+            sqlite3_prepare_v2(db, "SELECT count(*) FROM t;", -1, &stmt, nil)
+            let count = sqlite3_step(stmt) == SQLITE_ROW ? sqlite3_column_int(stmt, 0) : -1
+            sqlite3_finalize(stmt); sqlite3_close(db)
+            try expectEqual(count, 100)
+            // Rien n'est créé ni modifié à côté de la base de l'outil.
+            for s in ["-wal", "-shm"] { try expect(!FileManager.default.fileExists(atPath: src + s), "\(s) créé chez l'outil") }
+            let after = try FileManager.default.attributesOfItem(atPath: src)
+            try expectEqual(after[.modificationDate] as? Date, before[.modificationDate] as? Date)
+        }
+    },
+    TestCase("unreadable_database_warns_without_failing_backup") {
+        try withTempDir { dir in
+            let home = dir.appendingPathComponent("home")
+            try fakeHome(home)
+            // Base illisible (pas du SQLite) : la sauvegarde continue, avec un avertissement.
+            try Data(repeating: 0x42, count: 8192).write(to: home.appendingPathComponent(".codex/state_5.sqlite"))
+            var c = CairnConfig()
+            c.ai = [.init(id: "codex", categories: ["conversations"])]
+            var warnings: [String] = []
+            let parts = try AIBackup.parts(config: c, staging: dir.appendingPathComponent("staging"), home: home.path,
+                                           warn: { warnings.append($0) })
+            try expect(parts.contains { $0.target == "ai/codex/meta" }, "partie meta présente")
+            try expectEqual(warnings.count, 1)
+            try expect(warnings.first?.contains("state_5.sqlite") ?? false, "avertissement nomme la base")
+        }
+    },
     TestCase("backup_parts_by_category_without_packages") {
         try withTempDir { dir in
             let home = dir.appendingPathComponent("home")

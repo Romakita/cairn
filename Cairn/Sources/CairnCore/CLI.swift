@@ -387,8 +387,8 @@ public enum CLI {
     }
 
     /// Parties IA fournies par la capacité ai-tools (branchées au démarrage).
-    nonisolated(unsafe) public static var aiParts: ((CairnConfig, URL) throws -> [BackupPart])? = { c, staging in
-        try AIBackup.parts(config: c, staging: staging)
+    nonisolated(unsafe) public static var aiParts: ((CairnConfig, URL, (String) -> Void) throws -> [BackupPart])? = { c, staging, warn in
+        try AIBackup.parts(config: c, staging: staging, warn: warn)
     }
 
     static func ai(_ args: [String], store: ConfigStore, out: (String) -> Void, err: (String) -> Void) -> Exit {
@@ -614,7 +614,7 @@ public enum CLI {
             err(L10n.tr("cli.backup.unknown_destination", bad)); return .usage
         }
         let service = BackupService(paths: store.paths, config: loaded.config)
-        service.extraParts = aiParts.map { f in { c, staging in try f(c, staging) } }
+        service.extraParts = aiParts
         if let tools = req.aiTools {
             var c = loaded.config
             c.ai = c.ai.filter { tools.contains($0.id) }

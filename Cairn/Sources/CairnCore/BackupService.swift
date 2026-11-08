@@ -46,8 +46,8 @@ public final class BackupService: @unchecked Sendable {
     public let paths: CairnPaths
     public let config: CairnConfig
     public let engine = BackupEngine()
-    /// Parties supplémentaires fournies par d'autres capacités (outils IA).
-    public var extraParts: ((CairnConfig, URL) throws -> [BackupPart])?
+    /// Parties supplémentaires fournies par d'autres capacités (outils IA) ; le 3e argument reçoit les avertissements.
+    public var extraParts: ((CairnConfig, URL, (String) -> Void) throws -> [BackupPart])?
 
     private let stateLock = NSLock()
     private var running = false
@@ -64,7 +64,7 @@ public final class BackupService: @unchecked Sendable {
     public var isRunning: Bool { stateLock.withLock { running } }
 
     /// Parties à sauvegarder. `staging` reçoit les fichiers générés (inventaire des outils…).
-    public func parts(staging: URL, request: Request) throws -> [BackupPart] {
+    public func parts(staging: URL, request: Request, warn: (String) -> Void = { _ in }) throws -> [BackupPart] {
         var parts: [BackupPart] = []
         let want = { (k: BackupPart.Kind) in request.only?.contains(k) ?? true }
         let destPaths = config.destinations.compactMap { $0.provider == .local ? (($0.path ?? "") as NSString).expandingTildeInPath : nil }
@@ -93,7 +93,7 @@ public final class BackupService: @unchecked Sendable {
             parts.append(BackupPart(kind: .tools, target: "tools", source: dir.path))
         }
         if want(.ai), let extra = extraParts {
-            parts += try extra(config, staging)
+            parts += try extra(config, staging, warn)
         }
         return parts
     }
@@ -114,7 +114,9 @@ public final class BackupService: @unchecked Sendable {
         defer { try? FileManager.default.removeItem(at: staging) }
 
         let parts: [BackupPart]
-        do { parts = try self.parts(staging: staging, request: request) } catch {
+        // Avertissements de préparation (base d'un outil IA illisible…) : repris dans le résultat de chaque destination.
+        var prepWarnings: [String] = []
+        do { parts = try self.parts(staging: staging, request: request, warn: { prepWarnings.append($0) }) } catch {
             log.write("error before destinations: \(error)")
             throw error
         }
@@ -156,7 +158,8 @@ public final class BackupService: @unchecked Sendable {
                 let outcome = try engine.run(parts: parts, root: root, retention: d.retention, dryRun: request.dryRun,
                                              manifestExtra: ["cairn": CairnVersion.current, "destination": d.id,
                                                              "config_version": config.version, "log": log.url.lastPathComponent],
-                                             forceRecopy: recopy, partial: request.isPartial) { p in
+                                             forceRecopy: recopy, partial: request.isPartial,
+                                             warnings: prepWarnings) { p in
                     progress(d.id, p)
                 }
                 outcome.warnings.forEach { log.write("\(d.id): \($0)") }
