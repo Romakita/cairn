@@ -9,6 +9,9 @@ Instructions pour les agents IA (Claude Code, Codex, etc.) qui travaillent dans 
 Les anciens scripts bash ont été retirés (historique git). Voir [README.md](README.md) et [Cairn/README.md](Cairn/README.md).
 
 - Langue du projet : français (docs, commentaires, artefacts OpenSpec) ; l'app est bilingue en-US / fr-FR.
+- Commits : [Conventional Commits](https://www.conventionalcommits.org/) en anglais (`feat(scope): …`, `fix: …`,
+  `docs: …`). Le `CHANGELOG.md`, publié tel quel comme note de release, est en anglais.
+- Branche de PR : la remettre à jour par rebase sur `main` (pas de commit de fusion), puis `git push --force-with-lease`.
 - Cairn touche au home et à des tokens : toute opération destructive (suppression, nettoyage git, restauration)
   doit rester explicite, confirmée et avoir un mode simulation.
 
