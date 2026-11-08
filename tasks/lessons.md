@@ -18,3 +18,11 @@ Une entrée après chaque correction de l'utilisateur. À relire au début de ch
   de note de release, et conflit de PR résolu par un commit de fusion.
 - Règle : messages de commit en anglais au format Conventional Commits (`type(scope): sujet`) ; CHANGELOG et notes de
   release en anglais ; une branche de PR se met à jour par rebase sur `main` et `--force-with-lease`, jamais par merge.
+
+## 2026-11-08 — Design system tiré de captures
+- Erreur : un composant (sélecteur en pilule) remplacé par la première variante vue dans les captures, alors que
+  Codex en a deux (bascule segmentée « Chat / Work » et onglets de page « Aperçu ») ; rail et réglages laissés
+  dans l'ancien style.
+- Règle : avant de remplacer un composant, recenser toutes ses variantes dans les captures et garder une variante
+  par usage ; appliquer le design system à tous les écrans qui l'utilisent (rail, réglages), pas seulement à
+  l'écran demandé. Vérifier chaque écran avec `Cairn --snapshot` en clair et en sombre.

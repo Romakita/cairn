@@ -45,7 +45,7 @@ struct CleanableView: View {
                     }
                 }
                 Spacer()
-                TextField(T("list.filter_path"), text: $search).textFieldStyle(.roundedBorder).frame(width: 220)
+                TextField(T("list.filter_path"), text: $search).cairnField(icon: "magnifyingglass").frame(width: 220)
             }
             .padding(10)
             Divider()
@@ -165,7 +165,7 @@ struct ReposView: View {
                    project.isGitRepo || !project.worktrees.isEmpty {
                     Button(T("action.git_maintenance")) { model.openGitMaintenance(repo: project.path) }
                 }
-                TextField(T("list.filter"), text: $search).textFieldStyle(.roundedBorder).frame(width: 220)
+                TextField(T("list.filter"), text: $search).cairnField(icon: "magnifyingglass").frame(width: 220)
             }
             .padding(10)
             Divider()

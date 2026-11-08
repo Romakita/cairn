@@ -47,7 +47,7 @@ struct ToolsView: View {
         let kept = inv.entries.filter { $0.tool != nil && !excluded.contains($0.name) }.count
         return VStack(spacing: 12) {
             HStack {
-                TextField(T("list.filter"), text: $search).textFieldStyle(.roundedBorder).frame(width: 260)
+                TextField(T("list.filter"), text: $search).cairnField(icon: "magnifyingglass").frame(width: 260)
                 Text(T("inventory.apps_note")).font(.system(size: 12.5)).foregroundStyle(Palette.secondary)
                 Spacer()
             }
