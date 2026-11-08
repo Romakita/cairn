@@ -62,3 +62,21 @@ Une branche n'est supprimée que si elle est fusionnée ou squashée dans la bra
 `--include-unmerged`), jamais si elle est extraite dans un worktree conservé. Un worktree avec du travail non commité ou
 non poussé n'est jamais supprimé sans `--include-at-risk`. Les SHA supprimés sont notés dans
 `.git/cleanup-deleted-branches.log` : `git branch <nom> <sha>` recrée une branche tant que l'espace n'a pas été libéré.
+
+## Versions et releases
+
+- Le numéro de version est dans `Cairn/VERSION` ([SemVer](https://semver.org/lang/fr/)) ; `just version` l'affiche,
+  `cairn --version` aussi. Les évolutions sont notées dans [CHANGELOG.md](CHANGELOG.md), sous `[Unreleased]`.
+- Publier une version :
+
+  ```bash
+  just bump 0.2.0          # VERSION, constante du code, section datée du CHANGELOG
+  git commit -am "Release 0.2.0"
+  git tag v0.2.0 && git push origin main v0.2.0
+  ```
+
+  Le tag déclenche le workflow `Release` : tests, construction de `Cairn.app`, puis release GitHub avec
+  `Cairn-<version>-arm64.zip`, son empreinte SHA-256 et les notes du CHANGELOG. Un tag qui ne correspond pas à
+  `Cairn/VERSION` est refusé.
+- Chaque push sur `main` et chaque pull request lancent le workflow `CI` (build, `cairn-selftest`, bundle de l'app).
+- L'app n'est ni signée avec un Developer ID ni notarisée : au premier lancement, clic droit → Ouvrir.

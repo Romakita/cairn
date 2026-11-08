@@ -46,4 +46,15 @@ let cliTests: [TestCase] = [
         let (code, _, _) = run(["analyze", "/nonexistent-cairn-test"])
         try expectEqual(code, .failure)
     },
+    TestCase("version_file_matches_code_and_cli") {
+        // Cairn/VERSION est la seule source du numéro de version (release, Info.plist, manifests).
+        let file = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().appendingPathComponent("VERSION")
+        let v = try String(contentsOf: file, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)
+        try expect(v.range(of: #"^\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$"#, options: .regularExpression) != nil, "semver : \(v)")
+        try expectEqual(CairnVersion.fallback, v, "constante CairnVersion.fallback = Cairn/VERSION")
+        var out = ""
+        try expectEqual(CLI.run(["cairn", "--version"], out: { out += $0 }, err: { _ in }), .ok)
+        try expect(out.hasPrefix("cairn "), out)
+    },
 ]

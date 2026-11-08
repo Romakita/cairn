@@ -1,2 +1,5 @@
 git-cleanup-report-*.tsv
 .DS_Store
+
+# Worktrees des agents Claude Code
+.claude/worktrees/

@@ -90,7 +90,7 @@
 "col.name" = "Name";
 "col.location" = "Location";
 "col.in" = "In";
-"cli.help" = "Cairn — storage analysis, backups and git maintenance for your Mac.\n\nUsage: cairn <command> [options]\n\nCommands:\n  analyze [folder…]   Analyze disk usage of folders\n  ai                  List AI tools and what is backed up\n  backup [--dry-run]  Back up to the configured destinations\n  verify [--full]     Check backup integrity\n  restore [--apply]   Restore a backup (simulation by default)\n  git [--apply]       Clean up gone branches and stale worktrees\n  tools [--export D]  List CLI tools to reinstall\n  config <cmd>        Show or validate the configuration (path, show, validate)\n  help                Show this help\n\nOptions:\n  --config <file>       Use another configuration file\n  --lang <en-US|fr-FR>  Language for this run\n  -h, --help            Show help";
+"cli.help" = "Cairn — storage analysis, backups and git maintenance for your Mac.\n\nUsage: cairn <command> [options]\n\nCommands:\n  analyze [folder…]   Analyze disk usage of folders\n  ai                  List AI tools and what is backed up\n  backup [--dry-run]  Back up to the configured destinations\n  verify [--full]     Check backup integrity\n  restore [--apply]   Restore a backup (simulation by default)\n  git [--apply]       Clean up gone branches and stale worktrees\n  tools [--export D]  List CLI tools to reinstall\n  config <cmd>        Show or validate the configuration (path, show, validate)\n  version             Show the Cairn version\n  help                Show this help\n\nOptions:\n  --config <file>       Use another configuration file\n  --lang <en-US|fr-FR>  Language for this run\n  -h, --help            Show help";
 "cli.analyze.help" = "Usage: cairn analyze [folder…] [--json]\n\nAnalyzes disk usage of the given folders (default: the tracked folders of config.toml).\n\nOptions:\n  --json   Machine-readable output";
 "cli.unknown_command" = "Unknown command: %@";
 "cli.unknown_option" = "Unknown option: %@";
@@ -591,3 +591,5 @@
 "onboarding.destination.disable_encryption.title" = "Back up without encryption?";
 "onboarding.destination.disable_encryption.message" = "Anyone with access to the destination will be able to read your files, including SSH keys and tokens.";
 "onboarding.destination.disable_encryption.confirm" = "Disable encryption";
+
+"cli.version" = "cairn %@";

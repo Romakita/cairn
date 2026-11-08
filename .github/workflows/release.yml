@@ -1,0 +1,64 @@
+name: Release
+
+# Pousser un tag vX.Y.Z égal à Cairn/VERSION publie une release avec Cairn.app zippée.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Swift toolchain
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_16*.app | sort -V | tail -1)"
+          swift --version
+
+      - name: Tag matches Cairn/VERSION
+        run: |
+          VERSION="$(tr -d '[:space:]' < Cairn/VERSION)"
+          if [ "${GITHUB_REF_NAME}" != "v${VERSION}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} ≠ v${VERSION} (Cairn/VERSION)"; exit 1
+          fi
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+
+      - name: Self-tests
+        run: |
+          swift build --package-path Cairn
+          Cairn/.build/debug/cairn-selftest
+
+      - name: Build app and archive
+        run: Cairn/build-app.sh --no-install --zip
+
+      - name: Release notes from CHANGELOG
+        run: |
+          awk -v v="${VERSION}" '
+            $0 ~ "^## \\[" v "\\]" {on=1; next}
+            on && /^## \[/ {exit}
+            on {print}
+          ' CHANGELOG.md > build-notes.md
+          if [ ! -s build-notes.md ]; then echo "::error::section [${VERSION}] absente de CHANGELOG.md"; exit 1; fi
+          cat >> build-notes.md <<'NOTES'
+
+          ---
+          **Installation** : décompresser l'archive et glisser `Cairn.app` dans `~/Applications`. L'app n'est pas
+          notarisée : au premier lancement, clic droit → Ouvrir, ou `xattr -dr com.apple.quarantine ~/Applications/Cairn.app`.
+          Commande `cairn` : `ln -sf ~/Applications/Cairn.app/Contents/MacOS/Cairn ~/.local/bin/cairn`.
+          NOTES
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PRE=""
+          case "${VERSION}" in *-*) PRE="--prerelease" ;; esac
+          gh release create "${GITHUB_REF_NAME}" Cairn/build/Cairn-${VERSION}-*.zip Cairn/build/Cairn-${VERSION}-*.zip.sha256 \
+            --title "Cairn ${VERSION}" --notes-file build-notes.md ${PRE}

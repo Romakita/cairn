@@ -5,13 +5,13 @@ public enum CLI {
     /// Codes de sortie : 0 succès, 1 échec, 2 erreur d'usage ou de configuration.
     public enum Exit: Int32 { case ok = 0, failure = 1, usage = 2 }
 
-    static let commands: Set<String> = ["analyze", "config", "tools", "ai", "git", "git-worker", "backup", "verify", "restore", "help"]
+    static let commands: Set<String> = ["analyze", "config", "tools", "ai", "git", "git-worker", "backup", "verify", "restore", "help", "version"]
 
     /// Indique si les arguments demandent le mode ligne de commande (et pas l'interface).
     public static func isCommandLine(_ args: [String]) -> Bool {
         let a = args.dropFirst().filter { !$0.hasPrefix("-psn_") && !$0.hasPrefix("-NS") && !$0.hasPrefix("-Apple") }
         guard let first = a.first else { return false }
-        return commands.contains(first) || ["-h", "--help", "--lang", "--config"].contains(first)
+        return commands.contains(first) || ["-h", "--help", "--version", "--lang", "--config"].contains(first)
     }
 
     /// Exécute la commande et renvoie le code de sortie.
@@ -56,6 +56,8 @@ public enum CLI {
         switch command {
         case "help", "-h", "--help":
             out(L10n.tr("cli.help")); return .ok
+        case "version", "--version":
+            out(L10n.tr("cli.version", CairnVersion.current)); return .ok
         case "analyze":
             return analyze(rest, store: store, out: out, err: err)
         case "config":

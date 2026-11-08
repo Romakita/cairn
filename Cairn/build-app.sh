@@ -1,11 +1,24 @@
 #!/bin/zsh
 # Construit « Cairn.app », l'installe dans ~/Applications et y relie la commande `cairn`.
-# Usage : ./build-app.sh [--no-install]
+# Usage : ./build-app.sh [--no-install] [--zip]
+#   --no-install  construit seulement build/Cairn.app (CI, release)
+#   --zip         produit aussi build/Cairn-<version>-<arch>.zip et son .sha256 (release)
+# La version vient de Cairn/VERSION ; CAIRN_BUILD (numéro de build) vaut par défaut le nombre de commits.
 set -euo pipefail
 cd "${0:A:h}"
 
 APP_NAME="Cairn"
 BUNDLE="build/$APP_NAME.app"
+VERSION="$(tr -d '[:space:]' < VERSION)"
+BUILD="${CAIRN_BUILD:-$(git rev-list --count HEAD 2>/dev/null || echo 1)}"
+INSTALL=1; ZIP=0
+for arg in "$@"; do
+  case "$arg" in
+    --no-install) INSTALL=0 ;;
+    --zip) ZIP=1 ;;
+    *) echo "option inconnue : $arg" >&2; exit 2 ;;
+  esac
+done
 
 swift build -c release --product Cairn
 BIN="$(swift build -c release --show-bin-path)"
@@ -31,8 +44,8 @@ cat > "$BUNDLE/Contents/Info.plist" <<PLIST
   <key>CFBundleExecutable</key><string>Cairn</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>0.1</string>
-  <key>CFBundleVersion</key><string>1</string>
+  <key>CFBundleShortVersionString</key><string>$VERSION</string>
+  <key>CFBundleVersion</key><string>$BUILD</string>
   <key>CFBundleDevelopmentRegion</key><string>en</string>
   <key>CFBundleLocalizations</key><array><string>en</string><string>fr</string></array>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
@@ -43,9 +56,17 @@ cat > "$BUNDLE/Contents/Info.plist" <<PLIST
 PLIST
 
 codesign --force --deep --sign - "$BUNDLE"
-echo "✔ $BUNDLE"
+echo "✔ $BUNDLE ($VERSION, build $BUILD)"
 
-if [[ "${1:-}" != "--no-install" ]]; then
+if (( ZIP )); then
+  ARCHIVE="build/$APP_NAME-$VERSION-$(uname -m).zip"
+  rm -f "$ARCHIVE"
+  ditto -c -k --keepParent "$BUNDLE" "$ARCHIVE"
+  (cd build && shasum -a 256 "${ARCHIVE:t}" > "${ARCHIVE:t}.sha256")
+  echo "✔ $ARCHIVE"
+fi
+
+if (( INSTALL )); then
   mkdir -p "$HOME/Applications"
   rm -rf "$HOME/Applications/Workspace Storage.app"   # ancien nom
   rm -rf "$HOME/Applications/$APP_NAME.app"

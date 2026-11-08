@@ -2,8 +2,8 @@ import Foundation
 
 /// Version de Cairn écrite dans les manifests.
 public enum CairnVersion {
-    /// Version du code (à garder égale à `CFBundleShortVersionString` dans `build-app.sh`).
-    public static let fallback = "0.1"
+    /// Version du code : égale au fichier `Cairn/VERSION` (un test le vérifie ; `just bump` met les deux à jour).
+    public static let fallback = "0.1.0"
     /// Version du bundle .app si disponible, sinon la constante.
     public static var current: String {
         (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? fallback

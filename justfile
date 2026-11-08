@@ -59,3 +59,15 @@ storage:
 # Résumé de l'occupation disque dans le terminal (par défaut : dossiers suivis de config.toml)
 storage-report *args:
     {{cairn}} analyze "$@"
+
+# Version courante de Cairn (Cairn/VERSION)
+version:
+    @cat Cairn/VERSION
+
+# Change la version (VERSION, code, CHANGELOG) ; ensuite commiter, taguer vX.Y.Z et pousser le tag
+bump new:
+    Cairn/scripts/bump-version.sh {{new}}
+
+# Construit l'archive de release en local (build/Cairn-<version>-<arch>.zip), sans installer
+release-build:
+    Cairn/build-app.sh --no-install --zip
