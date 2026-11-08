@@ -7,7 +7,7 @@ Rend les fonctions de Cairn utilisables depuis un terminal ou un script (`just`,
 ## ADDED Requirements
 
 ### Requirement: Commande cairn
-Le binaire de l'app SHALL répondre en mode ligne de commande, sans ouvrir de fenêtre, aux sous-commandes `analyze`, `backup`, `restore`, `tools`, `ai`, `git` et `config`. Cairn SHALL fournir un lien `cairn` installable dans `~/.local/bin`. `cairn --help` et `cairn <sous-commande> --help` décrivent les options en français.
+Le binaire de l'app SHALL répondre en mode ligne de commande, sans ouvrir de fenêtre, aux sous-commandes `analyze`, `backup`, `verify`, `restore`, `tools`, `ai`, `git` et `config`. Cairn SHALL fournir un lien `cairn` installable dans `~/.local/bin`. `cairn --help` et `cairn <sous-commande> --help` décrivent les options dans la langue active (voir la capacité `localization`).
 
 #### Scenario: Aide
 - **WHEN** l'utilisateur lance `cairn --help`
@@ -51,3 +51,17 @@ Une sauvegarde ou une restauration lancée en ligne de commande MUST refuser de 
 #### Scenario: Sauvegarde des seules données IA
 - **WHEN** l'utilisateur lance `cairn backup --only ai --tool codex`
 - **THEN** seule la partie Codex est sauvegardée dans une nouvelle version
+
+### Requirement: Commande verify
+`cairn verify [--destination ID] [--version V] [--full]` SHALL contrôler l'intégrité des sauvegardes : un échantillon de la dernière version par défaut, toutes les versions et tous les fichiers avec `--full`. Le code de sortie est 1 si un fichier abîmé est trouvé.
+
+#### Scenario: Vérification complète sans erreur
+- **WHEN** l'utilisateur lance `cairn verify --full` et toutes les empreintes correspondent
+- **THEN** la commande affiche le nombre de fichiers vérifiés par version et sort avec le code 0
+
+### Requirement: Worktrees en ligne de commande
+`cairn git` SHALL inclure les worktrees dans son rapport. `--worktrees-only` limite le rapport et le nettoyage aux worktrees, et `--stale-days N` fixe le seuil d'inactivité. Les worktrees « à risque » ne sont jamais supprimés en ligne de commande sans `--include-at-risk`.
+
+#### Scenario: Nettoyage des worktrees obsolètes
+- **WHEN** l'utilisateur lance `cairn git --worktrees-only --apply`
+- **THEN** seuls les worktrees obsolètes sans travail en cours sont supprimés, et le journal de chaque dépôt est complété

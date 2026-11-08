@@ -35,19 +35,35 @@ Cairn SHALL répartir l'espace entre ces types : sources, historique git, dépen
 - **WHEN** un dossier `.build/` est à côté d'un `Package.swift`
 - **THEN** il est compté comme build régénérable
 
-### Requirement: Gros fichiers
-Cairn SHALL lister les fichiers dont la taille dépasse un seuil configurable (50 Mo par défaut), triés par taille, avec leur dossier et leur type.
+### Requirement: Gros objets : fichiers et dossiers
+Cairn SHALL lister les gros objets, triés par taille, avec leur chemin et leur type :
+- **gros fichiers** : un fichier dont la taille dépasse un seuil configurable (50 Mo par défaut) ;
+- **gros dossiers** : un dossier qui occupe plus d'un seuil configurable (1 Go par défaut) sans compter les gros fichiers déjà listés, quand aucun de ses sous-dossiers n'atteint ce seuil à lui seul.
+
+On signale ainsi le dossier le plus précis où beaucoup de petits fichiers s'accumulent.
 
 #### Scenario: Fichier de 2 Go
 - **WHEN** un fichier de 2 Go se trouve dans un dossier suivi
-- **THEN** il apparaît dans la liste des gros fichiers avec son chemin
+- **THEN** il apparaît comme gros fichier avec son chemin
+
+#### Scenario: Beaucoup de petits fichiers
+- **WHEN** `fixtures/` contient 40 000 fichiers de 50 Ko (2 Go) répartis dans des sous-dossiers de 200 Mo chacun
+- **THEN** `fixtures/` apparaît comme gros dossier, mais ni ses sous-dossiers ni son dossier parent
+
+#### Scenario: Dossier dont la taille vient d'un gros fichier
+- **WHEN** un dossier de 1,5 Go doit 1,4 Go à un seul fichier
+- **THEN** seul le fichier est listé, pas le dossier
 
 ### Requirement: Gros projets
-Cairn SHALL lister les projets (dépôts git, ou dossiers contenant un fichier de projet reconnu) triés par taille. Pour chacun, il indique la part de sources, de `.git` et de régénérable.
+Cairn SHALL lister les projets (dépôts git, ou dossiers contenant un fichier de projet reconnu) triés par taille. Pour chacun, il indique la part de sources, de `.git` et de régénérable, ainsi que la taille de ses worktrees, rattachés au dépôt d'origine plutôt que listés comme des projets distincts.
 
 #### Scenario: Dépôt avec node_modules
 - **WHEN** un dépôt de 3 Go contient 2,5 Go de `node_modules`
 - **THEN** la liste des projets l'affiche avec 2,5 Go régénérables
+
+#### Scenario: Projet avec worktrees
+- **WHEN** un dépôt de 2 Go a trois worktrees de 1 Go dans `.claude/worktrees/`
+- **THEN** la liste l'affiche comme un seul projet de 5 Go, dont 3 Go de worktrees, avec un lien vers la maintenance git
 
 ### Requirement: Nettoyage confirmé
 Cairn SHALL permettre de mettre à la corbeille ou de supprimer définitivement des éléments choisis dans l'analyse. Chaque opération MUST d'abord afficher une confirmation qui liste les chemins et la taille. Le choix proposé par défaut est la corbeille, et la suppression définitive est signalée comme irréversible.

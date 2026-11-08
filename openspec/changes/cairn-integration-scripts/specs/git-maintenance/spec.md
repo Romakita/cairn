@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Allège les dépôts git des dossiers suivis : suppression des branches locales dont la branche distante a disparu, puis compactage. Le tout en simulation par défaut et en gardant de quoi annuler, comme le faisait `git-cleanup.sh`.
+Allège les dépôts git des dossiers suivis : suppression des branches locales dont la branche distante a disparu et des worktrees devenus obsolètes, puis compactage. Le tout en simulation par défaut et en gardant de quoi annuler, comme le faisait `git-cleanup.sh`.
 
 ## ADDED Requirements
 
@@ -19,8 +19,6 @@ Une branche locale est « gone » quand sa branche distante a été supprimée. 
 - **squashée** : la branche principale contient un commit au contenu identique ;
 - **non fusionnée** : ni l'un ni l'autre.
 
-La branche courante et la branche principale MUST NOT être proposées.
-
 #### Scenario: Squash merge
 - **WHEN** une branche « gone » a été intégrée par squash merge
 - **THEN** elle a le statut « squashée » et elle est proposée à la suppression
@@ -28,6 +26,13 @@ La branche courante et la branche principale MUST NOT être proposées.
 #### Scenario: Branche non fusionnée
 - **WHEN** une branche « gone » contient des commits absents de la branche principale
 - **THEN** elle a le statut « non fusionnée » et elle n'est pas sélectionnée par défaut
+
+### Requirement: Branches protégées
+La branche courante, la branche principale et toute branche extraite dans un worktree MUST NOT être proposées à la suppression, sauf si ce worktree est supprimé dans la même opération.
+
+#### Scenario: Branche extraite dans un worktree
+- **WHEN** une branche « gone » est extraite dans un worktree qu'on garde
+- **THEN** elle n'est pas proposée à la suppression
 
 ### Requirement: Simulation par défaut
 L'analyse git MUST être en lecture seule. Elle affiche, par dépôt, les branches qui seraient supprimées et l'espace récupérable estimé. Le réseau n'est sollicité (`fetch --prune`) que si l'utilisateur le demande.
@@ -56,3 +61,41 @@ Chaque analyse SHALL produire un rapport exportable (TSV) avec, par branche, le 
 #### Scenario: Export du rapport
 - **WHEN** l'utilisateur exporte le rapport
 - **THEN** le fichier TSV contient une ligne par branche « gone » avec les colonnes décrites
+
+### Requirement: Inventaire des worktrees
+Pour chaque dépôt, Cairn SHALL lister ses worktrees, y compris ceux créés par des outils (par exemple `.claude/worktrees/`), avec :
+- leur chemin et leur branche ;
+- leur taille, régénérable comprise ;
+- la date de leur dernière modification ;
+- leur état : modifications non commitées, fichiers non suivis, commits non poussés.
+
+#### Scenario: Worktree d'agent
+- **WHEN** un dépôt a un worktree dans `.claude/worktrees/feature-x`
+- **THEN** il apparaît sous ce dépôt avec sa branche, sa taille et son état
+
+### Requirement: Détection des worktrees obsolètes
+Un worktree SHALL être signalé comme obsolète dans l'un de ces cas :
+- **orphelin** : son dossier n'existe plus ;
+- **fusionné** : sa branche est fusionnée ou squashée dans la branche principale, ou bien « gone » ;
+- **inactif** : sans modification depuis un nombre de jours configurable (30 par défaut).
+
+Un worktree avec des modifications non commitées, des fichiers non suivis ou des commits non poussés MUST être signalé « à risque » et n'est jamais présélectionné.
+
+#### Scenario: Worktree orphelin
+- **WHEN** le dossier d'un worktree a été supprimé à la main
+- **THEN** il est signalé « orphelin » et son nettoyage ne fait que retirer l'entrée de git
+
+#### Scenario: Worktree propre et fusionné
+- **WHEN** la branche d'un worktree sans modifications a été squashée dans `main`
+- **THEN** il est signalé « fusionné », présélectionné, et l'espace récupérable inclut ses `node_modules`
+
+#### Scenario: Worktree avec du travail en cours
+- **WHEN** un worktree inactif depuis 60 jours contient des modifications non commitées
+- **THEN** il est signalé « à risque », non présélectionné, et sa suppression demande de cocher une confirmation dédiée
+
+### Requirement: Suppression des worktrees
+La suppression d'un worktree SHALL passer par git, qui retire le dossier et l'entrée du worktree, puis proposer de supprimer sa branche si elle est fusionnée. Avant la suppression, Cairn MUST écrire le chemin, la branche et le SHA du worktree dans `cleanup-deleted-branches.log`, en simulation par défaut comme pour les branches.
+
+#### Scenario: Suppression puis récupération de la branche
+- **WHEN** un worktree fusionné et sa branche sont supprimés sans prune immédiat
+- **THEN** le journal contient le chemin, la branche et le SHA, et `git branch <nom> <sha>` recrée la branche

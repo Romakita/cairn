@@ -7,7 +7,7 @@ Décrit comment Cairn est configuré : un fichier `~/.cairn/config.toml` lisible
 ## ADDED Requirements
 
 ### Requirement: Fichier de configuration unique
-Cairn SHALL lire et écrire sa configuration dans `~/.cairn/config.toml`. Le fichier contient au moins : les dossiers suivis, la sélection du home à sauvegarder, les catégories sauvegardées pour chaque outil IA, les destinations, la planification et les préférences git. Le dossier `~/.cairn/` contient aussi les journaux (`logs/`) et l'état des exécutions (`state/`).
+Cairn SHALL lire et écrire sa configuration dans `~/.cairn/config.toml`. Le fichier contient au moins : les dossiers suivis, la sélection du home à sauvegarder, les catégories sauvegardées pour chaque outil IA, les destinations, la planification, les préférences git et la langue. Le dossier `~/.cairn/` contient aussi les journaux (`logs/`) et l'état des exécutions (`state/`).
 
 #### Scenario: Création du dossier de configuration
 - **WHEN** Cairn démarre et `~/.cairn/` n'existe pas
@@ -23,13 +23,18 @@ Au premier lancement (aucun `config.toml`), Cairn SHALL afficher un assistant qu
 - les éléments du home à sauvegarder ;
 - les outils IA détectés et leurs catégories à sauvegarder ;
 - au moins une destination de sauvegarde, ou l'option « plus tard » ;
-- la planification.
+- la planification et l'accord pour la tâche de fond ;
+- l'autorisation des notifications.
 
-Il écrit ensuite `config.toml`. L'assistant MUST proposer des valeurs détectées, par exemple `/Volumes/workspaces` s'il existe.
+Il écrit ensuite `config.toml` et MUST proposer des valeurs détectées.
 
 #### Scenario: Premier lancement complet
 - **WHEN** l'utilisateur termine l'assistant avec un dossier `/Volumes/workspaces` et une destination NAS
 - **THEN** `config.toml` contient ce dossier et cette destination, et l'analyse du dossier démarre
+
+#### Scenario: Valeurs détectées
+- **WHEN** `/Volumes/workspaces` existe au premier lancement
+- **THEN** l'assistant le propose comme dossier suivi, déjà coché
 
 #### Scenario: Assistant abandonné
 - **WHEN** l'utilisateur ferme l'assistant avant la fin
@@ -66,3 +71,14 @@ Cairn SHALL proposer un écran de réglages qui modifie les mêmes clés que `co
 #### Scenario: Fichier d'une version antérieure
 - **WHEN** Cairn charge un `config.toml` dont la `version` est inférieure à la version courante
 - **THEN** Cairn écrit `config.toml.bak`, migre le fichier et le recharge
+
+### Requirement: Rétention des journaux
+Cairn SHALL supprimer automatiquement les journaux de `~/.cairn/logs/` de plus de 90 jours. La durée est réglable dans `config.toml`. Les journaux liés à une version de sauvegarde encore gardée MUST être conservés tant que cette version existe.
+
+#### Scenario: Journal ancien
+- **WHEN** un journal d'analyse a 120 jours
+- **THEN** il est supprimé au démarrage suivant de Cairn
+
+#### Scenario: Journal d'une version gardée
+- **WHEN** le journal de la sauvegarde d'une version hebdomadaire gardée a 200 jours
+- **THEN** il est conservé
