@@ -5,7 +5,7 @@ public enum CLI {
     /// Codes de sortie : 0 succès, 1 échec, 2 erreur d'usage ou de configuration.
     public enum Exit: Int32 { case ok = 0, failure = 1, usage = 2 }
 
-    static let commands: Set<String> = ["analyze", "config", "tools", "ai", "git", "git-worker", "backup", "verify", "help"]
+    static let commands: Set<String> = ["analyze", "config", "tools", "ai", "git", "git-worker", "backup", "verify", "restore", "help"]
 
     /// Indique si les arguments demandent le mode ligne de commande (et pas l'interface).
     public static func isCommandLine(_ args: [String]) -> Bool {
@@ -64,6 +64,8 @@ public enum CLI {
             return gitCommand(rest, store: store, out: out, err: err)
         case "ai":
             return ai(rest, store: store, out: out, err: err)
+        case "restore":
+            return restore(rest, store: store, out: out, err: err)
         case "backup":
             return backup(rest, store: store, out: out, err: err)
         case "verify":
@@ -341,6 +343,101 @@ public enum CLI {
             if s.profile.credentialsInKeychain { out("  " + L10n.tr("cli.ai.keychain")) }
         }
         return .ok
+    }
+
+    static func restore(_ args: [String], store: ConfigStore, out: (String) -> Void, err: (String) -> Void) -> Exit {
+        if args.contains("-h") || args.contains("--help") { out(L10n.tr("cli.restore.help")); return .ok }
+        var from: String?, destID: String?, version: String?
+        var parts: Set<String>?
+        var targets: [String: String] = [:]
+        var apply = false, yes = false, check = false, replaceDB = false
+        var i = 0
+        func value() -> String? { i += 1; return i < args.count ? args[i] : nil }
+        while i < args.count {
+            switch args[i] {
+            case "--from": guard let v = value() else { return .usage }; from = (v as NSString).expandingTildeInPath
+            case "--destination": guard let v = value() else { return .usage }; destID = v
+            case "--version": guard let v = value() else { return .usage }; version = v
+            case "--parts": guard let v = value() else { return .usage }; parts = Set(v.split(separator: ",").map(String.init))
+            case "--target":
+                guard let v = value(), let eq = v.firstIndex(of: "=") else { return .usage }
+                targets[String(v[..<eq])] = (String(v[v.index(after: eq)...]) as NSString).expandingTildeInPath
+            case "--replace-databases": replaceDB = true
+            case "--apply": apply = true
+            case "--yes", "-y": yes = true
+            case "--check": check = true
+            default: err(L10n.tr("cli.unknown_option", args[i])); return .usage
+            }
+            i += 1
+        }
+        // Source : dossier donné, ou version d'une destination configurée.
+        var session: DestinationSession?
+        defer { session?.close() }
+        var sourceURL: URL
+        if let from {
+            sourceURL = URL(fileURLWithPath: from)
+        } else {
+            let config = readConfig(store)
+            guard let d = config.destinations.first(where: { destID == nil || $0.id == destID }) else {
+                err(L10n.tr("cli.backup.no_destination")); return .usage
+            }
+            let s = DestinationSession(d)
+            session = s
+            do {
+                let root = try s.open(createIfMissing: false)
+                let all = RestoreSource.versions(onDestinationRoot: root)
+                let mine = all.filter { $0.machine == BackupEngine.machineName() }
+                guard let pick = version.flatMap({ v in all.first { $0.version == v } }) ?? (mine.last ?? all.last) else {
+                    err(L10n.tr("cli.restore.no_version")); return .failure
+                }
+                sourceURL = pick.url
+            } catch { err(String(describing: error)); return .failure }
+        }
+        guard let source = RestoreSource.open(sourceURL) else { err(L10n.tr("cli.restore.unknown_format", sourceURL.path)); return .failure }
+        let service = RestoreService(source: source)
+        out(L10n.tr("cli.restore.source", source.kind == .legacy ? L10n.tr("cli.restore.legacy") : "Cairn",
+                    source.date.map(Fmt.date) ?? "—", source.machine, source.arch))
+        if !source.archMatches { err(L10n.tr("cli.restore.arch_warning", source.arch, BackupEngine.arch())) }
+
+        if check {
+            let (present, missing) = service.check()
+            out(L10n.tr("cli.restore.check", present.count, missing.count))
+            missing.forEach { out("  ✗ " + $0) }
+            out(L10n.tr("cli.restore.manual"))
+            return .ok
+        }
+
+        var plan = RestoreService.Plan()
+        let want = { (p: String) in parts?.contains(p) ?? true }
+        plan.tools = want("tools")
+        plan.home = want("home") && source.home != nil
+        plan.ai = want("ai") ? source.aiTools : []
+        plan.replaceDatabases = replaceDB
+        if want("folders") {
+            for f in source.folders { plan.folders[f.name] = targets[f.name] ?? f.originalPath }
+        }
+        for (name, target) in plan.folders {
+            if !FileManager.default.fileExists(atPath: (target as NSString).deletingLastPathComponent) {
+                err(L10n.tr("cli.restore.missing_target", name, target))
+            }
+        }
+        for (part, bytes) in service.sizes(plan).sorted(by: { $0.key < $1.key }) {
+            out("  " + part.padding(toLength: 28, withPad: " ", startingAt: 0) + " " + Fmt.bytes(bytes))
+        }
+        if apply && !yes && !confirm(L10n.tr("cli.restore.confirm")) { err(L10n.tr("cli.cancelled")); return .failure }
+        let lock = OperationLock(url: store.paths.operationLock)
+        if apply {
+            do { try lock.acquire(operation: "restore") } catch { err(L10n.tr("cli.busy")); return .failure }
+        }
+        defer { lock.release() }
+        let results = service.run(plan, apply: apply, waitForAdmin: { cmd in
+            err(L10n.tr("cli.restore.terminal"))
+            RestoreService.openInTerminal(cmd)
+            return RestoreService.waitFor("brew")
+        })
+        for r in results { (r.ok ? out : err)("  " + (r.ok ? "✓ " : "✗ ") + r.step + (r.detail.isEmpty ? "" : " — " + r.detail)) }
+        if !apply { out(L10n.tr("cli.restore.simulation")) } else { out(L10n.tr("cli.restore.manual")) }
+        return results.allSatisfy(\.ok) ? .ok : .failure
     }
 
     static func backup(_ args: [String], store: ConfigStore, out: (String) -> Void, err: (String) -> Void) -> Exit {

@@ -232,7 +232,7 @@ public final class BackupEngine: @unchecked Sendable {
         return counts.values.filter { $0.0 >= $0.2 }.reduce(0) { $0 + $1.1 }
     }
 
-    static func arch() -> String {
+    public static func arch() -> String {
         var u = utsname()
         uname(&u)
         return withUnsafePointer(to: &u.machine) { $0.withMemoryRebound(to: CChar.self, capacity: 256) { String(cString: $0) } }

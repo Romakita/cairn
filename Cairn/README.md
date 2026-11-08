@@ -141,3 +141,20 @@ sélection du home. Les identifiants ne sont cochés par défaut que si toutes l
 gardée avec le suffixe `.pre-restore`. Les bases SQLite ne sont remplacées qu'avec confirmation. Si un dossier suivi
 change de place, les dossiers de projets de Claude Code (`~/.claude/projects/-Volumes-workspaces-…`) sont renommés ; les
 chemins internes aux bases de Codex ne sont pas réécrits.
+
+## Restauration
+
+`cairn restore` (et la section « Restauration ») reconnaît une version Cairn (`manifest.json`) ou une sauvegarde faite par
+`scripts/backup.sh` (`manifest/system.txt`, `home/`, `workspaces/`, `ai/`). Simulation par défaut ; `--apply` écrit.
+
+```bash
+cairn restore --check                                   # outils de l'inventaire présents / manquants, rien n'est modifié
+cairn restore --destination nas                         # simulation de la dernière version de ce Mac
+cairn restore --from /Volumes/Disque/mac-backup --parts home,ai --apply
+cairn restore --target workspaces=~/workspaces --apply  # restaurer un dossier ailleurs (chemins Claude Code réécrits)
+```
+
+Les fichiers remplacés sont gardés avec le suffixe `.pre-restore` ; `~/.ssh` est remis en 700 et les clés privées et
+fichiers d'authentification en 600. Les outils sont réinstallés dans l'ordre Homebrew, mise, npm, uv, pipx, cargo ; ceux
+déjà présents sont ignorés et un échec n'arrête pas la suite. L'installation de Homebrew s'ouvre dans Terminal : Cairn ne
+demande jamais le mot de passe administrateur.

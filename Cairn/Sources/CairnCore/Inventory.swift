@@ -73,6 +73,7 @@ public struct InventoryRules: Sendable {
         if let a = aliases[package] { return a }
         var base = package.split(separator: "/").last.map(String.init) ?? package
         if let at = base.firstIndex(of: "@"), at != base.startIndex { base = String(base[..<at]) }
+        if base == "python" { return ["python3"] }
         if base == "cli", package.hasPrefix("@"), let scope = package.split(separator: "/").first {
             return [String(scope.dropFirst())]
         }

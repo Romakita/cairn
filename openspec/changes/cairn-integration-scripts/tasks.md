@@ -83,10 +83,10 @@ Toute tâche qui ajoute un texte visible (interface, notification, aide, message
 
 ## 10. Restauration (`restore`)
 
-- [ ] 10.1 Écrire la lecture des sauvegardes : versions Cairn (manifest, parties, architecture) et sauvegardes héritées de `backup.sh` (`manifest/system.txt`, `Brewfile`, `npm-globals.txt`, `uv-tools.txt`, `pipx.json`) adaptées au même modèle ; vérifier par des tests sur une sauvegarde héritée réelle et sur une version Cairn
-- [ ] 10.2 Écrire la copie sélective (`rsync --backup --suffix=.pre-restore`, cible de chaque dossier, proposition de volume APFS `workspaces` ou d'un autre emplacement) et les droits des secrets ; vérifier dans un home de test qu'un `.zshrc` existant devient `.zshrc.pre-restore` et que `~/.ssh` est en `700`
-- [ ] 10.3 Écrire la réinstallation des outils dans l'ordre du design, avec les outils présents ignorés et les échecs journalisés ; les étapes administrateur (CLT, Homebrew) s'ouvrent dans Terminal avec attente de la fin ; vérifier par un test qu'un échec npm n'arrête pas les suivants, puis à la main l'ouverture de Terminal quand `brew` est absent
-- [ ] 10.4 Écrire la vérification finale et les rappels manuels, et `cairn restore [--from DIR|--destination ID] [--version V] [--parts …] [--apply] [--check]` ; vérifier que `cairn restore --check` ne modifie rien et liste les outils manquants
+- [x] 10.1 Écrire la lecture des sauvegardes : versions Cairn (manifest, parties, architecture) et sauvegardes héritées de `backup.sh` (`manifest/system.txt`, `Brewfile`, `npm-globals.txt`, `uv-tools.txt`, `pipx.json`) adaptées au même modèle ; vérifier par des tests sur une sauvegarde héritée réelle et sur une version Cairn
+- [x] 10.2 Écrire la copie sélective (`rsync --backup --suffix=.pre-restore`, cible de chaque dossier, proposition de volume APFS `workspaces` ou d'un autre emplacement) et les droits des secrets ; vérifier dans un home de test qu'un `.zshrc` existant devient `.zshrc.pre-restore` et que `~/.ssh` est en `700`
+- [x] 10.3 Écrire la réinstallation des outils dans l'ordre du design, avec les outils présents ignorés et les échecs journalisés ; les étapes administrateur (CLT, Homebrew) s'ouvrent dans Terminal avec attente de la fin ; vérifier par un test qu'un échec npm n'arrête pas les suivants, puis à la main l'ouverture de Terminal quand `brew` est absent
+- [x] 10.4 Écrire la vérification finale et les rappels manuels, et `cairn restore [--from DIR|--destination ID] [--version V] [--parts …] [--apply] [--check]` ; vérifier que `cairn restore --check` ne modifie rien et liste les outils manquants
 - [ ] 10.5 Construire la vue Restauration (choix de la destination et de la version, contenu, cases par partie, récapitulatif avec tailles, confirmation, progression) et l'entrée « Restaurer une sauvegarde » de l'assistant ; vérifier par une restauration complète dans un compte macOS de test à partir d'une sauvegarde du NAS
 
 ## 11. Bascule et retrait des scripts

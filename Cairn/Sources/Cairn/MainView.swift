@@ -79,6 +79,7 @@ struct MainShell: View {
         case .git: GitView()
         case .backup: BackupView()
         case .ai: AIToolsView()
+        case .restore: RestoreView()
         default: ComingSoonView(section: model.section)
         }
     }
