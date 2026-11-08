@@ -1,3 +1,4 @@
+import CairnCore
 import SwiftUI
 
 // MARK: - Nettoyable
@@ -31,7 +32,7 @@ struct CleanableView: View {
 
         VStack(spacing: 0) {
             HStack(spacing: 8) {
-                FilterChip(title: "Tout", total: all.reduce(0) { $0 + $1.size }, color: .accentColor, active: filter == nil) {
+                FilterChip(title: T("list.all"), total: all.reduce(0) { $0 + $1.size }, color: .accentColor, active: filter == nil) {
                     filter = nil
                 }
                 ForEach(Category.allCases.filter(\.isRegenerable)) { c in
@@ -41,30 +42,30 @@ struct CleanableView: View {
                     }
                 }
                 Spacer()
-                TextField("Filtrer par chemin", text: $search).textFieldStyle(.roundedBorder).frame(width: 220)
+                TextField(T("list.filter_path"), text: $search).textFieldStyle(.roundedBorder).frame(width: 220)
             }
             .padding(10)
             Divider()
 
             Table(rows, selection: $selection, sortOrder: $sortOrder) {
-                TableColumn("Type", value: \.categoryName) { r in CategoryTag(category: r.node.category) }
+                TableColumn(T("col.type"), value: \.categoryName) { r in CategoryTag(category: r.node.category) }
                     .width(min: 90, ideal: 110, max: 140)
-                TableColumn("Chemin", value: \.relPath) { r in
+                TableColumn(T("col.path"), value: \.relPath) { r in
                     Text(r.relPath).lineLimit(1).truncationMode(.head).help(r.node.path)
                 }
-                TableColumn("Fichiers", value: \.files) { r in
+                TableColumn(T("col.files"), value: \.files) { r in
                     Text(Fmt.count(r.files)).monospacedDigit().foregroundStyle(.secondary)
                 }
                 .width(min: 70, ideal: 90, max: 110)
-                TableColumn("Taille", value: \.size) { r in
+                TableColumn(T("col.size"), value: \.size) { r in
                     Text(Fmt.bytes(r.size)).monospacedDigit().frame(maxWidth: .infinity, alignment: .trailing)
                 }
                 .width(min: 80, ideal: 100, max: 130)
             }
             .contextMenu(forSelectionType: String.self) { ids in
                 if ids.count == 1, let p = ids.first {
-                    Button("Afficher dans le Finder") { model.reveal(p) }
-                    Button("Copier le chemin") { model.copyPath(p) }
+                    Button(T("action.reveal")) { model.reveal(p) }
+                    Button(T("action.copy_path")) { model.copyPath(p) }
                 }
             } primaryAction: { ids in
                 if let p = ids.first { model.reveal(p) }
@@ -72,16 +73,16 @@ struct CleanableView: View {
 
             Divider()
             HStack {
-                Button("Tout sélectionner") { selection = Set(rows.map(\.id)) }
-                Button("Désélectionner") { selection = [] }.disabled(selection.isEmpty)
+                Button(T("action.select_all")) { selection = Set(rows.map(\.id)) }
+                Button(T("action.deselect")) { selection = [] }.disabled(selection.isEmpty)
                 Text(selection.isEmpty
-                     ? "\(rows.count) dossiers — \(Fmt.bytes(rows.reduce(0) { $0 + $1.size }))"
-                     : "\(selectedNodes.count) sélectionné(s) — \(Fmt.bytes(selectedSize))")
+                     ? T("list.folders_total", rows.count, Fmt.bytes(rows.reduce(0) { $0 + $1.size }))
+                     : T("list.selected_total", selectedNodes.count, Fmt.bytes(selectedSize)))
                     .foregroundStyle(.secondary).monospacedDigit()
                 Spacer()
-                Button("Mettre à la corbeille…") { pending = PendingDeletion(nodes: selectedNodes, permanently: false) }
+                Button(T("action.trash_ellipsis")) { pending = PendingDeletion(nodes: selectedNodes, permanently: false) }
                     .disabled(selectedNodes.isEmpty)
-                Button("Supprimer définitivement…", role: .destructive) {
+                Button(T("action.delete_ellipsis"), role: .destructive) {
                     pending = PendingDeletion(nodes: selectedNodes, permanently: true)
                 }
                 .disabled(selectedNodes.isEmpty)
@@ -141,30 +142,30 @@ struct ReposView: View {
             .sorted(using: sortOrder)
         VStack(spacing: 0) {
             HStack {
-                Text("\(rows.count) dépôts").foregroundStyle(.secondary)
+                Text(T("list.repos", rows.count)).foregroundStyle(.secondary)
                 Spacer()
-                TextField("Filtrer", text: $search).textFieldStyle(.roundedBorder).frame(width: 220)
+                TextField(T("list.filter"), text: $search).textFieldStyle(.roundedBorder).frame(width: 220)
             }
             .padding(10)
             Divider()
             Table(rows, selection: $selection, sortOrder: $sortOrder) {
-                TableColumn("Dépôt", value: \.relPath) { r in
+                TableColumn(T("col.repo"), value: \.relPath) { r in
                     Text(r.relPath).lineLimit(1).truncationMode(.head).help(r.node.path)
                 }
-                TableColumn("Répartition") { r in
+                TableColumn(T("col.breakdown")) { r in
                     BreakdownBar(node: r.node, scale: rows.map(\.size).max() ?? 1)
                 }
                 .width(min: 120, ideal: 160)
-                TableColumn("Sources", value: \.source) { r in sizeCell(r.source) }.width(min: 70, ideal: 90)
-                TableColumn(".git", value: \.git) { r in sizeCell(r.git) }.width(min: 70, ideal: 90)
-                TableColumn("Régénérable", value: \.regen) { r in sizeCell(r.regen) }.width(min: 80, ideal: 100)
-                TableColumn("Total", value: \.size) { r in sizeCell(r.size).fontWeight(.semibold) }.width(min: 70, ideal: 90)
+                TableColumn(T("col.sources"), value: \.source) { r in sizeCell(r.source) }.width(min: 70, ideal: 90)
+                TableColumn(T("col.git"), value: \.git) { r in sizeCell(r.git) }.width(min: 70, ideal: 90)
+                TableColumn(T("col.regenerable"), value: \.regen) { r in sizeCell(r.regen) }.width(min: 80, ideal: 100)
+                TableColumn(T("col.total"), value: \.size) { r in sizeCell(r.size).fontWeight(.semibold) }.width(min: 70, ideal: 90)
             }
             .contextMenu(forSelectionType: String.self) { ids in
                 if let p = ids.first, let n = rows.first(where: { $0.id == p })?.node {
-                    Button("Ouvrir dans l'explorateur") { model.open(n) }
-                    Button("Afficher dans le Finder") { model.reveal(p) }
-                    Button("Copier le chemin") { model.copyPath(p) }
+                    Button(T("action.open_in_explorer")) { model.open(n) }
+                    Button(T("action.reveal")) { model.reveal(p) }
+                    Button(T("action.copy_path")) { model.copyPath(p) }
                 }
             } primaryAction: { ids in
                 if let p = ids.first { model.reveal(p) }
@@ -189,32 +190,32 @@ struct BigFilesView: View {
         let files = (model.result?.bigFiles ?? []).sorted(using: sortOrder)
         VStack(spacing: 0) {
             HStack {
-                Text("\(files.count) fichiers de plus de \(Fmt.bytes(Scanner.bigFileThreshold)) — \(Fmt.bytes(files.reduce(0) { $0 + $1.size }))")
+                Text(T("list.big_files", files.count, Fmt.bytes(Scanner.bigFileThreshold), Fmt.bytes(files.reduce(0) { $0 + $1.size })))
                     .foregroundStyle(.secondary)
                 Spacer()
             }
             .padding(10)
             Divider()
             Table(files, selection: $selection, sortOrder: $sortOrder) {
-                TableColumn("Nom", value: \.name) { f in
+                TableColumn(T("col.name"), value: \.name) { f in
                     Label(f.name, systemImage: "doc").lineLimit(1)
                 }
                 .width(min: 160, ideal: 240)
-                TableColumn("Emplacement", value: \.path) { f in
+                TableColumn(T("col.location"), value: \.path) { f in
                     Text(relative((f.path as NSString).deletingLastPathComponent))
                         .lineLimit(1).truncationMode(.head).foregroundStyle(.secondary).help(f.path)
                 }
-                TableColumn("Dans") { f in
+                TableColumn(T("col.in")) { f in
                     if f.category != .source { CategoryTag(category: f.category) }
                 }
                 .width(min: 80, ideal: 100, max: 120)
-                TableColumn("Taille", value: \.size) { f in Text(Fmt.bytes(f.size)).monospacedDigit() }
+                TableColumn(T("col.size"), value: \.size) { f in Text(Fmt.bytes(f.size)).monospacedDigit() }
                     .width(min: 70, ideal: 90)
             }
             .contextMenu(forSelectionType: String.self) { ids in
                 if let p = ids.first {
-                    Button("Afficher dans le Finder") { model.reveal(p) }
-                    Button("Copier le chemin") { model.copyPath(p) }
+                    Button(T("action.reveal")) { model.reveal(p) }
+                    Button(T("action.copy_path")) { model.copyPath(p) }
                 }
             } primaryAction: { ids in
                 if let p = ids.first { model.reveal(p) }

@@ -7,7 +7,7 @@ private struct InodeKey: Hashable {
 }
 
 /// État partagé entre les threads d'analyse (progression, liens physiques déjà vus, annulation).
-final class ScanContext: @unchecked Sendable {
+public final class ScanContext: @unchecked Sendable {
     private let lock = NSLock()
     private var _files = 0
     private var _bytes: Int64 = 0
@@ -16,10 +16,11 @@ final class ScanContext: @unchecked Sendable {
     private var seen = Set<InodeKey>()
     private var _cancelled = false
 
-    var cancelled: Bool { lock.withLock { _cancelled } }
-    func cancel() { lock.withLock { _cancelled = true } }
+    public init() {}
+    public var cancelled: Bool { lock.withLock { _cancelled } }
+    public func cancel() { lock.withLock { _cancelled = true } }
 
-    func report(files: Int, bytes: Int64, errors: Int, current: String?) {
+    public func report(files: Int, bytes: Int64, errors: Int, current: String?) {
         lock.withLock {
             _files += files
             _bytes += bytes
@@ -28,21 +29,21 @@ final class ScanContext: @unchecked Sendable {
         }
     }
 
-    func snapshot() -> (files: Int, bytes: Int64, current: String, errors: Int) {
+    public func snapshot() -> (files: Int, bytes: Int64, current: String, errors: Int) {
         lock.withLock { (_files, _bytes, _current, _errors) }
     }
 
     /// Les fichiers avec plusieurs liens physiques (pnpm…) ne sont comptés qu'une fois.
-    func firstSeen(dev: Int32, ino: UInt64) -> Bool {
+    public func firstSeen(dev: Int32, ino: UInt64) -> Bool {
         lock.withLock { seen.insert(InodeKey(dev: dev, ino: ino)).inserted }
     }
 }
 
-enum Scanner {
+public enum Scanner {
     /// Fichiers listés dans « Gros fichiers ».
-    static let bigFileThreshold: Int64 = 50 * 1024 * 1024
+    public static let bigFileThreshold: Int64 = 50 * 1024 * 1024
     /// Fichiers affichés individuellement dans l'explorateur.
-    static let listedFileThreshold: Int64 = 10 * 1024 * 1024
+    public static let listedFileThreshold: Int64 = 10 * 1024 * 1024
 
     private static let alwaysRegenerable: [String: Category] = [
         ".git": .git,
@@ -67,7 +68,7 @@ enum Scanner {
         ".build": (.build, ["Package.swift"]),
     ]
 
-    static func classify(name: String, parentPath: String) -> Category {
+    public static func classify(name: String, parentPath: String) -> Category {
         if let c = alwaysRegenerable[name] { return c }
         if let (c, markers) = conditional[name] {
             let fm = FileManager.default
@@ -78,7 +79,7 @@ enum Scanner {
 
     // MARK: - Analyse complète
 
-    static func scan(root: String, ctx: ScanContext) -> ScanResult {
+    public static func scan(root: String, ctx: ScanContext) -> ScanResult {
         let start = Date()
         let rootNode = Node(name: (root as NSString).lastPathComponent, path: root, isDirectory: true, category: .source)
 
@@ -259,7 +260,7 @@ enum Scanner {
         return (result, big)
     }
 
-    static func volumeInfo(for path: String) -> VolumeInfo? {
+    public static func volumeInfo(for path: String) -> VolumeInfo? {
         let url = URL(fileURLWithPath: path)
         guard let v = try? url.resourceValues(forKeys: [
             .volumeNameKey, .volumeTotalCapacityKey, .volumeAvailableCapacityKey,

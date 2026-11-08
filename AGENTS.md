@@ -6,7 +6,7 @@ Instructions pour les agents IA (Claude Code, Codex, etc.) qui travaillent dans 
 
 Scripts bash de sauvegarde et de redéploiement d'un Mac (`scripts/backup.sh`, `scripts/restore.sh`,
 `scripts/git-cleanup.sh`), lancés via `just` depuis la racine, et une app macOS d'analyse de l'occupation disque du workspace
-(`WorkspaceStorage/`, SwiftUI + SwiftPM). Voir [README.md](README.md).
+(`Cairn/`, SwiftUI + SwiftPM). Voir [README.md](README.md).
 
 - Langue du projet : français (docs, commentaires, messages des scripts, artefacts OpenSpec).
 - Les scripts touchent au home et à des tokens : toute opération destructive (`--mirror`, `--apply`,
@@ -65,8 +65,8 @@ Après une mise à jour d'OpenSpec : `openspec update` pour régénérer les ski
   - `bash -n scripts/*.sh` (syntaxe) et `shellcheck scripts/*.sh` si disponible ;
   - les modes simulation : `just backup-dry <dest>`, `just git-clean`, `restore.sh --check` ;
   - pour un changement OpenSpec : `openspec validate <change>` puis `/opsx:verify`.
-  - pour `WorkspaceStorage/` : `just storage-report` (compile et compare les totaux à `du -sk <dossier>`),
-    puis `just storage-install` pour reconstruire l'app.
+  - pour `Cairn/` : `just test` (exécutable `cairn-selftest`), `just storage-report` (totaux à comparer à
+    `du -sk <dossier>`), puis `just storage-install` pour reconstruire l'app.
 
 ### 5. Exiger l'élégance (avec mesure)
 - Pour un changement non trivial : se demander « y a-t-il une façon plus élégante ? ».
@@ -91,10 +91,16 @@ Pour le travail qui ne passe pas par un changement OpenSpec :
 5. **Documenter le résultat** : ajouter une section « Revue » dans `tasks/todo.md`.
 6. **Capturer les leçons** : mettre à jour `tasks/lessons.md` après chaque correction.
 
-## App WorkspaceStorage
+## App Cairn
 
 - Seuls les Command Line Tools sont installés (pas Xcode) : le plugin de macro `@State` est absent,
   utiliser `@ViewState` (alias défini dans `Compat.swift`) ; éviter `@Observable` et `#Preview`.
+- Ni XCTest ni swift-testing ne sont disponibles : les tests sont dans `Tests/CairnSelfTest` (mini framework
+  `expect`/`expectEqual`), une suite par fichier, enregistrée dans `main.swift`.
+- `CairnCore` (bibliothèque, sans SwiftUI) contient la logique ; `Cairn` (exécutable) l'interface et l'aiguillage
+  vers la ligne de commande (`main.swift`).
+- Tout texte visible passe par `T("clé")` / `L10n.tr` avec une entrée dans `en.lproj` ET `fr.lproj`
+  (`Sources/CairnCore/Resources`) ; le test `L10n.no_untranslated_ui_strings` échoue sinon.
 - L'analyse (`Scanner.swift`) ne doit jamais rien modifier sur le disque ; les suppressions passent
   uniquement par l'interface, après confirmation, et la corbeille est proposée par défaut.
 - Les règles de « régénérable » suivent celles des exclusions de `scripts/backup.sh` : garder les deux cohérentes.

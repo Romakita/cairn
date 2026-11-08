@@ -14,8 +14,9 @@ just            # liste les commandes
 | `just check <dossier-de-sauvegarde>` | vérifie seulement les outils requis |
 | `just git-clean` | simulation du nettoyage des repos git |
 | `just git-clean-apply` | nettoyage réel des repos git |
-| `just storage-install` | construit et installe l'app Workspace Storage |
-| `just storage` | ouvre l'app Workspace Storage |
+| `just test` | lance les tests de Cairn |
+| `just storage-install` | construit et installe l'app Cairn |
+| `just storage` | ouvre l'app Cairn |
 | `just storage-report [dossier]` | résumé de l'occupation disque dans le terminal |
 
 Les options des scripts passent à la suite : `just backup /Volumes/MonDisque/mac-backup --mirror`.
@@ -84,14 +85,14 @@ elle est fusionnée dans la branche principale (merge classique ou squash merge)
 Les SHA des branches supprimées sont notés dans `.git/cleanup-deleted-branches.log` de chaque repo :
 `git branch <nom> <sha>` les recrée tant que l'espace n'a pas été libéré.
 
-## Analyser l'occupation du disque (app Workspace Storage)
+## Analyser l'occupation du disque (app Cairn)
 
-`WorkspaceStorage/` contient une app macOS (SwiftUI, construite avec SwiftPM : les Command Line Tools suffisent,
+`Cairn/` contient une app macOS (SwiftUI, construite avec SwiftPM : les Command Line Tools suffisent,
 pas besoin de Xcode) qui montre ce qui occupe `/Volumes/workspaces`. Utile pour choisir quoi nettoyer avant une
 sauvegarde ou quand le volume est plein.
 
 ```bash
-just storage-install           # construit « Workspace Storage.app » et l'installe dans ~/Applications
+just storage-install           # construit « Cairn.app » et l'installe dans ~/Applications
 just storage                   # ouvre l'app (l'analyse démarre toute seule)
 just storage-report            # même analyse dans le terminal, sans interface
 just storage-report ~/Projets  # sur un autre dossier
@@ -109,6 +110,9 @@ liens physiques multiples (pnpm) ne sont comptés qu'une fois.
 | Nettoyable | tous les dossiers régénérables, filtrables par type ; mise à la corbeille ou suppression définitive après confirmation |
 | Dépôts git | taille de chaque repo : sources, `.git`, régénérable |
 | Gros fichiers | fichiers de plus de 50 Mo |
+
+L'app est disponible en anglais et en français (elle suit la langue de macOS) ; en ligne de commande, `--lang en-US|fr-FR`.
+Cairn intègre progressivement les scripts de sauvegarde, de restauration et de nettoyage git (changement OpenSpec `cairn-integration-scripts`).
 
 Raccourcis : `⌘R` relance l'analyse, `⌘O` choisit un autre dossier, `⌘↑` remonte d'un niveau.
 

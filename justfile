@@ -32,21 +32,26 @@ git-clean *args:
 git-clean-apply *args:
     scripts/git-cleanup.sh --apply "$@"
 
-# Construit l'app Workspace Storage et l'installe dans ~/Applications
-storage-install:
-    WorkspaceStorage/build-app.sh
+# Lance les tests de Cairn (exécutable cairn-selftest ; FILTRE optionnel sur le nom des tests)
+test *filter:
+    swift build --package-path Cairn --product cairn-selftest
+    Cairn/.build/debug/cairn-selftest {{filter}}
 
-# Ouvre l'app Workspace Storage (l'installe si besoin)
+# Construit l'app Cairn et l'installe dans ~/Applications
+storage-install:
+    Cairn/build-app.sh
+
+# Ouvre l'app Cairn (l'installe si besoin)
 storage:
     #!/usr/bin/env bash
     set -euo pipefail
-    app="$HOME/Applications/Workspace Storage.app"
-    [[ -d "$app" ]] || WorkspaceStorage/build-app.sh
+    app="$HOME/Applications/Cairn.app"
+    [[ -d "$app" ]] || Cairn/build-app.sh
     open "$app"
 
 # Résumé de l'occupation disque dans le terminal (DIR par défaut : /Volumes/workspaces)
 storage-report dir="/Volumes/workspaces":
     #!/usr/bin/env bash
     set -euo pipefail
-    swift build -c release --package-path WorkspaceStorage >/dev/null
-    WorkspaceStorage/.build/release/WorkspaceStorage --report "$1"
+    swift build -c release --package-path Cairn --product Cairn >/dev/null 2>&1
+    "$(swift build -c release --package-path Cairn --show-bin-path)/Cairn" analyze "$1"

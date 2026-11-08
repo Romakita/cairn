@@ -1,3 +1,4 @@
+import CairnCore
 import AppKit
 import SwiftUI
 
@@ -28,7 +29,7 @@ final class AppModel: ObservableObject {
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
         panel.directoryURL = URL(fileURLWithPath: rootPath)
-        panel.prompt = "Analyser"
+        panel.prompt = T("action.choose")
         if panel.runModal() == .OK, let url = panel.url {
             rootPath = url.path
             scan()
@@ -66,8 +67,8 @@ final class AppModel: ObservableObject {
                 self.result = r
                 self.path = []
                 self.revision += 1
-                self.lastMessage = "Analyse terminée en \(String(format: "%.1f", r.duration)) s"
-                    + (r.errors > 0 ? " — \(r.errors) élément(s) illisible(s)" : "")
+                self.lastMessage = T("scan.done", Fmt.duration(r.duration))
+                    + (r.errors > 0 ? T("scan.errors", r.errors) : "")
             }
         }
     }
@@ -134,7 +135,7 @@ final class AppModel: ObservableObject {
                     }
                     removed.append(node)
                 } catch {
-                    failures.append("\((p as NSString).lastPathComponent) : \(error.localizedDescription)")
+                    failures.append(T("remove.failure_item", (p as NSString).lastPathComponent, error.localizedDescription))
                 }
             }
             let removedNodes = removed
@@ -149,9 +150,9 @@ final class AppModel: ObservableObject {
                 self.isDeleting = false
                 self.revision += 1
                 var msg = permanently
-                    ? "\(removedNodes.count) élément(s) supprimé(s) — \(Fmt.bytes(freed)) libérés"
-                    : "\(removedNodes.count) élément(s) mis à la corbeille — \(Fmt.bytes(freed)) (videz la corbeille pour libérer l'espace)"
-                if !failed.isEmpty { msg += "\nÉchecs : " + failed.joined(separator: ", ") }
+                    ? T("remove.deleted", removedNodes.count, Fmt.bytes(freed))
+                    : T("remove.trashed", removedNodes.count, Fmt.bytes(freed))
+                if !failed.isEmpty { msg += "\n" + T("remove.failures", failed.joined(separator: ", ")) }
                 self.lastMessage = msg
             }
         }

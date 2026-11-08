@@ -1,3 +1,4 @@
+import CairnCore
 import SwiftUI
 
 struct PendingDeletion: Identifiable {
@@ -12,23 +13,23 @@ extension View {
         confirmationDialog(
             pending.wrappedValue.map { p in
                 p.permanently
-                    ? "Supprimer définitivement \(p.nodes.count) élément(s) (\(Fmt.bytes(p.total))) ?"
-                    : "Mettre \(p.nodes.count) élément(s) à la corbeille (\(Fmt.bytes(p.total))) ?"
+                    ? T("confirm.delete.title", p.nodes.count, Fmt.bytes(p.total))
+                    : T("confirm.trash.title", p.nodes.count, Fmt.bytes(p.total))
             } ?? "",
             isPresented: Binding(get: { pending.wrappedValue != nil }, set: { if !$0 { pending.wrappedValue = nil } }),
             titleVisibility: .visible,
             presenting: pending.wrappedValue
         ) { p in
-            Button(p.permanently ? "Supprimer définitivement" : "Mettre à la corbeille", role: .destructive) {
+            Button(p.permanently ? T("action.delete") : T("action.trash"), role: .destructive) {
                 model.remove(p.nodes, permanently: p.permanently)
             }
-            Button("Annuler", role: .cancel) {}
+            Button(T("action.cancel"), role: .cancel) {}
         } message: { p in
             let names = p.nodes.prefix(6).map { $0.path }.joined(separator: "\n")
-            let more = p.nodes.count > 6 ? "\n… et \(p.nodes.count - 6) autre(s)" : ""
+            let more = p.nodes.count > 6 ? "\n" + T("confirm.more", p.nodes.count - 6) : ""
             Text(names + more + (p.permanently
-                ? "\n\nCette action est irréversible."
-                : "\n\nL'espace ne sera libéré qu'une fois la corbeille vidée."))
+                ? "\n\n" + T("confirm.irreversible")
+                : "\n\n" + T("confirm.trash_note")))
         }
     }
 }
@@ -62,14 +63,14 @@ struct ExplorerView: View {
                     .contextMenu(forSelectionType: String.self) { ids in
                         let nodes = children.filter { ids.contains($0.id) }
                         if nodes.count == 1, let n = nodes.first {
-                            if n.isDirectory && n.category == .source { Button("Ouvrir") { model.open(n) } }
-                            Button("Afficher dans le Finder") { model.reveal(n.path) }
-                            Button("Copier le chemin") { model.copyPath(n.path) }
+                            if n.isDirectory && n.category == .source { Button(T("action.open")) { model.open(n) } }
+                            Button(T("action.reveal")) { model.reveal(n.path) }
+                            Button(T("action.copy_path")) { model.copyPath(n.path) }
                             Divider()
                         }
                         if !nodes.isEmpty {
-                            Button("Mettre à la corbeille…") { pending = PendingDeletion(nodes: nodes, permanently: false) }
-                            Button("Supprimer définitivement…", role: .destructive) {
+                            Button(T("action.trash_ellipsis")) { pending = PendingDeletion(nodes: nodes, permanently: false) }
+                            Button(T("action.delete_ellipsis"), role: .destructive) {
                                 pending = PendingDeletion(nodes: nodes, permanently: true)
                             }
                         }
@@ -89,13 +90,13 @@ struct ExplorerView: View {
                             if focus.category != .source { CategoryTag(category: focus.category) }
                             BreakdownChart(node: focus)
                             if focus.regenerableBytes > 0 && focus.category == .source {
-                                Text("\(Fmt.bytes(focus.regenerableBytes)) récupérables en supprimant les dossiers régénérables (onglet « Nettoyable »).")
+                                Text(T("explorer.regenerable_hint", Fmt.bytes(focus.regenerableBytes)))
                                     .font(.caption).foregroundStyle(.secondary)
                             }
                             HStack {
-                                Button("Afficher dans le Finder") { model.reveal(focus.path) }
+                                Button(T("action.reveal")) { model.reveal(focus.path) }
                                 if selected.count >= 1 {
-                                    Button("Corbeille…") { pending = PendingDeletion(nodes: selected, permanently: false) }
+                                    Button(T("action.trash_short")) { pending = PendingDeletion(nodes: selected, permanently: false) }
                                 }
                             }
                         }
@@ -118,7 +119,7 @@ struct Breadcrumb: View {
             Button { model.goTo(index: model.path.count - 2) } label: { Image(systemName: "chevron.left") }
                 .disabled(model.path.isEmpty)
                 .keyboardShortcut(.upArrow, modifiers: .command)
-                .help("Dossier parent (⌘↑)")
+                .help(T("explorer.parent"))
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 2) {
                     crumb(model.root?.path ?? "", index: -1, isLast: model.path.isEmpty)
@@ -130,7 +131,7 @@ struct Breadcrumb: View {
             }
             Spacer()
             if let c = model.current {
-                Text("\(c.children.count) éléments — \(Fmt.bytes(c.size))").font(.callout).foregroundStyle(.secondary)
+                Text(T("explorer.items", c.children.count, Fmt.bytes(c.size))).font(.callout).foregroundStyle(.secondary)
                     .monospacedDigit()
             }
         }
@@ -159,10 +160,10 @@ struct NodeRow: View {
                 HStack(spacing: 6) {
                     Text(node.name).lineLimit(1).truncationMode(.middle)
                     if node.category != .source { CategoryTag(category: node.category) }
-                    if node.isGitRepo { CategoryTag(category: .git).opacity(0.7).help("Dépôt git") }
+                    if node.isGitRepo { CategoryTag(category: .git).opacity(0.7).help(T("explorer.git_repo")) }
                 }
                 if node.isDirectory && node.category == .source && node.regenerableBytes > 0 {
-                    Text("dont \(Fmt.bytes(node.regenerableBytes)) régénérables")
+                    Text(T("explorer.of_regenerable", Fmt.bytes(node.regenerableBytes)))
                         .font(.caption2).foregroundStyle(.secondary)
                 }
             }
@@ -186,7 +187,7 @@ struct OwnFilesRow: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "doc.on.doc").foregroundStyle(.secondary).frame(width: 18)
-            Text("\(Fmt.count(node.ownFileCount)) petits fichiers dans ce dossier").foregroundStyle(.secondary)
+            Text(T("explorer.small_files", Fmt.count(node.ownFileCount))).foregroundStyle(.secondary)
             Spacer()
             GeometryReader { g in
                 RoundedRectangle(cornerRadius: 3).fill(node.category.color.opacity(0.5))

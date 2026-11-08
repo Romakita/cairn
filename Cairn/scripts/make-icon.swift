@@ -17,24 +17,13 @@ func render(_ px: Int) -> Data {
     let bg = NSBezierPath(roundedRect: rect, xRadius: s * 0.19, yRadius: s * 0.19)
     NSGradient(colors: [NSColor(red: 0.14, green: 0.18, blue: 0.32, alpha: 1),
                         NSColor(red: 0.08, green: 0.10, blue: 0.18, alpha: 1)])!.draw(in: bg, angle: -90)
-    // Anneau segmenté façon graphique de répartition
-    let center = NSPoint(x: s / 2, y: s / 2)
-    let radius = s * 0.27
-    let segments: [(CGFloat, NSColor)] = [
-        (0.42, NSColor(red: 0.86, green: 0.25, blue: 0.42, alpha: 1)),
-        (0.25, NSColor(red: 0.36, green: 0.55, blue: 0.93, alpha: 1)),
-        (0.18, NSColor(red: 0.94, green: 0.45, blue: 0.24, alpha: 1)),
-        (0.15, NSColor(red: 0.95, green: 0.72, blue: 0.20, alpha: 1)),
-    ]
-    var start: CGFloat = 90
-    for (part, color) in segments {
-        let end = start - part * 360
-        let p = NSBezierPath()
-        p.appendArc(withCenter: center, radius: radius, startAngle: start - 2, endAngle: end + 2, clockwise: true)
-        p.lineWidth = s * 0.11
-        color.setStroke()
-        p.stroke()
-        start = end
+    // Trois pierres empilées : le cairn.
+    let stones: [(CGFloat, CGFloat, CGFloat)] = [(0.30, 0.66, 0.15), (0.48, 0.48, 0.13), (0.64, 0.30, 0.11)]
+    for (cy, w, h) in stones {
+        let r = NSRect(x: s * (0.5 - w / 2), y: s * cy - s * h / 2, width: s * w, height: s * h)
+        let p = NSBezierPath(ovalIn: r)
+        NSColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1).setFill()
+        p.fill()
     }
     NSGraphicsContext.restoreGraphicsState()
     return rep.representation(using: .png, properties: [:])!

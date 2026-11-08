@@ -1,0 +1,39 @@
+import CairnCore
+import Foundation
+
+// Processus auxiliaire du test de verrou : prend le verrou, l'annonce, attend puis se termine sans le libérer.
+if CommandLine.arguments.count >= 3 && CommandLine.arguments[1] == "--hold-lock" {
+    let lock = OperationLock(url: URL(fileURLWithPath: CommandLine.arguments[2]))
+    do { try lock.acquire(operation: "test") } catch { exit(3) }
+    print("held"); fflush(stdout)
+    let seconds = CommandLine.arguments.count > 3 ? Double(CommandLine.arguments[3]) ?? 0 : 0
+    Thread.sleep(forTimeInterval: seconds)
+    _exit(0) // fin brutale : le système doit libérer le verrou
+}
+
+var suites: [(String, [TestCase])] = [
+    ("Harness", harnessTests),
+    ("L10n", localizationTests),
+    ("Support", supportTests),
+    ("CLI", cliTests),
+    ("Scanner", scannerTests),
+]
+
+let filter = CommandLine.arguments.dropFirst().first { !$0.hasPrefix("-") }
+var passed = 0, failed = 0
+for (suite, tests) in suites {
+    for t in tests {
+        let name = "\(suite).\(t.name)"
+        if let filter, !name.localizedCaseInsensitiveContains(filter) { continue }
+        do {
+            try t.body()
+            passed += 1
+            print("✓ \(name)")
+        } catch {
+            failed += 1
+            print("✗ \(name)\n    \(error)")
+        }
+    }
+}
+print("\n\(passed) réussi(s), \(failed) échoué(s)")
+exit(failed == 0 ? 0 : 1)

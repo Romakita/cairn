@@ -1,16 +1,20 @@
 #!/bin/zsh
-# Construit « Workspace Storage.app » et l'installe dans ~/Applications.
+# Construit « Cairn.app », l'installe dans ~/Applications et y relie la commande `cairn`.
 # Usage : ./build-app.sh [--no-install]
 set -euo pipefail
 cd "${0:A:h}"
 
-APP_NAME="Workspace Storage"
+APP_NAME="Cairn"
 BUNDLE="build/$APP_NAME.app"
 
-swift build -c release
+swift build -c release --product Cairn
+BIN="$(swift build -c release --show-bin-path)"
+
 rm -rf "$BUNDLE"
 mkdir -p "$BUNDLE/Contents/MacOS" "$BUNDLE/Contents/Resources"
-cp .build/release/WorkspaceStorage "$BUNDLE/Contents/MacOS/WorkspaceStorage"
+cp "$BIN/Cairn" "$BUNDLE/Contents/MacOS/Cairn"
+# Bundle de ressources SwiftPM (catalogues en/fr) : Bundle.module le cherche dans Contents/Resources.
+cp -R "$BIN/Cairn_CairnCore.bundle" "$BUNDLE/Contents/Resources/"
 
 swift scripts/make-icon.swift build
 iconutil -c icns build/AppIcon.iconset -o "$BUNDLE/Contents/Resources/AppIcon.icns"
@@ -23,13 +27,14 @@ cat > "$BUNDLE/Contents/Info.plist" <<PLIST
 <dict>
   <key>CFBundleName</key><string>$APP_NAME</string>
   <key>CFBundleDisplayName</key><string>$APP_NAME</string>
-  <key>CFBundleIdentifier</key><string>fr.lenzotti.workspace-storage</string>
-  <key>CFBundleExecutable</key><string>WorkspaceStorage</string>
+  <key>CFBundleIdentifier</key><string>fr.lenzotti.cairn</string>
+  <key>CFBundleExecutable</key><string>Cairn</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>1.0</string>
+  <key>CFBundleShortVersionString</key><string>0.1</string>
   <key>CFBundleVersion</key><string>1</string>
-  <key>CFBundleDevelopmentRegion</key><string>fr</string>
+  <key>CFBundleDevelopmentRegion</key><string>en</string>
+  <key>CFBundleLocalizations</key><array><string>en</string><string>fr</string></array>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
   <key>NSHighResolutionCapable</key><true/>
@@ -42,6 +47,7 @@ echo "✔ $BUNDLE"
 
 if [[ "${1:-}" != "--no-install" ]]; then
   mkdir -p "$HOME/Applications"
+  rm -rf "$HOME/Applications/Workspace Storage.app"   # ancien nom
   rm -rf "$HOME/Applications/$APP_NAME.app"
   cp -R "$BUNDLE" "$HOME/Applications/"
   echo "✔ installé dans ~/Applications/$APP_NAME.app"

@@ -1,12 +1,18 @@
+import CairnCore
 import SwiftUI
 import Charts
 
 enum Tab: String, CaseIterable, Identifiable {
-    case explorer = "Explorateur"
-    case cleanable = "Nettoyable"
-    case repos = "Dépôts git"
-    case bigFiles = "Gros fichiers"
+    case explorer, cleanable, repos, bigFiles
     var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .explorer: T("tab.explorer")
+        case .cleanable: T("tab.cleanable")
+        case .repos: T("tab.repos")
+        case .bigFiles: T("tab.big_files")
+        }
+    }
     var icon: String {
         switch self {
         case .explorer: "folder"
@@ -39,11 +45,11 @@ struct ContentView: View {
                 ScanningView()
             } else {
                 ContentUnavailableView {
-                    Label("Aucune analyse", systemImage: "internaldrive")
+                    Label(T("empty.title"), systemImage: "internaldrive")
                 } description: {
                     Text(model.rootPath)
                 } actions: {
-                    Button("Analyser") { model.scan() }.buttonStyle(.borderedProminent)
+                    Button(T("action.analyze")) { model.scan() }.buttonStyle(.borderedProminent)
                 }
             }
             if let msg = model.lastMessage {
@@ -60,28 +66,28 @@ struct ContentView: View {
         .frame(minWidth: 980, minHeight: 640)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                Picker("Vue", selection: $tab) {
-                    ForEach(Tab.allCases) { t in Label(t.rawValue, systemImage: t.icon).tag(t) }
+                Picker(T("view.picker"), selection: $tab) {
+                    ForEach(Tab.allCases) { t in Label(t.title, systemImage: t.icon).tag(t) }
                 }
                 .pickerStyle(.segmented)
                 .disabled(model.root == nil || model.isScanning)
             }
             ToolbarItemGroup(placement: .primaryAction) {
-                Button { model.chooseFolder() } label: { Label("Choisir un dossier", systemImage: "folder.badge.gearshape") }
-                    .help("Choisir le dossier à analyser")
+                Button { model.chooseFolder() } label: { Label(T("action.choose_folder"), systemImage: "folder.badge.gearshape") }
+                    .help(T("action.choose_folder.help"))
                 if model.isScanning {
-                    Button { model.cancel() } label: { Label("Arrêter", systemImage: "stop.circle") }
+                    Button { model.cancel() } label: { Label(T("action.stop"), systemImage: "stop.circle") }
                 } else {
-                    Button { model.scan() } label: { Label("Analyser", systemImage: "arrow.clockwise") }
+                    Button { model.scan() } label: { Label(T("action.analyze"), systemImage: "arrow.clockwise") }
                         .keyboardShortcut("r")
-                        .help("Relancer l'analyse (⌘R)")
+                        .help(T("action.rescan.help"))
                 }
             }
         }
-        .navigationTitle("Stockage — \((model.rootPath as NSString).lastPathComponent)")
+        .navigationTitle(T("app.title", (model.rootPath as NSString).lastPathComponent))
         .overlay {
             if model.isDeleting {
-                ProgressView("Suppression en cours…")
+                ProgressView(T("deleting"))
                     .padding(24)
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
             }
@@ -101,16 +107,16 @@ struct SummaryHeader: View {
                     .frame(width: 330)
             }
             if let root = model.root, !model.isScanning {
-                StatCard(title: "Total analysé", value: Fmt.bytes(root.size),
-                         detail: "\(Fmt.count(root.fileCount)) fichiers", color: .primary)
-                StatCard(title: "Régénérable", value: Fmt.bytes(root.regenerableBytes),
-                         detail: Fmt.percent(root.regenerableBytes, of: root.size) + " du total",
+                StatCard(title: T("stat.total"), value: Fmt.bytes(root.size),
+                         detail: T("stat.files", Fmt.count(root.fileCount)), color: .primary)
+                StatCard(title: T("stat.regenerable"), value: Fmt.bytes(root.regenerableBytes),
+                         detail: T("stat.of_total", Fmt.percent(root.regenerableBytes, of: root.size)),
                          color: Category.deps.color)
-                StatCard(title: "Historique git", value: Fmt.bytes(root.bytes(.git)),
-                         detail: Fmt.percent(root.bytes(.git), of: root.size) + " du total",
+                StatCard(title: Category.git.label, value: Fmt.bytes(root.bytes(.git)),
+                         detail: T("stat.of_total", Fmt.percent(root.bytes(.git), of: root.size)),
                          color: Category.git.color)
-                StatCard(title: "Sources & fichiers", value: Fmt.bytes(root.bytes(.source)),
-                         detail: Fmt.percent(root.bytes(.source), of: root.size) + " du total",
+                StatCard(title: Category.source.label, value: Fmt.bytes(root.bytes(.source)),
+                         detail: T("stat.of_total", Fmt.percent(root.bytes(.source), of: root.size)),
                          color: Category.source.color)
             }
             Spacer(minLength: 0)
@@ -131,7 +137,7 @@ struct VolumeGauge: View {
             HStack {
                 Label(volume.name, systemImage: "internaldrive").font(.headline)
                 Spacer()
-                Text("\(Fmt.bytes(free)) libres sur \(Fmt.bytes(volume.total))")
+                Text(T("volume.free_of", Fmt.bytes(free), Fmt.bytes(volume.total)))
                     .font(.callout).foregroundStyle(free * 10 < total ? .red : .secondary)
             }
             GeometryReader { g in
@@ -146,11 +152,11 @@ struct VolumeGauge: View {
             }
             .frame(height: 14)
             HStack(spacing: 12) {
-                LegendDot(color: Category.deps.color, text: "Dossier analysé \(Fmt.bytes(scanned))")
-                LegendDot(color: .gray.opacity(0.55), text: "Autres \(Fmt.bytes(other))")
+                LegendDot(color: Category.deps.color, text: T("volume.scanned", Fmt.bytes(scanned)))
+                LegendDot(color: .gray.opacity(0.55), text: T("volume.other", Fmt.bytes(other)))
             }
             .font(.caption)
-            Text("Espace partagé par le conteneur APFS ; « libre » peut inclure de l'espace purgeable (\(Fmt.bytes(volume.availableImportant))).")
+            Text(T("volume.note", Fmt.bytes(volume.availableImportant)))
                 .font(.caption2).foregroundStyle(.tertiary).fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -191,12 +197,12 @@ struct ScanningView: View {
     var body: some View {
         VStack(spacing: 14) {
             ProgressView().controlSize(.large)
-            Text("Analyse de \(model.rootPath)…").font(.headline)
-            Text("\(Fmt.count(model.scannedFiles)) fichiers — \(Fmt.bytes(model.scannedBytes))")
+            Text(T("scan.progress_title", model.rootPath)).font(.headline)
+            Text(T("scan.progress", Fmt.count(model.scannedFiles), Fmt.bytes(model.scannedBytes)))
                 .monospacedDigit().foregroundStyle(.secondary)
             Text(model.currentPath).font(.caption).foregroundStyle(.tertiary)
                 .lineLimit(1).truncationMode(.middle).frame(maxWidth: 600)
-            Button("Arrêter") { model.cancel() }
+            Button(T("action.stop")) { model.cancel() }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -245,7 +251,7 @@ struct BreakdownChart: View {
         let items = Category.allCases.filter { node.breakdown[$0.rawValue] > 0 }
         VStack(alignment: .leading, spacing: 10) {
             Chart(items) { c in
-                SectorMark(angle: .value("Taille", node.breakdown[c.rawValue]), innerRadius: .ratio(0.6), angularInset: 1)
+                SectorMark(angle: .value(T("col.size"), node.breakdown[c.rawValue]), innerRadius: .ratio(0.6), angularInset: 1)
                     .foregroundStyle(c.color)
             }
             .chartLegend(.hidden)
@@ -253,7 +259,7 @@ struct BreakdownChart: View {
             .overlay {
                 VStack(spacing: 0) {
                     Text(Fmt.bytes(node.size)).font(.headline).monospacedDigit()
-                    Text("\(Fmt.count(node.fileCount)) fichiers").font(.caption2).foregroundStyle(.secondary)
+                    Text(T("stat.files", Fmt.count(node.fileCount))).font(.caption2).foregroundStyle(.secondary)
                 }
             }
             ForEach(items) { c in
