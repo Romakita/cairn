@@ -174,7 +174,7 @@ let backupTests: [TestCase] = [
     TestCase("encrypted_sparse_image_roundtrip") {
         try withTempDir { dir in
             let img = SparseImage(root: dir, destinationID: "selftest-\(UUID().uuidString)", encrypted: true, machine: "m")
-            defer { Keychain.deletePassword(service: Keychain.servicePrefix + "image." + img.path.split(separator: "/").last!.description, account: "m") }
+            defer { Keychain.deletePassword(service: img.keychainService, account: "m") }
             let pw = try img.create(size: "100m")
             try expect(pw != nil && img.password == pw, "mot de passe dans le Trousseau")
             let mp = try img.attach()
@@ -241,6 +241,113 @@ let backupTests: [TestCase] = [
             let ok = CLI.run(["cairn", "backup", "--only", "folders", "--config", cfg], out: { _ in }, err: { _ in })
             try expectEqual(ok, .ok)
             try expectEqual(CLI.run(["cairn", "verify", "--full", "--config", cfg], out: { _ in }, err: { _ in }), .ok)
+        }
+    },
+    TestCase("dry_run_creates_nothing_on_destination") {
+        try withTempDir { dir in
+            let src = dir.appendingPathComponent("src")
+            try writeFile(src.appendingPathComponent("a.bin"), size: 50_000)
+            let paths = CairnPaths(root: dir.appendingPathComponent(".cairn"))
+            let fm = FileManager.default
+            for (name, encrypted) in [("plain", false), ("image", true)] {
+                let dest = dir.appendingPathComponent("dest-" + name)
+                var c = CairnConfig()
+                c.folders = [.init(path: src.path)]
+                c.destinations = [.init(id: "d-" + name, provider: .local, path: dest.path, encrypted: encrypted)]
+                var req = BackupService.Request()
+                req.dryRun = true
+                req.only = [.folder]
+                // Destination absente : rien n'est créé, la simulation annonce tout ce qui serait copié.
+                let r1 = try BackupService(paths: paths, config: c).run(req)
+                try expect(r1.first?.error == nil, "\(name): \(String(describing: r1.first?.error))")
+                try expectEqual(r1.first?.outcome?.totalBytes, 50_000, name)
+                try expect(!fm.fileExists(atPath: dest.path), "\(name) : la simulation ne crée pas le dossier")
+                // Dossier vide : ni image, ni dossier des versions.
+                try fm.createDirectory(at: dest, withIntermediateDirectories: true)
+                let r2 = try BackupService(paths: paths, config: c).run(req)
+                try expect(r2.first?.error == nil, "\(name): \(String(describing: r2.first?.error))")
+                try expectEqual(try fm.contentsOfDirectory(atPath: dest.path), [], "\(name) : rien d'écrit")
+            }
+        }
+    },
+    TestCase("partial_version_does_not_break_links_retention_or_restore") {
+        try withTempDir { dir in
+            let src = dir.appendingPathComponent("src"), ai = dir.appendingPathComponent("ai"), dest = dir.appendingPathComponent("dest")
+            for i in 0..<10 { try writeFile(src.appendingPathComponent("f\(i).bin"), size: 100_000) }
+            try writeFile(ai.appendingPathComponent("s.jsonl"), size: 1000)
+            let folder = BackupPart(kind: .folder, target: "folders/src", source: src.path)
+            let aiPart = BackupPart(kind: .ai, target: "ai/codex/conversations", source: ai.path)
+            let e = BackupEngine()
+            let versions = BackupEngine.versionsDir(root: dest, machine: "m")
+            let v1 = try e.run(parts: [folder, aiPart], root: dest, retention: .count(1), dryRun: false, machine: "m", now: date("2026-11-01T120000"))
+            let v2 = try e.run(parts: [aiPart], root: dest, retention: .count(1), dryRun: false, machine: "m", now: date("2026-11-02T120000"), partial: true)
+            try expect(BackupEngine.isPartial(versions.appendingPathComponent(v2.version!)))
+            try expectEqual(try FileManager.default.destinationOfSymbolicLink(atPath: versions.appendingPathComponent("latest").path), v1.version!,
+                            "une version partielle ne devient pas « latest »")
+            try expectEqual(BackupEngine.versions(in: versions), [v1.version!, v2.version!], "la partielle ne compte pas dans la rétention")
+            let all = RestoreSource.versions(onDestinationRoot: dest)
+            try expectEqual(RestoreSource.defaultVersion(all, machine: "m")?.lastPathComponent, v1.version!, "restauration : dernière version complète")
+            let v3 = try e.run(parts: [folder, aiPart], root: dest, retention: .count(1), dryRun: false, machine: "m", now: date("2026-11-03T120000"))
+            try expectEqual(v3.filesTransferred, 0, "les dossiers sont liés à v1, pas recopiés")
+            try expectEqual(BackupEngine.versions(in: versions), [v3.version!], "v1 hors rétention, v2 remplacée par une version complète")
+            let sums = Integrity.read(versions.appendingPathComponent(v3.version!))
+            try expectEqual(sums.keys.filter { $0.hasPrefix("folders/src/") }.count, 10)
+        }
+    },
+    TestCase("logs_of_kept_versions_are_spared") {
+        try withTempDir { dir in
+            let src = dir.appendingPathComponent("src"), dest = dir.appendingPathComponent("dest")
+            try writeFile(src.appendingPathComponent("a.bin"), size: 10_000)
+            let paths = CairnPaths(root: dir.appendingPathComponent(".cairn"))
+            var c = CairnConfig()
+            c.folders = [.init(path: src.path)]
+            c.destinations = [.init(id: "local", provider: .local, path: dest.path, encrypted: false, retention: .count(1))]
+            let service = BackupService(paths: paths, config: c)
+            _ = try service.run(BackupService.Request())
+            Thread.sleep(forTimeInterval: 1.1)   // un autre nom de journal (horodatage à la seconde)
+            _ = try service.run(BackupService.Request())
+            let kept = RunState.load(paths).keptLogs
+            let versions = BackupEngine.versionsDir(root: dest)
+            try expectEqual(BackupEngine.versions(in: versions).count, 1)
+            try expectEqual(kept, Set(BackupEngine.logs(in: versions)))
+            try expectEqual(kept.count, 1)
+            // Les deux journaux ont 200 jours : seul celui de la version gardée reste.
+            let fm = FileManager.default
+            let old = Date().addingTimeInterval(-200 * 86_400)
+            let logs = try fm.contentsOfDirectory(atPath: paths.logs.path).filter { $0.hasPrefix("backup-") }
+            try expectEqual(logs.count, 2)
+            for l in logs { try fm.setAttributes([.modificationDate: old], ofItemAtPath: paths.logs.appendingPathComponent(l).path) }
+            let removed = LogJanitor.prune(paths: paths, retentionDays: 90, keep: kept)
+            try expectEqual(removed.count, 1)
+            try expect(fm.fileExists(atPath: paths.logs.appendingPathComponent(kept.first!).path))
+        }
+    },
+    TestCase("restore_opens_image_of_another_mac_with_typed_password") {
+        try withTempDir { dir in
+            let dest = dir.appendingPathComponent("dest")
+            try FileManager.default.createDirectory(at: dest, withIntermediateDirectories: true)
+            let id = "selftest-\(UUID().uuidString)"
+            let old = SparseImage(root: dest, destinationID: id, encrypted: true, machine: "OldMac")
+            let pw = try old.create(size: "100m")!
+            let mp = try old.attach()
+            try writeFile(mp.appendingPathComponent("cairn/OldMac/versions/2026-11-01T100000/home/.zshrc"), size: 10)
+            old.detach()
+            Keychain.deletePassword(service: old.keychainService, account: "OldMac")   // Mac neuf : Trousseau vide
+            let d = CairnConfig.Destination(id: id, provider: .local, path: dest.path, encrypted: true)
+            let s1 = DestinationSession(d)
+            do {
+                _ = try s1.open(createIfMissing: false)
+                s1.close()
+                try expect(false, "le mot de passe aurait dû être demandé")
+            } catch ProviderError.missingImagePassword {
+                s1.close()
+            }
+            try expect(SparseImage.images(at: dest).count == 1, "aucune image créée pour ce Mac")
+            let s2 = DestinationSession(d)
+            s2.imagePassword = pw
+            let root = try s2.open(createIfMissing: false)
+            defer { s2.close() }
+            try expectEqual(RestoreSource.versions(onDestinationRoot: root).map(\.machine), ["OldMac"])
         }
     },
 ]

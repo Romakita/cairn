@@ -8,6 +8,8 @@ public final class BackupService: @unchecked Sendable {
         public var only: Set<BackupPart.Kind>? = nil  // nil = tout
         public var aiTools: [String]? = nil           // limiter la partie IA
         public init() {}
+        /// Sauvegarde d'une partie seulement : la version est marquée partielle.
+        public var isPartial: Bool { only != nil || aiTools != nil }
     }
 
     public struct Result: Sendable {
@@ -96,13 +98,22 @@ public final class BackupService: @unchecked Sendable {
                 continue
             }
             do {
-                let root = try session.open()
+                // Une simulation n'écrit rien : ni image, ni dossier. Sur une destination encore vide, elle simule
+                // contre un dossier temporaire vide (tout serait copié).
+                var root: URL
+                do {
+                    root = try session.open(createIfMissing: !request.dryRun)
+                } catch ProviderError.notCreated where request.dryRun {
+                    root = staging.appendingPathComponent("empty-destination")
+                }
                 defer { session.close(compact: !request.dryRun) }
                 let versionsDir = BackupEngine.versionsDir(root: root)
-                let previous = BackupEngine.versions(in: versionsDir).last.map { versionsDir.appendingPathComponent($0) }
+                let sources = BackupEngine.linkSources(parts: parts, versionsDir: versionsDir)
                 let outcome = try engine.run(parts: parts, root: root, retention: d.retention, dryRun: request.dryRun,
-                                             manifestExtra: ["cairn": "1", "destination": d.id, "config_version": config.version],
-                                             forceRecopy: Integrity.recopyPlan(previous: previous, parts: parts)) { p in
+                                             manifestExtra: ["cairn": "1", "destination": d.id, "config_version": config.version,
+                                                             "log": log.url.lastPathComponent],
+                                             forceRecopy: Integrity.recopyPlan(linkSources: sources, parts: parts),
+                                             partial: request.isPartial) { p in
                     progress(d.id, p)
                 }
                 outcome.warnings.forEach { log.write("\(d.id): \($0)") }
@@ -113,6 +124,8 @@ public final class BackupService: @unchecked Sendable {
                     ds.lastBytesTransferred = outcome.bytesTransferred
                     ds.lastDuration = outcome.duration
                     log.write("\(d.id): version \(outcome.version ?? "-") \(outcome.bytesTransferred) bytes, deleted \(outcome.deletedVersions)")
+                    // Journaux des versions encore gardées : la purge des journaux les épargne.
+                    ds.keptLogs = BackupEngine.logs(in: versionsDir)
                     // Vérification mensuelle par échantillon.
                     if ds.lastVerification.map({ Date().timeIntervalSince($0) > 30 * 86_400 }) ?? true, let v = outcome.version {
                         let report = Integrity.verify(version: versionsDir.appendingPathComponent(v), full: false)

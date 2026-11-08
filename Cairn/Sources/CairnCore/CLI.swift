@@ -187,6 +187,14 @@ public enum CLI {
     }
 
     /// Confirmation interactive (sautée avec --yes).
+    /// Mot de passe lu sans écho sur le terminal (nil si annulé). Remplaçable dans les tests.
+    nonisolated(unsafe) static var askPassword: (String) -> String? = { prompt in
+        var buf = [CChar](repeating: 0, count: 512)
+        guard let r = readpassphrase(prompt + " ", &buf, buf.count, 0) else { return nil }
+        let pw = String(cString: r)
+        return pw.isEmpty ? nil : pw
+    }
+
     nonisolated(unsafe) static var confirm: (String) -> Bool = { question in
         FileHandle.standardError.write(Data((question + " [o/N] ").utf8))
         guard let answer = readLine()?.lowercased() else { return false }
@@ -385,13 +393,25 @@ public enum CLI {
             let s = DestinationSession(d)
             session = s
             do {
-                let root = try s.open(createIfMissing: false)
-                let all = RestoreSource.versions(onDestinationRoot: root)
-                let mine = all.filter { $0.machine == BackupEngine.machineName() }
-                guard let pick = version.flatMap({ v in all.first { $0.version == v } }) ?? (mine.last ?? all.last) else {
+                // Mac neuf : le Trousseau est vide, les mots de passe sont demandés.
+                var root: URL?
+                while root == nil {
+                    do {
+                        root = try s.open(createIfMissing: false)
+                    } catch ProviderError.missingPassword where s.sharePassword == nil {
+                        guard let pw = askPassword(L10n.tr("cli.restore.share_password", d.url ?? d.id)) else { return .failure }
+                        s.sharePassword = pw
+                    } catch ProviderError.missingImagePassword where s.imagePassword == nil {
+                        s.close()
+                        guard let pw = askPassword(L10n.tr("cli.restore.image_password")) else { return .failure }
+                        s.imagePassword = pw
+                    }
+                }
+                let all = RestoreSource.versions(onDestinationRoot: root!)
+                guard let pick = version.flatMap({ v in all.first { $0.version == v }?.url }) ?? RestoreSource.defaultVersion(all) else {
                     err(L10n.tr("cli.restore.no_version")); return .failure
                 }
-                sourceURL = pick.url
+                sourceURL = pick
             } catch { err(String(describing: error)); return .failure }
         }
         guard let source = RestoreSource.open(sourceURL) else { err(L10n.tr("cli.restore.unknown_format", sourceURL.path)); return .failure }
@@ -435,6 +455,9 @@ public enum CLI {
             err(L10n.tr("cli.restore.terminal"))
             RestoreService.openInTerminal(cmd)
             return RestoreService.waitFor("brew")
+        }, waitForQuit: { tool in
+            err(L10n.tr("restore.quit_tool", L10n.tr("ai.\(tool.id)")))
+            return RestoreService.waitUntilQuit(tool)
         })
         for r in results { (r.ok ? out : err)("  " + (r.ok ? "✓ " : "✗ ") + r.step + (r.detail.isEmpty ? "" : " — " + r.detail)) }
         if !apply { out(L10n.tr("cli.restore.simulation")) } else { out(L10n.tr("cli.restore.manual")) }

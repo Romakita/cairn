@@ -514,3 +514,25 @@
 "restore.arch" = "Architecture";
 "restore.format" = "Format";
 "restore.terminal_note" = "Homebrew and the Command Line Tools install in Terminal: Cairn never asks for the administrator password.";
+
+/* Corrections de la vérification : mots de passe, versions partielles, outils ouverts, chemins */
+"destination.error.image_password" = "The password of the disk image “%@” is needed";
+"destination.error.not_created" = "Nothing has been backed up to “%@” yet";
+"cli.restore.share_password" = "Password for %@:";
+"cli.restore.image_password" = "Disk image password:";
+"restore.quit_tool" = "Quit %@ to continue the restore. Cairn waits until it is closed.";
+"restore.ai.skipped_open" = "skipped: the tool is still open";
+"restore.ai.renamed" = "%lld project folder(s) renamed";
+"ai.restore.not_rewritten.claude_sessions" = "Claude Code: conversations still mention the old paths in their content (folders renamed, content unchanged).";
+"ai.restore.not_rewritten.claude_json" = "Claude Code: the projects in ~/.claude.json still use the old paths; trust them again from the new folder.";
+"ai.restore.not_rewritten.codex" = "Codex: sessions and databases keep the old working folders; reopen projects from their new location.";
+"ai.restore.not_rewritten.claude_desktop" = "Claude Desktop: code sessions keep the old folders.";
+"restore.password.share" = "NAS password";
+"restore.password.image" = "Disk image password";
+"restore.password.hint" = "This Mac's Keychain does not have it yet (new Mac). It is used for this restore only.";
+"restore.password.submit" = "Unlock";
+"restore.nas.title" = "Connect to a NAS";
+"restore.nas.url" = "smb://nas.local/backups";
+"restore.nas.user" = "User name";
+"restore.nas.connect" = "Connect";
+"restore.version.partial" = "partial";

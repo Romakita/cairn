@@ -58,10 +58,23 @@ public enum Integrity {
         return out
     }
 
+    /// Variante par partie : chaque partie reprend les empreintes de la version qui lui sert de base.
+    public static func writeChecksums(version: URL, linkSources: [String: URL]) throws {
+        var prev: [String: Entry] = [:]
+        var damaged: Set<String> = []
+        for (target, v) in linkSources {
+            for (rel, e) in read(v) where rel.hasPrefix(target + "/") { prev[rel] = e }
+            damaged.formUnion(readDamaged(v).filter { $0.hasPrefix(target + "/") })
+        }
+        try writeChecksums(version: version, prev: prev, damagedBefore: damaged)
+    }
+
     /// Écrit `checksums.tsv` : seuls les fichiers nouveaux ou modifiés sont hachés, les autres reprennent l'empreinte précédente.
     public static func writeChecksums(version: URL, previous: URL?, transferred: [String: [String]] = [:]) throws {
-        let prev = previous.map(read) ?? [:]
-        let damagedBefore = previous.map(readDamaged) ?? []
+        try writeChecksums(version: version, prev: previous.map(read) ?? [:], damagedBefore: previous.map(readDamaged) ?? [])
+    }
+
+    static func writeChecksums(version: URL, prev: [String: Entry], damagedBefore: Set<String>) throws {
         var lines: [String] = []
         for (rel, size, mtime) in files(in: version).sorted(by: { $0.0 < $1.0 }) {
             if let p = prev[rel], p.size == size, p.mtime == mtime, !damagedBefore.contains(rel) {
@@ -112,6 +125,17 @@ public enum Integrity {
     static func writeDamaged(version: URL, paths: [String]) throws {
         let all = readDamaged(version).union(paths).sorted()
         try (all.joined(separator: "\n") + "\n").write(to: version.appendingPathComponent(damagedFile), atomically: true, encoding: .utf8)
+    }
+
+    /// Variante par partie : les fichiers abîmés sont lus dans la version qui sert de base à chaque partie.
+    public static func recopyPlan(linkSources: [String: URL], parts: [BackupPart]) -> [String: [String]] {
+        var plan: [String: [String]] = [:]
+        for p in parts {
+            guard let v = linkSources[p.target] else { continue }
+            let list = readDamaged(v).filter { $0.hasPrefix(p.target + "/") }.map { String($0.dropFirst(p.target.count + 1)) }.sorted()
+            if !list.isEmpty { plan[p.target] = list }
+        }
+        return plan
     }
 
     /// Fichiers à recopier depuis la source à la prochaine sauvegarde, par partie (`folders/x` → chemins relatifs à la partie).

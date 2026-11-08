@@ -57,6 +57,8 @@ public struct RunState: Codable, Equatable, Sendable {
         public var damagedVersions: [String] = []
         public var lastBytesTransferred: Int64 = 0
         public var lastDuration: Double = 0
+        /// Journaux des versions encore présentes sur la destination (épargnés par la purge des journaux).
+        public var keptLogs: [String]?
         public init() {}
     }
 
@@ -78,6 +80,9 @@ public struct RunState: Codable, Equatable, Sendable {
         e.outputFormatting = [.prettyPrinted, .sortedKeys]
         try e.encode(self).write(to: paths.state.appendingPathComponent("runs.json"), options: .atomic)
     }
+
+    /// Journaux à garder quelle que soit leur ancienneté.
+    public var keptLogs: Set<String> { Set(destinations.values.flatMap { $0.keptLogs ?? [] }) }
 
     public subscript(id: String) -> Destination {
         get { destinations[id] ?? Destination() }

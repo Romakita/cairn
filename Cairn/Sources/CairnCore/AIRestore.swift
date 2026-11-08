@@ -9,6 +9,8 @@ public enum AIRestore {
         public var keptNewer = 0
         public var databases = 0
         public var renamedProjects: [String] = []
+        /// Données qui gardent les anciens chemins (non réécrites), à signaler à l'utilisateur.
+        public var notRewritten: [String] = []
         public init() {}
     }
 
@@ -81,6 +83,24 @@ public enum AIRestore {
         }
     }
 
+    /// Données qui contiennent des chemins absolus que Cairn ne réécrit pas, quand un préfixe a changé.
+    public static func notRewritten(tool: String, home: String, prefixes: [(String, String)]) -> [String] {
+        let changed = prefixes.filter { $0.0 != $0.1 }
+        guard !changed.isEmpty else { return [] }
+        switch tool {
+        case "claude-code":
+            var out = [L10n.tr("ai.restore.not_rewritten.claude_sessions")]
+            if let text = try? String(contentsOfFile: home + "/.claude.json", encoding: .utf8),
+               changed.contains(where: { text.contains("\"" + $0.0) }) {
+                out.append(L10n.tr("ai.restore.not_rewritten.claude_json"))
+            }
+            return out
+        case "codex": return [L10n.tr("ai.restore.not_rewritten.codex")]
+        case "claude-desktop": return [L10n.tr("ai.restore.not_rewritten.claude_desktop")]
+        default: return []
+        }
+    }
+
     /// Restaure un outil depuis une version Cairn (`<version>/ai/<outil>`).
     public static func restore(toolDir: URL, profile p: AIProfile, home: String = NSHomeDirectory(),
                                replaceDatabases: Bool, prefixes: [(String, String)] = []) throws -> Report {
@@ -107,6 +127,7 @@ public enum AIRestore {
         if p.id == "claude-code" {
             rewriteClaudeProjects(projects: root.appendingPathComponent(".claude/projects"), prefixes: prefixes, report: &report)
         }
+        report.notRewritten += notRewritten(tool: p.id, home: home, prefixes: prefixes)
         return report
     }
 
@@ -153,6 +174,7 @@ public enum AIRestore {
                 try merge(src, into: homeURL.appendingPathComponent("Library/Application Support/Claude"), report: &report)
             }
         }
+        for t in tools.sorted() { report.notRewritten += notRewritten(tool: t, home: home, prefixes: prefixes) }
         return report
     }
 }

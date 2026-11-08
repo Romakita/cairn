@@ -29,6 +29,20 @@ Vérifié sur cette machine :
 - Correction faite pendant la revue : la progression de `cairn git` n'est plus écrite quand la sortie d'erreur n'est
   pas un terminal (elle se collait au reste du texte dans les journaux).
 
+Corrections après `/opsx:verify` (7 manques bloquants, chacun avec un test, 108 tests au total) :
+
+- [x] Une simulation n'écrit plus rien sur la destination (ni image, ni dossier, ni `versions/`).
+- [x] Une version partielle (`--only`, outils IA seuls) est marquée dans le manifest : elle ne devient pas
+  « latest », ne sert pas de base aux suivantes (base cherchée partie par partie), n'entre pas dans la rétention et
+  n'est pas la version proposée par défaut à la restauration.
+- [x] Le journal de chaque version est cité dans son manifest ; la purge des journaux épargne ceux des versions gardées.
+- [x] Restauration sur un Mac neuf : mot de passe du NAS et de l'image demandés (app et `cairn restore`), image d'une
+  autre machine reprise, connexion ponctuelle à un NAS sans configuration.
+- [x] Restauration IA : l'outil ouvert doit être quitté (attente), sinon il est passé ; les données qui gardent les
+  anciens chemins sont signalées ; les droits des identifiants sont rétablis après la fusion.
+- [x] Sauvegardes `backup.sh` : `mise-config.toml` est relu, et la copie du home ne recopie plus les dossiers IA
+  (ils passent par la fusion).
+
 Reste à faire à la main (impossible ici : NAS, veille réelle, compte vierge) :
 
 - [ ] 7.4 : sauvegarde chiffrée sur le NAS Synology ; NAS éteint (sauvegarde en attente, autres destinations

@@ -6,6 +6,7 @@ struct RestoreVersion: Identifiable, Hashable {
     let machine: String
     let version: String
     let url: URL
+    let partial: Bool
     var id: String { url.path }
 }
 
@@ -22,6 +23,15 @@ struct RestoreView: View {
     @ViewState private var error: String?
     @ViewState private var results: [RestoreService.StepResult]?
     @ViewState private var confirming = false
+    // Mac neuf : mots de passe saisis pour cette restauration seulement.
+    @ViewState private var pending: CairnConfig.Destination?
+    @ViewState private var askImagePassword = false
+    @ViewState private var passwordInput = ""
+    @ViewState private var sharePassword: String?
+    @ViewState private var imagePassword: String?
+    @ViewState private var nasURL = ""
+    @ViewState private var nasUser = NSUserName()
+    @ViewState private var quitMessage: String?
 
     static let steps = ["source", "version", "parts", "summary"]
 
@@ -31,6 +41,7 @@ struct RestoreView: View {
                 VStack(alignment: .leading, spacing: 18) {
                     Text(T("restore.step.\(Self.steps[step]).heading")).font(.system(size: 26, weight: .medium))
                     if let error { Banner(icon: "exclamationmark.triangle", text: error, tone: .danger) }
+                    if let quitMessage { Banner(icon: "xmark.app", text: quitMessage, tone: .warning) }
                     switch step {
                     case 0: sourceStep
                     case 1: versionStep
@@ -72,6 +83,34 @@ struct RestoreView: View {
                 .buttonStyle(.pill)
             }
             Button { chooseFolder() } label: { Label(T("restore.source.folder"), systemImage: "folder") }.buttonStyle(.pill)
+            if let d = pending {
+                Card {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(T(askImagePassword ? "restore.password.image" : "restore.password.share")).font(.system(size: 14, weight: .medium))
+                        Text(T("restore.password.hint")).font(.system(size: 12.5)).foregroundStyle(Palette.secondary)
+                        HStack {
+                            SecureField("", text: $passwordInput).textFieldStyle(.roundedBorder).frame(maxWidth: 280)
+                                .onSubmit { submitPassword(d) }
+                            Button(T("restore.password.submit")) { submitPassword(d) }.buttonStyle(.pillPrimary)
+                                .disabled(passwordInput.isEmpty || busy)
+                        }
+                    }
+                }
+            }
+            Card {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(T("restore.nas.title")).font(.system(size: 14, weight: .medium))
+                    HStack {
+                        TextField(T("restore.nas.url"), text: $nasURL).textFieldStyle(.roundedBorder)
+                        TextField(T("restore.nas.user"), text: $nasUser).textFieldStyle(.roundedBorder).frame(width: 140)
+                        Button(T("restore.nas.connect")) {
+                            sharePassword = nil; imagePassword = nil
+                            openDestination(CairnConfig.Destination(id: "restore", provider: .smb, url: nasURL, username: nasUser))
+                        }
+                        .buttonStyle(.pill).disabled(!nasURL.hasPrefix("smb://") || busy)
+                    }
+                }
+            }
         }
     }
 
@@ -83,6 +122,7 @@ struct RestoreView: View {
                     Button { pick(v.url) } label: {
                         HStack {
                             Text(BackupEngine.date(ofVersion: v.version).map(Fmt.date) ?? v.version).fontWeight(.medium)
+                            if v.partial { Text(T("restore.version.partial")).font(.system(size: 12)).foregroundStyle(Palette.secondary) }
                             Spacer()
                             Text(v.machine).foregroundStyle(Palette.secondary)
                         }
@@ -195,17 +235,35 @@ struct RestoreView: View {
 
     func openDestination(_ d: CairnConfig.Destination) {
         busy = true; error = nil
+        session?.close(); session = nil
+        let (sharePW, imagePW) = (sharePassword, imagePassword)
         Task.detached(priority: .userInitiated) {
             let s = DestinationSession(d)
+            s.sharePassword = sharePW
+            s.imagePassword = imagePW
             do {
                 let root = try s.open(createIfMissing: false)
-                let list = RestoreSource.versions(onDestinationRoot: root).map { RestoreVersion(machine: $0.machine, version: $0.version, url: $0.url) }
-                await MainActor.run { session = s; versions = list; step = 1; busy = false }
+                let list = RestoreSource.versions(onDestinationRoot: root)
+                    .map { RestoreVersion(machine: $0.machine, version: $0.version, url: $0.url, partial: $0.partial) }
+                await MainActor.run { session = s; versions = list; pending = nil; step = 1; busy = false }
+            } catch ProviderError.missingPassword {
+                s.close()
+                await MainActor.run { pending = d; askImagePassword = false; passwordInput = ""; busy = false }
+            } catch ProviderError.missingImagePassword {
+                s.close()
+                await MainActor.run { pending = d; askImagePassword = true; passwordInput = ""; busy = false }
             } catch {
+                s.close()
                 let m = String(describing: error)
                 await MainActor.run { self.error = m; busy = false }
             }
         }
+    }
+
+    func submitPassword(_ d: CairnConfig.Destination) {
+        if askImagePassword { imagePassword = passwordInput } else { sharePassword = passwordInput }
+        passwordInput = ""
+        openDestination(d)
     }
 
     func chooseFolder() {
@@ -268,6 +326,12 @@ struct RestoreView: View {
                 res = RestoreService(source: s).run(p, apply: true, waitForAdmin: { cmd in
                     RestoreService.openInTerminal(cmd)
                     return RestoreService.waitFor("brew")
+                }, waitForQuit: { tool in
+                    let m = T("restore.quit_tool", T("ai.\(tool.id)"))
+                    DispatchQueue.main.async { quitMessage = m }
+                    let ok = RestoreService.waitUntilQuit(tool)
+                    DispatchQueue.main.async { quitMessage = nil }
+                    return ok
                 })
                 lock.release()
             } catch {

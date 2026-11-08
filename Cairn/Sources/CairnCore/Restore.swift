@@ -60,14 +60,24 @@ public struct RestoreSource: Sendable {
     }
 
     /// Versions disponibles sur une destination montée (toutes machines).
-    public static func versions(onDestinationRoot root: URL) -> [(machine: String, version: String, url: URL)] {
+    public static func versions(onDestinationRoot root: URL) -> [(machine: String, version: String, url: URL, partial: Bool)] {
         let base = root.appendingPathComponent("cairn")
-        var out: [(String, String, URL)] = []
+        var out: [(String, String, URL, Bool)] = []
         for machine in ((try? FileManager.default.contentsOfDirectory(atPath: base.path)) ?? []).sorted() where !machine.hasPrefix(".") {
             let dir = base.appendingPathComponent(machine).appendingPathComponent("versions")
-            for v in BackupEngine.versions(in: dir) { out.append((machine, v, dir.appendingPathComponent(v))) }
+            for v in BackupEngine.versions(in: dir) {
+                let url = dir.appendingPathComponent(v)
+                out.append((machine, v, url, BackupEngine.isPartial(url)))
+            }
         }
         return out
+    }
+
+    /// Version proposée par défaut : la plus récente version complète de ce Mac, sinon de n'importe quelle machine.
+    public static func defaultVersion(_ all: [(machine: String, version: String, url: URL, partial: Bool)],
+                                      machine: String = BackupEngine.machineName()) -> URL? {
+        let complete = all.filter { !$0.partial }
+        return (complete.last { $0.machine == machine } ?? complete.last ?? all.last)?.url
     }
 }
 
@@ -131,6 +141,17 @@ public enum ToolPlan {
                 tools.append(ToolToInstall(source: .uv, name: name, details: d, commands: [name]))
             }
         }
+        // Outils de mise : section [tools] de la configuration globale sauvegardée.
+        if let text = try? String(contentsOf: dir.appendingPathComponent("mise-config.toml"), encoding: .utf8),
+           let t = (try? TOMLDocument(parsing: text).tree())?.table("tools") {
+            for name in t.keys {
+                let v = t.value(name)
+                let requested = v?.string ?? v?.array?.compactMap(\.string).first ?? v?.inlineTable?.first { $0.0 == "version" }?.1.string
+                let short = String(name.split(whereSeparator: { $0 == ":" || $0 == "/" }).last ?? Substring(name))
+                tools.append(ToolToInstall(source: .mise, name: name, details: requested.map { ["requested": $0] } ?? [:],
+                                           commands: InventoryRules.bundled.commands(for: short)))
+            }
+        }
         if let data = try? Data(contentsOf: dir.appendingPathComponent("pipx.json")),
            let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
            let venvs = obj["venvs"] as? [String: Any] {
@@ -181,6 +202,8 @@ public final class RestoreService: @unchecked Sendable {
     public let runner: CommandRunner
     public let home: String
     public private(set) var log: [StepResult] = []
+    /// Outil IA ouvert ? (remplaçable dans les tests)
+    public var isRunning: (AIProfile) -> Bool = { RestoreService.running($0) }
 
     public init(source: RestoreSource, runner: CommandRunner = SystemRunner(), home: String = NSHomeDirectory()) {
         self.source = source
@@ -198,9 +221,10 @@ public final class RestoreService: @unchecked Sendable {
     }
 
     /// Copie avec rsync ; les fichiers remplacés sont gardés avec le suffixe .pre-restore.
-    func copy(_ from: URL, to: String, dryRun: Bool) -> (Bool, String) {
+    func copy(_ from: URL, to: String, dryRun: Bool, excludes: [String] = []) -> (Bool, String) {
         try? FileManager.default.createDirectory(atPath: to, withIntermediateDirectories: true)
         let r = runner.run(["/usr/bin/rsync", "-a", "--backup", "--suffix=.pre-restore"] + (dryRun ? ["-n"] : [])
+                           + excludes.map { "--exclude=/" + $0 }
                            + [from.path + "/", to.hasSuffix("/") ? to : to + "/"])
         return (r.status == 0 || r.status == 23 || r.status == 24, "rsync \(r.status)")
     }
@@ -224,13 +248,18 @@ public final class RestoreService: @unchecked Sendable {
 
     /// Exécute la restauration choisie. `waitForAdmin` est appelé pour une étape qui demande un mot de passe
     /// administrateur (installation de Homebrew) : elle s'ouvre dans Terminal, jamais dans Cairn.
+    /// `waitForQuit` est appelé quand un outil IA à restaurer est ouvert : il demande de le quitter et renvoie
+    /// `true` une fois l'outil fermé (sinon l'outil est passé).
     public func run(_ plan: Plan, apply: Bool, waitForAdmin: (String) -> Bool = { _ in false },
+                    waitForQuit: (AIProfile) -> Bool = { _ in false },
                     progress: (String) -> Void = { _ in }) -> [StepResult] {
         log = []
         func record(_ step: String, _ ok: Bool, _ detail: String = "") { log.append(StepResult(step: step, ok: ok, detail: detail)); progress(step) }
 
         if plan.home, let h = source.home {
-            let (ok, d) = copy(h, to: home, dryRun: !apply)
+            // Sauvegarde héritée : les dossiers des outils IA sont dans home/ ; ils passent par la fusion IA,
+            // jamais par la copie du home.
+            let (ok, d) = copy(h, to: home, dryRun: !apply, excludes: source.kind == .legacy ? BackupExclusions.aiManaged : [])
             if apply { Self.fixSecretPermissions(home: home) }
             record("home", ok, d)
         }
@@ -243,20 +272,42 @@ public final class RestoreService: @unchecked Sendable {
             if f.originalPath != target { prefixes.append((f.originalPath, target)) }
         }
         if !plan.ai.isEmpty {
+            // Un outil ouvert réécrirait ses fichiers par-dessus la restauration : il doit être quitté avant.
+            var tools: [String] = []
+            for id in plan.ai {
+                guard let p = AIProfiles.bundled.first(where: { $0.id == id }) else { tools.append(id); continue }
+                if apply && isRunning(p) && !waitForQuit(p) {
+                    record("ai/\(id)", false, L10n.tr("restore.ai.skipped_open"))
+                } else {
+                    tools.append(id)
+                }
+            }
             do {
-                if apply {
+                var report = AIRestore.Report()
+                if apply && !tools.isEmpty {
                     if source.kind == .legacy {
-                        _ = try AIRestore.restoreLegacy(backup: source.root, tools: Set(plan.ai), home: home,
-                                                        replaceDatabases: plan.replaceDatabases, prefixes: prefixes)
+                        report = try AIRestore.restoreLegacy(backup: source.root, tools: Set(tools), home: home,
+                                                             replaceDatabases: plan.replaceDatabases, prefixes: prefixes)
                     } else {
-                        for id in plan.ai {
+                        for id in tools {
                             guard let p = AIProfiles.bundled.first(where: { $0.id == id }) else { continue }
-                            _ = try AIRestore.restore(toolDir: source.root.appendingPathComponent("ai/\(id)"), profile: p, home: home,
-                                                      replaceDatabases: plan.replaceDatabases, prefixes: prefixes)
+                            let r = try AIRestore.restore(toolDir: source.root.appendingPathComponent("ai/\(id)"), profile: p, home: home,
+                                                          replaceDatabases: plan.replaceDatabases, prefixes: prefixes)
+                            report.renamedProjects += r.renamedProjects
+                            report.notRewritten += r.notRewritten
                         }
                     }
+                    Self.fixSecretPermissions(home: home)
+                } else if !apply {
+                    // Simulation : les données qui garderont leurs anciens chemins sont annoncées dès maintenant.
+                    for id in tools { report.notRewritten += AIRestore.notRewritten(tool: id, home: home, prefixes: prefixes) }
                 }
-                record("ai", true, plan.ai.joined(separator: ", "))
+                if !tools.isEmpty {
+                    var detail = tools.joined(separator: ", ")
+                    if !report.renamedProjects.isEmpty { detail += " — " + L10n.tr("restore.ai.renamed", report.renamedProjects.count) }
+                    record("ai", true, detail)
+                }
+                for note in report.notRewritten { record("ai:paths", true, note) }
             } catch {
                 record("ai", false, String(describing: error))
             }
@@ -299,6 +350,23 @@ public final class RestoreService: @unchecked Sendable {
         var present: [String] = [], missing: [String] = []
         for t in tools { (t.commands.contains { available($0) } ? { present.append(t.name) } : { missing.append(t.name) })() }
         return (present, missing)
+    }
+
+    /// Un processus de l'outil tourne-t-il ?
+    public static func running(_ p: AIProfile) -> Bool {
+        let names = Set(p.processes ?? [])
+        guard !names.isEmpty else { return false }
+        return !names.isDisjoint(with: AIBackup.runningApps())
+    }
+
+    /// Attend que l'outil soit quitté (vérification toutes les 2 s, 10 minutes au plus).
+    public static func waitUntilQuit(_ p: AIProfile, timeout: TimeInterval = 600) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if !running(p) { return true }
+            Thread.sleep(forTimeInterval: 2)
+        }
+        return false
     }
 
     /// Ouvre une commande dans Terminal (étapes qui demandent le mot de passe administrateur).

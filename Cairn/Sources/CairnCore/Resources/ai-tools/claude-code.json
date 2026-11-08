@@ -3,6 +3,7 @@
   "version": 1,
   "root": "~",
   "detect": [".claude", ".claude.json"],
+  "processes": ["claude"],
   "credentials_in_keychain": true,
   "conversations_glob": ".claude/projects/*/*.jsonl",
   "categories": {

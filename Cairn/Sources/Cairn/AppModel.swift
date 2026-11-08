@@ -110,7 +110,8 @@ final class AppModel: ObservableObject {
     }
 
     private func pruneLogs() {
-        let removed = LogJanitor.prune(paths: paths, retentionDays: config?.logRetentionDays ?? 90)
+        let removed = LogJanitor.prune(paths: paths, retentionDays: config?.logRetentionDays ?? 90,
+                                     keep: RunState.load(paths).keptLogs)
         if !removed.isEmpty { appLog.write("logs pruned: \(removed.count)") }
     }
 

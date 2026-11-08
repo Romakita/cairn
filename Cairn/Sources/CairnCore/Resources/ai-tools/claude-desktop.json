@@ -3,6 +3,7 @@
   "version": 1,
   "root": "~/Library/Application Support/Claude",
   "detect": ["Library/Application Support/Claude"],
+  "processes": ["Claude"],
   "credentials_in_keychain": true,
   "conversations_glob": "claude-code-sessions/*",
   "categories": {

@@ -16,9 +16,11 @@ public struct AIProfile: Codable, Equatable, Sendable, Identifiable {
     public let sqlite: [String]
     public let exclude: [String]
     public let reinstall: [String]
+    /// Noms de processus de l'outil : il doit être quitté avant une restauration.
+    public let processes: [String]?
 
     enum CodingKeys: String, CodingKey {
-        case id, version, root, detect, categories, sqlite, exclude, reinstall
+        case id, version, root, detect, categories, sqlite, exclude, reinstall, processes
         case credentialsInKeychain = "credentials_in_keychain", conversationsGlob = "conversations_glob"
     }
 

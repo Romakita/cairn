@@ -3,6 +3,7 @@
   "version": 1,
   "root": "~/.codex",
   "detect": [".codex"],
+  "processes": ["codex", "Codex"],
   "credentials_in_keychain": false,
   "conversations_glob": "sessions/*/*/*/rollout-*",
   "categories": {

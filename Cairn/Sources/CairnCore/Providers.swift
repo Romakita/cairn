@@ -8,19 +8,29 @@ public protocol BackupProvider: AnyObject, Sendable {
     /// Joignable maintenant (sans rien monter) ?
     func isReachable() -> Bool
     /// Dossier racine prêt à recevoir les données.
-    func prepare() throws -> URL
+    /// Dossier local où écrire. `create: false` (simulation, restauration) ne crée rien sur la destination.
+    func prepare(create: Bool) throws -> URL
     func finish()
+}
+
+public extension BackupProvider {
+    func prepare() throws -> URL { try prepare(create: true) }
 }
 
 public enum ProviderError: Error, CustomStringConvertible {
     case unreachable(String)
     case missingPassword(String)
+    case missingImagePassword(String)
     case mountFailed(String, Int32)
     case image(String)
+    /// Rien n'existe encore sur la destination (simulation ou restauration).
+    case notCreated(String)
     public var description: String {
         switch self {
         case let .unreachable(d): L10n.tr("destination.error.unreachable", d)
         case let .missingPassword(d): L10n.tr("destination.error.password", d)
+        case let .missingImagePassword(p): L10n.tr("destination.error.image_password", (p as NSString).lastPathComponent)
+        case let .notCreated(d): L10n.tr("destination.error.not_created", d)
         case let .mountFailed(d, code): L10n.tr("destination.error.mount", d, Int(code))
         case let .image(m): L10n.tr("destination.error.image", m)
         }
@@ -45,9 +55,12 @@ public final class LocalProvider: BackupProvider, @unchecked Sendable {
         return FileManager.default.fileExists(atPath: (p as NSString).deletingLastPathComponent)
     }
 
-    public func prepare() throws -> URL {
+    public func prepare(create: Bool) throws -> URL {
         guard isReachable() else { throw ProviderError.unreachable(destination.id) }
-        try FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true)
+        if !FileManager.default.fileExists(atPath: path) {
+            guard create else { throw ProviderError.notCreated(destination.id) }
+            try FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true)
+        }
         return URL(fileURLWithPath: path)
     }
 
@@ -58,6 +71,8 @@ public final class LocalProvider: BackupProvider, @unchecked Sendable {
 public final class SMBProvider: BackupProvider, @unchecked Sendable {
     public let destination: CairnConfig.Destination
     private var mountedByUs: String?
+    /// Mot de passe saisi pour cette session (restauration sur un Mac neuf, Trousseau vide).
+    public var password: String?
 
     public init(_ d: CairnConfig.Destination) { destination = d }
 
@@ -88,13 +103,13 @@ public final class SMBProvider: BackupProvider, @unchecked Sendable {
         return nil
     }
 
-    public func prepare() throws -> URL {
+    public func prepare(create: Bool) throws -> URL {
         guard let url, let host = url.host else { throw ProviderError.unreachable(destination.id) }
         guard isReachable() else { throw ProviderError.unreachable(destination.id) }
         let sub = url.path.split(separator: "/").dropFirst().joined(separator: "/")
         if let mount = existingMount() { return URL(fileURLWithPath: mount).appendingPathComponent(sub) }
         let user = destination.username ?? NSUserName()
-        guard let password = Keychain.internetPassword(server: host, account: user) else {
+        guard let password = password ?? Keychain.internetPassword(server: host, account: user) else {
             throw ProviderError.missingPassword(destination.id)
         }
         let share = URL(string: "smb://\(host)/" + (url.path.split(separator: "/").first.map(String.init) ?? ""))!
@@ -151,7 +166,7 @@ public enum Reachability {
 public final class SparseImage: @unchecked Sendable {
     public let path: String
     public let encrypted: Bool
-    let keychainService: String
+    public let keychainService: String
     let keychainAccount: String
     private(set) var mountPoint: String?
 
@@ -160,6 +175,27 @@ public final class SparseImage: @unchecked Sendable {
         self.encrypted = encrypted
         keychainService = Keychain.servicePrefix + "image." + destinationID
         keychainAccount = machine
+    }
+
+    /// Image existante d'une autre machine (restauration) ; le chiffrement est lu sur l'image elle-même.
+    public init(existing path: String, destinationID: String) {
+        self.path = path
+        let name = (path as NSString).lastPathComponent
+        let machine = String(name.dropFirst("cairn-".count).dropLast(".sparsebundle".count))
+        encrypted = SparseImage.isEncrypted(path)
+        keychainService = Keychain.servicePrefix + "image." + destinationID
+        keychainAccount = machine
+    }
+
+    /// Images Cairn posées sur une destination (une par machine).
+    public static func images(at base: URL) -> [String] {
+        ((try? FileManager.default.contentsOfDirectory(atPath: base.path)) ?? [])
+            .filter { $0.hasPrefix("cairn-") && $0.hasSuffix(".sparsebundle") }.sorted()
+            .map { base.appendingPathComponent($0).path }
+    }
+
+    static func isEncrypted(_ path: String) -> Bool {
+        hdiutil(["isencrypted", path]).1.contains("encrypted: YES")
     }
 
     public var exists: Bool { FileManager.default.fileExists(atPath: path) }
@@ -210,7 +246,7 @@ public final class SparseImage: @unchecked Sendable {
         var pw: String?
         if encrypted {
             pw = provided ?? password
-            guard pw != nil else { throw ProviderError.missingPassword(path) }
+            guard pw != nil else { throw ProviderError.missingImagePassword(path) }
             args.insert("-stdinpass", at: 1)
         }
         let (code, out) = Self.hdiutil(args, stdin: pw)
@@ -267,16 +303,35 @@ public final class DestinationSession: @unchecked Sendable {
     /// Une image est utilisée sur un NAS (liens physiques et droits fiables) ou si le chiffrement est demandé.
     public var usesImage: Bool { destination.provider == .smb || destination.encrypted }
 
+    /// Mot de passe de l'image saisi pour cette session (le Trousseau d'un Mac neuf est vide).
+    public var imagePassword: String?
+    /// Mot de passe du partage SMB saisi pour cette session.
+    public var sharePassword: String? {
+        get { (provider as? SMBProvider)?.password }
+        set { (provider as? SMBProvider)?.password = newValue }
+    }
+
+    /// Ouvre la destination. `createIfMissing: false` (simulation, restauration) n'écrit rien : sans image ni
+    /// dossier, l'erreur est `notCreated`. En restauration, l'image d'une autre machine est reprise si celle de ce Mac
+    /// n'existe pas.
     public func open(createIfMissing: Bool = true) throws -> URL {
-        let base = try provider.prepare()
+        let base = try provider.prepare(create: createIfMissing)
         imageBase = base
         guard usesImage else { root = base; return base }
-        let img = SparseImage(root: base, destinationID: destination.id, encrypted: destination.encrypted)
+        var img = SparseImage(root: base, destinationID: destination.id, encrypted: destination.encrypted)
         if !img.exists {
-            guard createIfMissing else { throw ProviderError.image(img.path) }
-            newImagePassword = try img.create()
+            guard !createIfMissing else {
+                newImagePassword = try img.create()
+                return try attach(img)
+            }
+            guard let other = SparseImage.images(at: base).first else { throw ProviderError.notCreated(destination.id) }
+            img = SparseImage(existing: other, destinationID: destination.id)
         }
-        let mp = try img.attach()
+        return try attach(img)
+    }
+
+    private func attach(_ img: SparseImage) throws -> URL {
+        let mp = try img.attach(password: imagePassword)
         image = img
         root = mp
         return mp

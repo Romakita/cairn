@@ -110,4 +110,66 @@ let restoreTests: [TestCase] = [
             try expect(runner.commands.allSatisfy { $0.first == "/bin/sh" }, "seulement des « command -v »")
         }
     },
+    TestCase("legacy_mise_config_is_read") {
+        try withTempDir { dir in
+            let bk = try legacyBackup(dir)
+            try put("[tools]\nnode = \"22\"\npython = [\"3.12\", \"3.11\"]\n\"aqua:cli/cli\" = \"latest\"\n",
+                    bk.appendingPathComponent("manifest/mise-config.toml"))
+            let (tools, _, _) = ToolPlan.read(bk.appendingPathComponent("manifest"))
+            let mise = tools.filter { $0.source == .mise }
+            try expectEqual(mise.map(\.name), ["node", "python", "aqua:cli/cli"])
+            try expectEqual(ToolPlan.installCommand(mise[0]), ["mise", "use", "-g", "node@22"])
+            try expectEqual(mise[1].details["requested"], "3.12")
+        }
+    },
+    TestCase("open_ai_tool_is_waited_for_or_skipped") {
+        try withTempDir { dir in
+            let home = dir.appendingPathComponent("home")
+            let service = RestoreService(source: RestoreSource.open(try legacyBackup(dir))!, home: home.path)
+            service.isRunning = { _ in true }
+            var plan = RestoreService.Plan()
+            plan.tools = false
+            plan.home = false
+            plan.ai = ["codex"]
+            var asked: [String] = []
+            let skipped = service.run(plan, apply: true, waitForQuit: { asked.append($0.id); return false })
+            try expectEqual(asked, ["codex"])
+            try expect(skipped.contains { $0.step == "ai/codex" && !$0.ok }, "\(skipped)")
+            try expect(!FileManager.default.fileExists(atPath: home.appendingPathComponent(".codex").path), "rien d'écrit tant que l'outil est ouvert")
+            let done = service.run(plan, apply: true, waitForQuit: { _ in true })
+            try expect(done.contains { $0.step == "ai" && $0.ok }, "\(done)")
+            try expect(FileManager.default.fileExists(atPath: home.appendingPathComponent(".codex/config.toml").path))
+        }
+    },
+    TestCase("legacy_home_copy_leaves_ai_data_to_the_merge") {
+        try withTempDir { dir in
+            let home = dir.appendingPathComponent("home")
+            let service = RestoreService(source: RestoreSource.open(try legacyBackup(dir))!, home: home.path)
+            var plan = RestoreService.Plan()
+            plan.tools = false
+            plan.ai = []
+            let res = service.run(plan, apply: true)
+            try expect(res.allSatisfy(\.ok), "\(res)")
+            try expect(FileManager.default.fileExists(atPath: home.appendingPathComponent(".zshrc").path))
+            try expect(!FileManager.default.fileExists(atPath: home.appendingPathComponent(".codex").path), "home seulement : pas de données IA")
+        }
+    },
+    TestCase("paths_that_cannot_be_rewritten_are_reported") {
+        try withTempDir { dir in
+            let home = dir.appendingPathComponent("home")
+            let service = RestoreService(source: RestoreSource.open(try legacyBackup(dir))!, home: home.path)
+            service.isRunning = { _ in false }
+            var plan = RestoreService.Plan()
+            plan.tools = false
+            plan.home = false
+            plan.ai = ["codex"]
+            // Le home d'origine (/Users/old) diffère : les chemins internes de Codex ne sont pas réécrits.
+            for apply in [false, true] {
+                let res = service.run(plan, apply: apply)
+                try expect(res.contains { $0.step == "ai:paths" && !$0.detail.isEmpty }, "apply=\(apply) \(res)")
+            }
+            try expect(AIRestore.notRewritten(tool: "codex", home: "/Users/old", prefixes: [("/Users/old", "/Users/old")]).isEmpty,
+                       "rien à signaler si le chemin ne change pas")
+        }
+    },
 ]

@@ -514,3 +514,25 @@
 "restore.arch" = "Architecture";
 "restore.format" = "Format";
 "restore.terminal_note" = "Homebrew et les Command Line Tools s'installent dans Terminal : Cairn ne demande jamais le mot de passe administrateur.";
+
+/* Corrections de la vérification : mots de passe, versions partielles, outils ouverts, chemins */
+"destination.error.image_password" = "Le mot de passe de l'image disque « %@ » est nécessaire";
+"destination.error.not_created" = "Rien n'a encore été sauvegardé sur « %@ »";
+"cli.restore.share_password" = "Mot de passe de %@ :";
+"cli.restore.image_password" = "Mot de passe de l'image disque :";
+"restore.quit_tool" = "Quittez %@ pour continuer la restauration. Cairn attend sa fermeture.";
+"restore.ai.skipped_open" = "passé : l'outil est encore ouvert";
+"restore.ai.renamed" = "%lld dossier(s) de projet renommé(s)";
+"ai.restore.not_rewritten.claude_sessions" = "Claude Code : les conversations citent encore les anciens chemins dans leur contenu (dossiers renommés, contenu inchangé).";
+"ai.restore.not_rewritten.claude_json" = "Claude Code : les projets de ~/.claude.json gardent les anciens chemins ; refaites-leur confiance depuis le nouveau dossier.";
+"ai.restore.not_rewritten.codex" = "Codex : les sessions et les bases gardent les anciens dossiers de travail ; rouvrez les projets depuis leur nouvel emplacement.";
+"ai.restore.not_rewritten.claude_desktop" = "Claude Desktop : les sessions de code gardent les anciens dossiers.";
+"restore.password.share" = "Mot de passe du NAS";
+"restore.password.image" = "Mot de passe de l'image disque";
+"restore.password.hint" = "Le Trousseau de ce Mac ne le connaît pas encore (Mac neuf). Il ne sert qu'à cette restauration.";
+"restore.password.submit" = "Déverrouiller";
+"restore.nas.title" = "Se connecter à un NAS";
+"restore.nas.url" = "smb://nas.local/sauvegardes";
+"restore.nas.user" = "Nom d'utilisateur";
+"restore.nas.connect" = "Se connecter";
+"restore.version.partial" = "partielle";
