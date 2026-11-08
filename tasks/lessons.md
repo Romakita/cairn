@@ -39,3 +39,7 @@ Une entrée après chaque correction de l'utilisateur. À relire au début de ch
 - Règle : quand une page s'inspire d'une référence visuelle, en reprendre la hiérarchie (taille des icônes, couleur
   par module, petits graphiques) et ne garder le neutre du design system que pour la structure (cartes, boutons) ;
   montrer une capture avant de considérer le design comme fini.
+
+## 2026-11-08 — Noms de branche générés
+- Erreur : branches laissées avec le nom généré par l'app (`claude/wonderful-varahamihira-8cbf34`), illisible.
+- Règle : renommer la branche en `<type>/<description-courte>` (types Conventional Commits) avant le premier commit.

@@ -14,6 +14,12 @@ Les anciens scripts bash ont été retirés (historique git). Voir [README.md](R
   `BREAKING CHANGE:`) → majeure, `feat` → mineure, `fix`/`perf` → patch, les autres types → pas de release. Ne pas
   toucher `Cairn/VERSION` à la main. Le `CHANGELOG.md` (section `[Unreleased]`), publié tel quel comme note de
   release, est en anglais.
+- Nom de branche : `<type>/<description-courte>`, en anglais et en kebab-case, avec le même `type` que les
+  Conventional Commits (`feat/`, `fix/`, `docs/`, `ci/`, `refactor/`, `perf/`, `test/`, `chore/`…). Exemples :
+  `feat/in-app-updates`, `fix/ai-wal-database-backup`, `ci/semver-release`. Pas de numéro ni de suffixe aléatoire.
+  Une session dont la branche a un nom généré (`claude/wonderful-varahamihira-8cbf34`, `claude/home-hub-8b5a95`…)
+  la renomme dès qu'elle sait ce qu'elle va faire, avant le premier commit : `git branch -m <type>/<description>`
+  (si la branche est déjà poussée : pousser la nouvelle, supprimer l'ancienne sur `origin` après accord).
 - Branche de PR : la remettre à jour par rebase sur `main` (pas de commit de fusion), puis `git push --force-with-lease`.
 - Cairn touche au home et à des tokens : toute opération destructive (suppression, nettoyage git, restauration)
   doit rester explicite, confirmée et avoir un mode simulation.
