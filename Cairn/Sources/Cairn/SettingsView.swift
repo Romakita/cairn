@@ -23,6 +23,13 @@ struct SettingsView: View {
                         Text(verbatim: "Français").tag("fr-FR")
                     }
                     .frame(maxWidth: 360)
+                    HStack {
+                        Toggle(T("settings.updates.check"), isOn: Binding(get: { c.checkUpdates },
+                            set: { v in model.updateConfig { $0.checkUpdates = v } }))
+                        Spacer()
+                        Text(T("settings.updates.version", CairnVersion.current)).foregroundStyle(Palette.secondary)
+                        Button(T("update.check")) { model.updates.check(manual: true) }.buttonStyle(.pill)
+                    }
                 }
 
                 section(T("sidebar.folders")) {

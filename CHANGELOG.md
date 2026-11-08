@@ -5,6 +5,12 @@ versions follow [SemVer](https://semver.org/). The current version is in `Cairn/
 
 ## [Unreleased]
 
+### Added
+- In-app updates, like Codex: when a new release is published, an **Update available** button appears at the bottom
+  of the icon bar. It shows the release notes and offers **Install and relaunch**: the archive is checked against its
+  SHA-256, and the previous app is put back if the swap fails. **Check for Updates…** menu item, and an
+  `[updates] check` setting to turn off the automatic check.
+
 ### Changed
 - New icon: a cairn of shaded pebbles on a ridge at dusk.
 - README rewritten for an open-source project, in English (`README.md`) and French (`README.fr.md`).

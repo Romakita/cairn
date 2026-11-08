@@ -124,6 +124,10 @@ Like a cairn on a trail, it marks the way back to your environment, intact.
    ln -sf ~/Applications/Cairn.app/Contents/MacOS/Cairn ~/.local/bin/cairn
    ```
 
+Later versions install from the app itself: when a new release is out, an **Update available** button
+appears at the bottom of the icon bar (or use **Cairn → Check for Updates…**). Turn off the automatic check with
+`[updates] check = false` in `config.toml`.
+
 ### From source
 
 You need the [Command Line Tools](https://developer.apple.com/xcode/resources/) (Xcode is not required) and

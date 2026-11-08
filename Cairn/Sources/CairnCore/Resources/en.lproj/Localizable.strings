@@ -601,3 +601,22 @@
 "restore.detail.installed" = "installed";
 "restore.detail.failed" = "failed (code %lld)";
 "restore.detail.simulation" = "simulation";
+
+/* Mises à jour de l'app */
+"update.available" = "Update available";
+"update.title" = "Cairn %@ is available";
+"update.install" = "Install and relaunch";
+"update.release_page" = "View release";
+"update.later" = "Later";
+"update.downloading" = "Downloading…";
+"update.check" = "Check for Updates…";
+"update.up_to_date" = "Cairn is up to date (%@).";
+"update.blocked.backup" = "A backup is running: the update can be installed once it finishes.";
+"update.blocked.not_installable" = "This copy of Cairn cannot be replaced automatically: download the update from the release page.";
+"update.error.network" = "Could not reach GitHub: %@";
+"update.error.checksum" = "The downloaded archive does not match its SHA-256 checksum. Nothing was changed.";
+"update.error.archive" = "The downloaded archive could not be extracted. Nothing was changed.";
+"update.error.bundle" = "The downloaded app is not the expected Cairn version (%@). Nothing was changed.";
+"update.error.not_installable" = "This copy of Cairn cannot be replaced automatically.";
+"settings.updates.check" = "Check for updates automatically";
+"settings.updates.version" = "Version %@";

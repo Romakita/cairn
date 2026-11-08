@@ -127,6 +127,10 @@ Comme un cairn sur un sentier, il marque le chemin pour retrouver son environnem
    ln -sf ~/Applications/Cairn.app/Contents/MacOS/Cairn ~/.local/bin/cairn
    ```
 
+Les versions suivantes s'installent depuis l'app : quand une release sort, un bouton **Mise à jour disponible**
+apparaît en bas de la barre d'icônes (ou **Cairn → Rechercher les mises à jour…**). Le contrôle automatique se coupe
+avec `[updates] check = false` dans `config.toml`.
+
 ### Depuis les sources
 
 Il faut les [Command Line Tools](https://developer.apple.com/xcode/resources/) (Xcode n'est pas nécessaire) et

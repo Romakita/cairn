@@ -41,6 +41,7 @@ qui conservent les commentaires et les clés inconnues. Exemple complet et comme
 | `[schedule]` | `frequency` (`daily`, `weekly`, `manual`), `time`, `weekday`, `background`, `on_battery_min_percent` | `daily`, `12:30`, `monday`, `false`, `20` |
 | `[alerts]` | `low_percent`, `low_gb`, `critical_percent`, `critical_gb` | `10`, `20`, `5`, `5` |
 | `[logs]` | `retention_days` | `90` |
+| `[updates]` | `check` : recherche automatique des mises à jour de l'app | `true` |
 | `[git]` | `fetch_before`, `gc`, `worktree_stale_days` | `false`, `true`, `30` |
 | `[tools]` | `excluded` | `[]` |
 
