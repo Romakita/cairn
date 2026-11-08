@@ -172,7 +172,7 @@ struct ReposView: View {
             Table(rows, selection: $selection, sortOrder: $sortOrder) {
                 TableColumn(T("col.repo"), value: \.relPath) { r in
                     HStack(spacing: 6) {
-                        Image(systemName: r.project.isGitRepo ? "arrow.triangle.branch" : "folder")
+                        Icon(r.project.isGitRepo ? "arrow.triangle.branch" : "folder", size: 16)
                             .foregroundStyle(Palette.secondary)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(r.project.name).lineLimit(1)
@@ -264,7 +264,7 @@ struct BigFilesView: View {
             Divider()
             Table(objects, selection: $selection, sortOrder: $sortOrder) {
                 TableColumn(T("col.name"), value: \.name) { o in
-                    Label(o.name, systemImage: o.kind == .file ? "doc" : "folder").lineLimit(1)
+                    Label { Text(o.name) } icon: { Icon(o.kind == .file ? "doc" : "folder", size: 15) }.lineLimit(1)
                 }
                 .width(min: 160, ideal: 240)
                 TableColumn(T("col.kind"), value: \.kind.rawValue) { o in

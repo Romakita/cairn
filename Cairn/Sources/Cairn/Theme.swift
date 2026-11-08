@@ -22,8 +22,8 @@ extension Color {
 /// gris neutres, un seul accent bleu, noir pour l'action principale, couleurs de catégories réservées aux graphiques.
 enum Palette {
     static let content = Color(light: 0xFFFFFF, dark: 0x181818)
-    static let sidebar = Color(light: 0xF9F9F9, dark: 0x1F1F1F)
-    static let rail = Color(light: 0xF2F2F2, dark: 0x1B1B1B)
+    static let sidebar = Color(light: 0xFCFCFC, dark: 0x1F1F1F)
+    static let rail = Color(light: 0xF3F3F3, dark: 0x1B1B1B)
     static let railSelected = Color(light: 0xFFFFFF, dark: 0x2E2E2E)
     static let rowSelected = Color(light: 0xEDEDED, dark: 0x2C2C2C)
     /// Survol d'une ligne cliquable.
@@ -34,8 +34,8 @@ enum Palette {
     /// Fond gris des boutons secondaires, de l'onglet sélectionné et des pistes de jauge.
     static let field = Color(light: 0xF2F2F2, dark: 0x2A2A2A)
     static let fieldPressed = Color(light: 0xE6E6E6, dark: 0x333333)
-    static let text = Color(light: 0x0D0D0D, dark: 0xF2F2F2)
-    static let secondary = Color(light: 0x6B6B6B, dark: 0x9B9B9B)
+    static let text = Color(light: 0x222529, dark: 0xF2F2F2)
+    static let secondary = Color(light: 0x8F8F8F, dark: 0x9B9B9B)
     static let tertiary = Color(light: 0x3D3D3D, dark: 0xD0D0D0)
     static let placeholder = Color(light: 0x9A9A9A, dark: 0x6E6E6E)
     static let accent = Color(light: 0x3B6FE0, dark: 0x5B8DEF)

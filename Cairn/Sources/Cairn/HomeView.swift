@@ -56,8 +56,7 @@ struct HubHeader: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 30, weight: .medium))
+            Icon(icon, size: 34)
                 .foregroundStyle(StatusColor.color(tone))
                 .frame(width: 76, height: 76)
                 .background(StatusColor.color(tone).opacity(0.12), in: Circle())
@@ -90,7 +89,7 @@ struct HubHeader: View {
                     }
                 } else {
                     Button { model.checkEverything() } label: {
-                        Label(T("hub.check"), systemImage: "checkmark.shield").padding(.horizontal, 6)
+                        Label { Text(T("hub.check")) } icon: { Icon("checkmark.shield", size: 15) }.padding(.horizontal, 6)
                     }
                     .buttonStyle(.pillPrimary)
                     .tooltip(T("hub.check.help"))
@@ -105,7 +104,7 @@ struct HubHeader: View {
     var icon: String {
         switch hub.overall {
         case .ok: "checkmark"
-        case .attention: "exclamationmark"
+        case .attention: "exclamationmark.triangle"
         case .error: "xmark"
         }
     }
@@ -150,8 +149,7 @@ struct ModuleCard: View {
         let color = Palette.module(state.module)
         Card(padding: 18) {
             VStack(spacing: 0) {
-                Image(systemName: HubText.icon(state.module))
-                    .font(.system(size: 28, weight: .regular))
+                Icon(HubText.icon(state.module), size: 32)
                     .foregroundStyle(color)
                     .frame(width: 64, height: 64)
                     .background(color.opacity(0.13), in: RoundedRectangle(cornerRadius: 18))

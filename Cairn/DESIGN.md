@@ -8,13 +8,13 @@ l'action principale. Les jetons sont dans `Sources/Cairn/Theme.swift`, les compo
 
 | Jeton | Clair | Sombre | Usage |
 |---|---|---|---|
-| `content` | `#FFFFFF` | `#181818` | fond des pages et des cartes |
-| `sidebar` | `#F9F9F9` | `#1F1F1F` | barre latérale, plateau bas de carte (`CardTray`) |
-| `rail` | `#F2F2F2` | `#1B1B1B` | rail d'icônes |
+| `content` | `#FFFFFF` | `#181818` | fond des pages et des cartes (corps) |
+| `sidebar` | `#FCFCFC` | `#1F1F1F` | barre latérale, plateau bas de carte (`CardTray`) |
+| `rail` | `#F3F3F3` | `#1B1B1B` | cadre de la fenêtre : barre du haut et rail d'icônes |
 | `field` | `#F2F2F2` | `#2A2A2A` | bouton secondaire, onglet choisi, piste de jauge |
 | `rowSelected` / `rowHover` | `#EDEDED` / `#F6F6F6` | `#2C2C2C` / `#222222` | élément actif / survolé |
 | `border` / `fieldBorder` | `#E6E6E6` / `#DCDCDC` | `#2F2F2F` / `#3A3A3A` | cartes / champs et menus |
-| `text` / `tertiary` / `secondary` | `#0D0D0D` / `#3D3D3D` / `#6B6B6B` | `#F2F2F2` / `#D0D0D0` / `#9B9B9B` | titres / texte / descriptions |
+| `text` / `tertiary` / `secondary` | `#222529` / `#3D3D3D` / `#8F8F8F` | `#F2F2F2` / `#D0D0D0` / `#9B9B9B` | titres / texte / descriptions |
 | `accent` | `#3B6FE0` | `#5B8DEF` | liens, interrupteurs, focus |
 | `primaryButton` | `#0D0D0D` | `#F2F2F2` | action principale, infobulle |
 
@@ -28,7 +28,7 @@ reste dit par un `Badge` de ton (« À jour », « À regarder »…), et l'acti
 
 ## Fenêtre (`MainShell`)
 
-Comme Codex : un cadre translucide (`WindowMaterial`, matériau `.sidebar` de macOS, sans couleur propre) porte la
+Comme Codex : un cadre gris uni (`rail`, `#F3F3F3`, relevé sur une capture de Codex) porte la
 barre du haut (44 pt : boutons de fenêtre, bascule de la barre latérale, logo de Cairn centré en pastille noire) et le
 rail d'icônes. La barre latérale (fond `sidebar`, gris clair distinct du cadre) et le contenu (blanc) partagent un corps qui flotte dans ce cadre : rayon 12, bordure
 1 pt `border`, ombre douce (noir 10 %, rayon 10, y 2), marge de 6 pt à droite et en bas. C'est la seule ombre d'un
@@ -71,9 +71,12 @@ Police système (SF Pro), graisses légères :
 
 ## Iconographie
 
-SF Symbols au trait fin (`.fontWeight(.light)`), ramenés à une même boîte (19 pt dans le rail) pour une taille
-visuelle identique. Les icônes de Codex ne sont pas réutilisables (propriété d'OpenAI) : on choisit le symbole SF
-le plus proche (`folder`, `clock`, `externaldrive`, `arrow.triangle.branch`, `sparkles`…).
+Icônes [Lucide](https://lucide.dev) 1.61.0 (licence ISC, `Resources/Icons/LUCIDE-LICENSE.txt`), embarquées en SVG
+(`lucide-<nom>.svg`, trait ramené à 1,6) et affichées par `Icon(nom, size:)`, teintées comme le texte. Le code garde
+les noms de symboles SF comme identifiants ; `LucideIcons.map` (CairnCore) donne l'icône Lucide de chacun, et un
+nom absent reste un symbole SF. Pour une nouvelle icône : télécharger le SVG de la même version, le passer à 1,6,
+l'ajouter à la table (le test `Icons.every_mapped_lucide_icon_is_bundled` vérifie la présence). Restent en symboles
+SF : l'icône de la barre des menus, la coche des menus natifs et l'assistant (`OnboardingView`, à migrer).
 
 ## Interaction
 

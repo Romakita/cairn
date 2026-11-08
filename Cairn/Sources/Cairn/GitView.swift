@@ -40,7 +40,7 @@ struct GitView: View {
                 content(reports)
             } else {
                 VStack(spacing: 14) {
-                    Image(systemName: "arrow.triangle.branch").font(.system(size: 34)).foregroundStyle(Palette.secondary)
+                    Icon("arrow.triangle.branch", size: 39).foregroundStyle(Palette.secondary)
                     Text(T("git.intro")).foregroundStyle(Palette.secondary).multilineTextAlignment(.center).frame(maxWidth: 460)
                     Button(T("git.analyze")) { model.analyzeGit() }.buttonStyle(.pillPrimary)
                 }
@@ -64,7 +64,7 @@ struct GitView: View {
         return VStack(spacing: 14) {
             if let only = model.gitOptions.only {
                 HStack(spacing: 10) {
-                    Image(systemName: "line.3.horizontal.decrease.circle").foregroundStyle(Palette.secondary)
+                    Icon("line.3.horizontal.decrease.circle", size: 16).foregroundStyle(Palette.secondary)
                     Text(T("git.filter.repo", rel(only))).lineLimit(1).truncationMode(.head)
                     Spacer()
                     Button(T("git.filter.all")) { model.gitOptions.only = nil; model.analyzeGit() }.buttonStyle(.pill)

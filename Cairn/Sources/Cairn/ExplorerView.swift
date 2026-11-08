@@ -116,7 +116,7 @@ struct Breadcrumb: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            Button { model.goTo(index: model.path.count - 2) } label: { Image(systemName: "chevron.left") }
+            Button { model.goTo(index: model.path.count - 2) } label: { Icon("chevron.left", size: 16) }
                 .disabled(model.path.isEmpty)
                 .keyboardShortcut(.upArrow, modifiers: .command)
                 .help(T("explorer.parent"))
@@ -124,7 +124,7 @@ struct Breadcrumb: View {
                 HStack(spacing: 2) {
                     crumb(model.root?.path ?? "", index: -1, isLast: model.path.isEmpty)
                     ForEach(Array(model.path.enumerated()), id: \.offset) { i, n in
-                        Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
+                        Icon("chevron.right", size: 11).foregroundStyle(.tertiary)
                         crumb(n.name, index: i, isLast: i == model.path.count - 1)
                     }
                 }
@@ -153,7 +153,7 @@ struct NodeRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: node.isDirectory ? (node.isGitRepo ? "folder.fill.badge.gearshape" : node.category.icon) : "doc")
+            Icon(node.isDirectory ? (node.isGitRepo ? "folder.fill.badge.gearshape" : node.category.icon) : "doc", size: 16)
                 .foregroundStyle(node.category == .source ? Color.accentColor : node.category.color)
                 .frame(width: 18)
             VStack(alignment: .leading, spacing: 1) {
@@ -174,7 +174,7 @@ struct NodeRow: View {
             Text(Fmt.bytes(node.size)).monospacedDigit().frame(width: 80, alignment: .trailing)
             Text(Fmt.percent(node.size, of: parentSize)).monospacedDigit().font(.caption)
                 .foregroundStyle(.secondary).frame(width: 52, alignment: .trailing)
-            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+            Icon("chevron.right", size: 12).foregroundStyle(.tertiary)
                 .opacity(node.isDirectory && node.category == .source ? 1 : 0)
         }
         .padding(.vertical, 2)
@@ -188,7 +188,7 @@ struct OwnFilesRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: "doc.on.doc").foregroundStyle(.secondary).frame(width: 18)
+            Icon("doc.on.doc", size: 16).foregroundStyle(.secondary).frame(width: 18)
             Text(T("explorer.small_files", Fmt.count(node.ownFileCount))).foregroundStyle(.secondary)
             Spacer()
             GeometryReader { g in
@@ -199,7 +199,7 @@ struct OwnFilesRow: View {
             Text(Fmt.bytes(node.ownBytes)).monospacedDigit().frame(width: 80, alignment: .trailing)
             Text(Fmt.percent(node.ownBytes, of: node.size)).monospacedDigit().font(.caption)
                 .foregroundStyle(.secondary).frame(width: 52, alignment: .trailing)
-            Image(systemName: "chevron.right").opacity(0)
+            Icon("chevron.right", size: 16).opacity(0)
         }
         .padding(.vertical, 2)
     }

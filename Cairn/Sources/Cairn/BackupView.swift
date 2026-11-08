@@ -25,7 +25,7 @@ struct BackupView: View {
                 detail(d)
             } else {
                 VStack(spacing: 14) {
-                    Image(systemName: "externaldrive.badge.plus").font(.system(size: 34)).foregroundStyle(Palette.secondary)
+                    Icon("externaldrive.badge.plus", size: 39).foregroundStyle(Palette.secondary)
                     Text(T("backup.no_destination")).foregroundStyle(Palette.secondary)
                     Button(T("sidebar.add_destination")) { model.addDestination() }.buttonStyle(.pillPrimary)
                 }
@@ -55,7 +55,7 @@ struct BackupView: View {
         return ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 HStack(spacing: 14) {
-                    Image(systemName: d.provider == .smb ? "server.rack" : "externaldrive")
+                    Icon(d.provider == .smb ? "server.rack" : "externaldrive", size: 16)
                         .font(.system(size: 22)).frame(width: 48, height: 48).background(Palette.field, in: RoundedRectangle(cornerRadius: 14))
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 8) {

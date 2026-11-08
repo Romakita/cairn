@@ -93,11 +93,11 @@ struct RestoreView: View {
             Text(T("restore.source.text")).foregroundStyle(Palette.tertiary)
             ForEach(model.config?.destinations ?? [], id: \.id) { d in
                 Button { preferredImage = nil; openDestination(d) } label: {
-                    Label(model.destinationLabel(d), systemImage: d.provider == .smb ? "server.rack" : "externaldrive")
+                    Label { Text(model.destinationLabel(d)) } icon: { Icon(d.provider == .smb ? "server.rack" : "externaldrive", size: 15) }
                 }
                 .buttonStyle(.pill)
             }
-            Button { chooseFolder() } label: { Label(T("restore.source.folder"), systemImage: "folder") }.buttonStyle(.pill)
+            Button { chooseFolder() } label: { Label { Text(T("restore.source.folder")) } icon: { Icon("folder", size: 15) } }.buttonStyle(.pill)
             if let d = pending {
                 Card {
                     VStack(alignment: .leading, spacing: 8) {
@@ -197,7 +197,7 @@ struct RestoreView: View {
                 Card {
                     VStack(alignment: .leading, spacing: 6) {
                         ForEach(Array(results.enumerated()), id: \.offset) { _, r in
-                            Label(r.step + (r.detail.isEmpty ? "" : " — " + r.detail), systemImage: r.ok ? "checkmark.circle" : "xmark.circle")
+                            Label { Text(r.step + (r.detail.isEmpty ? "" : " — " + r.detail)) } icon: { Icon(r.ok ? "checkmark.circle" : "xmark.circle", size: 15) }
                                 .foregroundStyle(r.ok ? Palette.text : Palette.foreground(.danger)).font(.system(size: 13))
                         }
                     }
@@ -235,7 +235,7 @@ struct RestoreView: View {
                     if let c = checkResult {
                         Text(T("cli.restore.check", c.present.count, c.missing.count)).fontWeight(.medium)
                         ForEach(c.missing, id: \.self) { name in
-                            Label(name, systemImage: "xmark.circle").font(.system(size: 12.5)).foregroundStyle(Palette.foreground(.warning))
+                            Label { Text(name) } icon: { Icon("xmark.circle", size: 15) }.font(.system(size: 12.5)).foregroundStyle(Palette.foreground(.warning))
                         }
                     }
                 }
