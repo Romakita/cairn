@@ -122,6 +122,7 @@ public enum AIBackup {
 
     /// Copie cohérente d'une base SQLite (API de sauvegarde en ligne), même si l'outil est en train d'écrire.
     /// L'outil peut fermer sa base ou faire un checkpoint pendant la copie : on réessaie quelques fois.
+    /// En cas d'échec, aucun fichier ne reste à `dest` (la restauration installerait une copie vide ou partielle).
     public static func snapshot(_ source: String, to dest: String) throws {
         var lastError: Error?
         for attempt in 0..<5 {
@@ -130,7 +131,20 @@ public enum AIBackup {
                 usleep(useconds_t(100_000 * (attempt + 1)))
             }
         }
+        for suffix in ["", "-journal", "-wal", "-shm"] { try? FileManager.default.removeItem(atPath: dest + suffix) }
         throw lastError ?? AIError.sqlite(source)
+    }
+
+    /// Base en WAL fermée proprement : en-tête WAL (octets 18-19 = 2) et aucun fichier annexe (-wal, -shm,
+    /// -journal). Tout est alors dans le fichier principal. Une base en journal classique avec un -journal
+    /// « chaud » (outil planté) demande une récupération : elle n'est jamais lue en mode immutable.
+    public static func isCleanWAL(_ path: String) -> Bool {
+        let fm = FileManager.default
+        guard !["-wal", "-shm", "-journal"].contains(where: { fm.fileExists(atPath: path + $0) }),
+              let h = FileHandle(forReadingAtPath: path) else { return false }
+        defer { try? h.close() }
+        guard let header = try? h.read(upToCount: 20), header.count == 20 else { return false }
+        return header.starts(with: Data("SQLite format 3\0".utf8)) && header[18] == 2 && header[19] == 2
     }
 
     static func snapshotOnce(_ source: String, to dest: String) throws {
@@ -138,11 +152,11 @@ public enum AIBackup {
         try fm.createDirectory(atPath: (dest as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
         try? fm.removeItem(atPath: dest)
         do { return try backup(source, to: dest, immutable: false) } catch {
-            // Base en WAL fermée proprement (SQLite embarqué de Codex) : ni -wal ni -shm à côté, et une connexion
-            // en lecture seule ne peut pas créer le -shm (SQLITE_CANTOPEN). Sans -wal, tout est dans le fichier
-            // principal : lecture « immutable » (aucun fichier créé, aucun verrou), puis contrôle que la base n'a
-            // pas bougé pendant la copie (un checkpoint de l'outil la réécrirait).
-            guard !fm.fileExists(atPath: source + "-wal"), !fm.fileExists(atPath: source + "-shm") else { throw error }
+            // Base en WAL fermée proprement (SQLite embarqué de Codex) : une connexion en lecture seule ne peut pas
+            // créer le -shm (SQLITE_CANTOPEN). Tout est dans le fichier principal (voir `isCleanWAL`) : lecture
+            // « immutable » (aucun fichier créé, aucun verrou), puis contrôle que la base n'a pas bougé pendant la
+            // copie (un checkpoint de l'outil la réécrirait).
+            guard isCleanWAL(source) else { throw error }
             let before = stamp(source)
             try? fm.removeItem(atPath: dest)
             try backup(source, to: dest, immutable: true)
