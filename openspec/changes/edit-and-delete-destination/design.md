@@ -72,3 +72,14 @@ Voir proposal.md pour la motivation. Points de départ dans le code :
   rechargement à la fin.
 - [Mot de passe de l'image gardé après suppression sans les sauvegardes] → voulu : il sert à restaurer ces
   sauvegardes plus tard.
+
+## Écarts apportés pendant l'implémentation
+
+- Retours de l'utilisateur en cours de route : en-tête à la Codex (menu « … » rond avec l'action destructive en rouge,
+  « Gérer » gris, action principale noire). « Simuler » passe dans le menu « … » (désactivé quand il ne peut pas
+  aboutir, sans bulle d'aide : un menu macOS n'en affiche pas) ; « Vérifier » et « Tout vérifier » passent dans la
+  carte Intégrité, avec bulle d'aide.
+- Tous les `Picker(.segmented)` et `PillPicker` hors page d'accueil deviennent des `TabBar` en pilule (style
+  « Public  Personnel » de Codex).
+- La feuille de modification réutilise `AddDestinationSheet(editing:)` au lieu d'une feuille séparée.
+- Le rendu `--snapshot` ne démarre plus le planificateur ni la surveillance (il pouvait lancer une vraie sauvegarde).

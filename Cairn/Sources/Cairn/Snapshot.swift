@@ -9,6 +9,7 @@ enum Snapshot {
     static func run(outDir: String, sample: String) {
         let app = NSApplication.shared
         app.setActivationPolicy(.prohibited)
+        AppModel.offline = true // aucune lecture de destination (montage, réseau)
         try? FileManager.default.createDirectory(atPath: outDir, withIntermediateDirectories: true)
         let scan = Scanner.scan(root: sample, ctx: ScanContext())
         let volume = Scanner.volumeInfo(for: sample)
@@ -26,6 +27,15 @@ enum Snapshot {
                 model.volume = volume
                 let suffix = "\(lang.lproj)-\(dark ? "dark" : "light")"
                 let size = CGSize(width: 1280, height: 800)
+                // Historique de démonstration pour la page Sauvegardes (la vraie destination n'est jamais lue).
+                if let d = model.config?.destinations.first {
+                    model.destinationWaiting[d.id] = false
+                    model.versions[d.id] = (0..<16).reversed().map { i in
+                        let date = Date().addingTimeInterval(-Double(i) * 86_400)
+                        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd_HHmmss"
+                        return VersionInfo(name: f.string(from: date), date: date, damaged: i == 5)
+                    }
+                }
                 for (name, section) in [("home", AppSection.home), ("analysis", .analysis), ("settings", .settings), ("backup", .backup)] {
                     model.section = section
                     render(RootView().environmentObject(model), size: size, dark: dark, to: "\(outDir)/\(name)-\(suffix).png")
@@ -84,6 +94,19 @@ enum Snapshot {
         sheet.open(demo, verify: false)
         render(AddDestinationSheet(form: sheet).environmentObject(model), size: CGSize(width: 760, height: 720), dark: dark,
                to: "\(outDir)/add-destination-\(suffix).png")
+        // Modification d'un NAS et suppression (simulation des sauvegardes affichée).
+        let nas = CairnConfig.Destination(id: "main", provider: .smb, url: "smb://nas.local/backups/mac", username: "romain")
+        render(AddDestinationSheet(editing: nas).environmentObject(model), size: CGSize(width: 760, height: 720), dark: dark,
+               to: "\(outDir)/edit-destination-\(suffix).png")
+        let plan = DestinationRemoval.Plan(destination: nas, includeBackups: true, machine: BackupEngine.machineName(), items: [
+            .configuration(id: nas.id), .state(id: nas.id),
+            .backups(path: "/Volumes/backups/mac/cairn-\(BackupEngine.machineName()).sparsebundle", bytes: 48_300_000_000),
+            .imagePassword(service: Keychain.servicePrefix + "image.main", account: BackupEngine.machineName()),
+        ])
+        render(DeleteDestinationSheet(destination: nas, includeBackups: true, simulated: plan).environmentObject(model),
+               size: CGSize(width: 640, height: 620), dark: dark, to: "\(outDir)/delete-destination-\(suffix).png")
+        render(DeleteDestinationSheet(destination: nas).environmentObject(model),
+               size: CGSize(width: 640, height: 620), dark: dark, to: "\(outDir)/delete-destination-keep-\(suffix).png")
         for f in [local, auth, unreachable, sheet] { f.close() }
     }
 

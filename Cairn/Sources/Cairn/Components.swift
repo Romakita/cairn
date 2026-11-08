@@ -107,7 +107,8 @@ struct PillPicker<Value: Hashable>: View {
     }
 }
 
-/// Onglets de page à la Codex (« Aperçu  Statistiques ») : texte gris, onglet choisi sur fond gris arrondi.
+/// Groupe de boutons à la Codex (« Public  Personnel ») : texte gris sans conteneur, choix courant dans une pilule
+/// grise. Pour les onglets de page comme pour un choix d'option (rétention, fréquence).
 struct TabBar<Value: Hashable>: View {
     let options: [(Value, String)]
     @Binding var selection: Value
@@ -135,9 +136,10 @@ private struct TabChip: View {
             Text(title)
                 .font(.system(size: 13.5, weight: .regular))
                 .foregroundStyle(selected || hover ? Palette.text : Palette.secondary)
-                .padding(.horizontal, 12).padding(.vertical, 6)
-                .background(selected ? Palette.field : .clear, in: RoundedRectangle(cornerRadius: 9))
-                .contentShape(RoundedRectangle(cornerRadius: 9))
+                .lineLimit(1).fixedSize()
+                .padding(.horizontal, 12).padding(.vertical, 7)
+                .background(selected ? Palette.field : (hover ? Palette.rowHover : .clear), in: Capsule())
+                .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
@@ -148,12 +150,14 @@ private struct TabChip: View {
 /// Carte arrondie avec bordure légère, sans ombre (comme les panneaux de réglages de Codex).
 struct Card<Content: View>: View {
     var padding: CGFloat = 18
+    /// S'étire en hauteur (cartes d'une même rangée, rangée en `fixedSize` vertical).
+    var fill = false
     @ViewBuilder var content: Content
 
     var body: some View {
         content
             .padding(padding)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, maxHeight: fill ? .infinity : nil, alignment: .topLeading)
             .background(Palette.content, in: RoundedRectangle(cornerRadius: 16))
             .overlay(RoundedRectangle(cornerRadius: 16).stroke(Palette.border))
     }
@@ -282,7 +286,7 @@ struct CardTray<Content: View>: View {
 
 /// Boutons à la Codex : principal (noir), secondaire (gris plein, sans bordure) ou bordé (blanc).
 struct PillButtonStyle: ButtonStyle {
-    enum Kind { case primary, secondary, outline }
+    enum Kind { case primary, secondary, outline, danger }
     var kind = Kind.secondary
     var primary: Bool { kind == .primary }
 
@@ -301,7 +305,7 @@ private struct PillButtonBody<Label: View>: View {
     var body: some View {
         label
             .font(.system(size: 13.5, weight: .regular))
-            .foregroundStyle(kind == .primary ? Palette.primaryButtonText : Palette.text)
+            .foregroundStyle(kind == .primary ? Palette.primaryButtonText : (kind == .danger ? Color.white : Palette.text))
             .padding(.horizontal, 14).frame(minHeight: 32)
             .background(fill, in: RoundedRectangle(cornerRadius: 10))
             .overlay(RoundedRectangle(cornerRadius: 10).stroke(kind == .outline ? Palette.fieldBorder : .clear))
@@ -315,6 +319,7 @@ private struct PillButtonBody<Label: View>: View {
         case .primary: Palette.primaryButton.opacity(hover && enabled ? 0.85 : 1)
         case .secondary: hover && enabled ? Palette.fieldPressed : Palette.field
         case .outline: hover && enabled ? Palette.rowHover : Palette.content
+        case .danger: Color(light: 0xDC2626, dark: 0xB91C1C).opacity(hover && enabled ? 0.85 : 1)
         }
     }
 }
@@ -323,6 +328,8 @@ extension ButtonStyle where Self == PillButtonStyle {
     static var pill: PillButtonStyle { PillButtonStyle() }
     static var pillPrimary: PillButtonStyle { PillButtonStyle(kind: .primary) }
     static var pillOutline: PillButtonStyle { PillButtonStyle(kind: .outline) }
+    /// Action destructive confirmée (suppression).
+    static var pillDanger: PillButtonStyle { PillButtonStyle(kind: .danger) }
 }
 
 /// Champ de saisie à la Codex : capsule bordée, icône ou préfixe optionnels, anneau bleu au focus.

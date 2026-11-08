@@ -36,8 +36,10 @@ final class AppModel: ObservableObject {
                     MainActor.assumeIsolated { self.map { $0.menuBarFrame = ($0.menuBarFrame + 1) % 2 } }
                 }
             } else {
-                // Fin d'une sauvegarde : nouveau relevé de l'espace libre.
+                // Fin d'une sauvegarde : nouveau relevé de l'espace libre, historique à relire.
                 storage.check()
+                versions = [:]
+                versionsError = [:]
             }
         }
     }
@@ -51,6 +53,13 @@ final class AppModel: ObservableObject {
     @Published var destinationWaiting: [String: Bool] = [:]
     @Published var selectedDestination: String?
     @Published var versions: [String: [VersionInfo]] = [:]
+    /// Historique en cours de lecture, et erreur de la dernière lecture, par destination.
+    @Published var versionsLoading: Set<String> = []
+    @Published var versionsError: [String: String] = [:]
+    /// Destinations en cours de vérification (échantillon ou complète).
+    @Published var verifying: Set<String> = []
+    /// Rendu `--snapshot` : aucune lecture de destination (ni montage ni réseau).
+    static var offline = false
     var pendingRetentionDestination: String?
     let backups = BackupController()
     let storage = StorageMonitor()
@@ -112,7 +121,8 @@ final class AppModel: ObservableObject {
 
     /// Démarre une seule fois la surveillance de l'espace libre et le planificateur des sauvegardes.
     func startServices() {
-        guard !servicesStarted else { return }
+        // Rendu `--snapshot` : ni planificateur (il lancerait une vraie sauvegarde) ni surveillance.
+        guard !servicesStarted, !Self.offline else { return }
         servicesStarted = true
         backups.start(model: self)
         storage.start(model: self)
