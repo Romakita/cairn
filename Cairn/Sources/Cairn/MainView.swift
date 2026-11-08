@@ -78,6 +78,7 @@ struct MainShell: View {
         case .cli: ToolsView()
         case .git: GitView()
         case .backup: BackupView()
+        case .ai: AIToolsView()
         default: ComingSoonView(section: model.section)
         }
     }

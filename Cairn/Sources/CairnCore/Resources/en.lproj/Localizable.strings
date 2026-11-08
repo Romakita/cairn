@@ -90,7 +90,7 @@
 "col.name" = "Name";
 "col.location" = "Location";
 "col.in" = "In";
-"cli.help" = "Cairn — storage analysis, backups and git maintenance for your Mac.\n\nUsage: cairn <command> [options]\n\nCommands:\n  analyze [folder…]   Analyze disk usage of folders\n  backup [--dry-run]  Back up to the configured destinations\n  verify [--full]     Check backup integrity\n  git [--apply]       Clean up gone branches and stale worktrees\n  tools [--export D]  List CLI tools to reinstall\n  config <cmd>        Show or validate the configuration (path, show, validate)\n  help                Show this help\n\nOptions:\n  --config <file>       Use another configuration file\n  --lang <en-US|fr-FR>  Language for this run\n  -h, --help            Show help";
+"cli.help" = "Cairn — storage analysis, backups and git maintenance for your Mac.\n\nUsage: cairn <command> [options]\n\nCommands:\n  analyze [folder…]   Analyze disk usage of folders\n  ai                  List AI tools and what is backed up\n  backup [--dry-run]  Back up to the configured destinations\n  verify [--full]     Check backup integrity\n  git [--apply]       Clean up gone branches and stale worktrees\n  tools [--export D]  List CLI tools to reinstall\n  config <cmd>        Show or validate the configuration (path, show, validate)\n  help                Show this help\n\nOptions:\n  --config <file>       Use another configuration file\n  --lang <en-US|fr-FR>  Language for this run\n  -h, --help            Show help";
 "cli.analyze.help" = "Usage: cairn analyze [folder…] [--json]\n\nAnalyzes disk usage of the given folders (default: the tracked folders of config.toml).\n\nOptions:\n  --json   Machine-readable output";
 "cli.unknown_command" = "Unknown command: %@";
 "cli.unknown_option" = "Unknown option: %@";
@@ -464,3 +464,16 @@
 "menu.no_analysis" = "No analysis yet";
 "menu.backed_up" = "Backed up %@";
 "menu.waiting" = "Waiting for %@";
+"ai.error.sqlite" = "Could not snapshot the database %@";
+"cli.ai.help" = "Usage: cairn ai [--json]\n\nLists detected AI tools (Claude Code, Claude Desktop, Codex) with their size by category and the categories kept for backups. Back up only AI data with: cairn backup --only ai [--tool ID]";
+"cli.ai.conversations" = "%1$lld conversations, latest %2$@";
+"cli.ai.not_copied" = "not copied (reinstalled): %@";
+"cli.ai.keychain" = "token in the macOS Keychain: sign in again after a restore";
+"ai.banner.encrypted" = "Credentials can be included: every destination is encrypted. Plugins and packages are not copied, they are reinstalled.";
+"ai.banner.unencrypted" = "A destination is not encrypted: credentials are left out unless you confirm.";
+"ai.measuring" = "Measuring AI tools…";
+"ai.sqlite_note" = "SQLite databases are copied as consistent snapshots, even while the tool is open.";
+"ai.backup_now" = "Back up AI tools";
+"ai.credentials.confirm" = "Include credentials in an unencrypted backup?";
+"ai.credentials.include" = "Include anyway";
+"ai.excluded" = "Never copied: %@…";

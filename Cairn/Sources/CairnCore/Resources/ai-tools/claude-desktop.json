@@ -1,0 +1,17 @@
+{
+  "id": "claude-desktop",
+  "version": 1,
+  "root": "~/Library/Application Support/Claude",
+  "detect": ["Library/Application Support/Claude"],
+  "credentials_in_keychain": true,
+  "conversations_glob": "claude-code-sessions/*",
+  "categories": {
+    "conversations": ["claude-code-sessions/"],
+    "config": ["claude_desktop_config.json", "config.json", "ccd-*.json", "cowork-*.json"],
+    "memories": [],
+    "credentials": []
+  },
+  "sqlite": [],
+  "exclude": ["Cache/", "Code Cache/", "GPUCache/", "blob_storage/", "IndexedDB/", "Local Storage/", "Session Storage/", ".DS_Store"],
+  "reinstall": []
+}

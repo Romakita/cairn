@@ -1,0 +1,17 @@
+{
+  "id": "codex",
+  "version": 1,
+  "root": "~/.codex",
+  "detect": [".codex"],
+  "credentials_in_keychain": false,
+  "conversations_glob": "sessions/*/*/*/rollout-*",
+  "categories": {
+    "conversations": ["sessions/", "archived_sessions/", "session_index.jsonl", "history.jsonl", "thread_history_*.sqlite", "state_*.sqlite"],
+    "config": ["config.toml", "AGENTS.md", "hooks.json", "profiles/", "rules/", "prompts/"],
+    "memories": ["memories/", "memories_*.sqlite", "goals_*.sqlite"],
+    "credentials": ["auth.json", ".credentials.json"]
+  },
+  "sqlite": ["*.sqlite"],
+  "exclude": ["cache/", "log/", "logs_*.sqlite", ".tmp/", "tmp/", "..codex-global-state.json.*", "*.sqlite-wal", "*.sqlite-shm", ".DS_Store"],
+  "reinstall": ["plugins/", "packages/"]
+}

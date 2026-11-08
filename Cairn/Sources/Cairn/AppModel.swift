@@ -32,6 +32,7 @@ final class AppModel: ObservableObject {
     let storage = StorageMonitor()
     @Published var summary: AnalysisSummary?
     @Published var activeAlerts: [StorageAlerts.Alert] = []
+    @Published var aiStats: [AIBackup.ToolStats]?
     @Published var volume: VolumeInfo?
     @Published var isScanning = false
     @Published var scannedFiles = 0

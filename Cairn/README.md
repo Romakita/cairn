@@ -116,3 +116,28 @@ L'espace libre est relevé toutes les 15 minutes et après chaque opération (`s
 Une notification par volume et par jour au plus, sauf passage au niveau critique ; un volume revenu 2 points au-dessus
 du seuil remet le compteur à zéro ; « Ignorer 7 jours » met le volume en sourdine. Si les notifications sont refusées,
 les alertes restent visibles dans le panneau et sur l'accueil.
+
+## Outils IA
+
+`cairn ai` (et la section « Outils IA ») liste Claude Code, Claude Desktop et Codex avec leur taille par catégorie.
+Chaque outil est décrit par un profil JSON dans `Sources/CairnCore/Resources/ai-tools/<id>.json` :
+
+| Clé | Rôle |
+|---|---|
+| `root` | racine des données (`~`, `~/.codex`…) ; les chemins des catégories sont relatifs à elle |
+| `detect` | chemins relatifs au home qui signalent l'outil |
+| `categories` | `conversations`, `config`, `memories`, `credentials` → dossiers (`x/`), fichiers ou motifs (`thread_*.sqlite`) |
+| `sqlite` | bases copiées par snapshot cohérent (API de sauvegarde SQLite, jamais de `-wal`/`-shm`) |
+| `exclude` | jamais copiés (caches, journaux, temporaires) |
+| `reinstall` | jamais copiés, seulement listés pour être réinstallés (plugins, paquets) |
+| `credentials_in_keychain` | jeton dans le Trousseau : reconnexion nécessaire après restauration |
+| `conversations_glob` | motif pour compter les conversations |
+
+Ajouter un outil = ajouter un profil (aucun changement du moteur). Dans une version : `ai/<outil>/<catégorie>/…` et
+`ai/<outil>/meta/` (profil, liste à réinstaller, snapshots SQLite). Les dossiers des outils IA sont toujours exclus de la
+sélection du home. Les identifiants ne sont cochés par défaut que si toutes les destinations sont chiffrées.
+
+À la restauration, les conversations sont fusionnées fichier par fichier : la version la plus récente gagne, l'autre est
+gardée avec le suffixe `.pre-restore`. Les bases SQLite ne sont remplacées qu'avec confirmation. Si un dossier suivi
+change de place, les dossiers de projets de Claude Code (`~/.claude/projects/-Volumes-workspaces-…`) sont renommés ; les
+chemins internes aux bases de Codex ne sont pas réécrits.

@@ -87,7 +87,7 @@ final class BackupController {
     }
 
     /// Lance une sauvegarde (ou une simulation) en arrière-plan.
-    func run(destinations: [String]?, dryRun: Bool) {
+    func run(destinations: [String]?, dryRun: Bool, only: Set<BackupPart.Kind>? = nil) {
         guard let model, let config = model.config, !model.isBackingUp else { return }
         let service = BackupService(paths: model.paths, config: config)
         service.extraParts = CLI.aiParts
@@ -97,6 +97,7 @@ final class BackupController {
         var req = BackupService.Request()
         req.destinationIDs = destinations
         req.dryRun = dryRun
+        req.only = only
         Task.detached(priority: .utility) {
             var results: [BackupService.Result] = []
             var failure: String?

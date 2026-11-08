@@ -5,7 +5,7 @@ public enum CLI {
     /// Codes de sortie : 0 succès, 1 échec, 2 erreur d'usage ou de configuration.
     public enum Exit: Int32 { case ok = 0, failure = 1, usage = 2 }
 
-    static let commands: Set<String> = ["analyze", "config", "tools", "git", "git-worker", "backup", "verify", "help"]
+    static let commands: Set<String> = ["analyze", "config", "tools", "ai", "git", "git-worker", "backup", "verify", "help"]
 
     /// Indique si les arguments demandent le mode ligne de commande (et pas l'interface).
     public static func isCommandLine(_ args: [String]) -> Bool {
@@ -62,6 +62,8 @@ public enum CLI {
             return tools(rest, store: store, out: out, err: err)
         case "git":
             return gitCommand(rest, store: store, out: out, err: err)
+        case "ai":
+            return ai(rest, store: store, out: out, err: err)
         case "backup":
             return backup(rest, store: store, out: out, err: err)
         case "verify":
@@ -303,7 +305,43 @@ public enum CLI {
     }
 
     /// Parties IA fournies par la capacité ai-tools (branchées au démarrage).
-    nonisolated(unsafe) public static var aiParts: ((CairnConfig, URL) throws -> [BackupPart])?
+    nonisolated(unsafe) public static var aiParts: ((CairnConfig, URL) throws -> [BackupPart])? = { c, staging in
+        try AIBackup.parts(config: c, staging: staging)
+    }
+
+    static func ai(_ args: [String], store: ConfigStore, out: (String) -> Void, err: (String) -> Void) -> Exit {
+        if args.contains("-h") || args.contains("--help") { out(L10n.tr("cli.ai.help")); return .ok }
+        let json = args.contains("--json")
+        let config = readConfig(store)
+        let stats = AIProfiles.bundled.map { AIBackup.stats($0) }
+        if json {
+            let list: [[String: Any]] = stats.map { s in
+                ["id": s.profile.id, "detected": s.detected, "bytes_by_category": s.bytesByCategory, "not_copied_bytes": s.notCopiedBytes,
+                 "total_bytes": s.totalBytes, "conversations": s.conversations,
+                 "latest_conversation": s.latestConversation.map { ISO8601DateFormatter().string(from: $0) } ?? NSNull(),
+                 "selected_categories": config.ai.first { $0.id == s.profile.id }?.categories ?? [],
+                 "credentials_in_keychain": s.profile.credentialsInKeychain]
+            }
+            if let data = try? JSONSerialization.data(withJSONObject: ["tools": list], options: [.prettyPrinted, .sortedKeys]),
+               let t = String(data: data, encoding: .utf8) { out(t) }
+            return .ok
+        }
+        for s in stats {
+            let selected = config.ai.first { $0.id == s.profile.id }?.categories ?? []
+            out(L10n.tr("ai.\(s.profile.id)") + " — " + (s.detected ? Fmt.bytes(s.totalBytes) : L10n.tr("onboarding.ai.not_detected")))
+            guard s.detected else { continue }
+            for cat in CairnConfig.AITool.categories where !(s.profile.categories[cat] ?? []).isEmpty {
+                out("  " + (selected.contains(cat) ? "✓ " : "  ") + L10n.tr("ai.category.\(cat)").padding(toLength: 18, withPad: " ", startingAt: 0)
+                    + Fmt.bytes(s.bytesByCategory[cat] ?? 0))
+            }
+            if s.conversations > 0 {
+                out("  " + L10n.tr("cli.ai.conversations", s.conversations, s.latestConversation.map(Fmt.date) ?? "—"))
+            }
+            if s.notCopiedBytes > 0 { out("  " + L10n.tr("cli.ai.not_copied", Fmt.bytes(s.notCopiedBytes))) }
+            if s.profile.credentialsInKeychain { out("  " + L10n.tr("cli.ai.keychain")) }
+        }
+        return .ok
+    }
 
     static func backup(_ args: [String], store: ConfigStore, out: (String) -> Void, err: (String) -> Void) -> Exit {
         if args.contains("-h") || args.contains("--help") { out(L10n.tr("cli.backup.help")); return .ok }

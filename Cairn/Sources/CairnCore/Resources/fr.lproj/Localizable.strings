@@ -90,7 +90,7 @@
 "col.name" = "Nom";
 "col.location" = "Emplacement";
 "col.in" = "Dans";
-"cli.help" = "Cairn — analyse du stockage, sauvegardes et maintenance git de votre Mac.\n\nUsage : cairn <commande> [options]\n\nCommandes :\n  analyze [dossier…]  Analyser l'occupation des dossiers\n  backup [--dry-run]  Sauvegarder vers les destinations configurées\n  verify [--full]     Contrôler l'intégrité des sauvegardes\n  git [--apply]       Nettoyer les branches gone et worktrees obsolètes\n  tools [--export D]  Lister les outils CLI à réinstaller\n  config <cmd>        Afficher ou vérifier la configuration (path, show, validate)\n  help                Afficher cette aide\n\nOptions :\n  --config <fichier>    Utiliser un autre fichier de configuration\n  --lang <en-US|fr-FR>  Langue de cette exécution\n  -h, --help            Afficher l'aide";
+"cli.help" = "Cairn — analyse du stockage, sauvegardes et maintenance git de votre Mac.\n\nUsage : cairn <commande> [options]\n\nCommandes :\n  analyze [dossier…]  Analyser l'occupation des dossiers\n  ai                  Lister les outils IA et ce qui est sauvegardé\n  backup [--dry-run]  Sauvegarder vers les destinations configurées\n  verify [--full]     Contrôler l'intégrité des sauvegardes\n  git [--apply]       Nettoyer les branches gone et worktrees obsolètes\n  tools [--export D]  Lister les outils CLI à réinstaller\n  config <cmd>        Afficher ou vérifier la configuration (path, show, validate)\n  help                Afficher cette aide\n\nOptions :\n  --config <fichier>    Utiliser un autre fichier de configuration\n  --lang <en-US|fr-FR>  Langue de cette exécution\n  -h, --help            Afficher l'aide";
 "cli.analyze.help" = "Usage : cairn analyze [dossier…] [--json]\n\nAnalyse l'occupation des dossiers donnés (par défaut : les dossiers suivis de config.toml).\n\nOptions :\n  --json   Sortie lisible par une machine";
 "cli.unknown_command" = "Commande inconnue : %@";
 "cli.unknown_option" = "Option inconnue : %@";
@@ -464,3 +464,16 @@
 "menu.no_analysis" = "Pas encore d'analyse";
 "menu.backed_up" = "Sauvegardé le %@";
 "menu.waiting" = "En attente de %@";
+"ai.error.sqlite" = "Impossible de copier la base %@";
+"cli.ai.help" = "Usage : cairn ai [--json]\n\nListe les outils IA détectés (Claude Code, Claude Desktop, Codex) avec leur taille par catégorie et les catégories retenues pour les sauvegardes. Sauvegarder seulement la partie IA : cairn backup --only ai [--tool ID]";
+"cli.ai.conversations" = "%1$lld conversations, la plus récente le %2$@";
+"cli.ai.not_copied" = "non copiés (réinstallés) : %@";
+"cli.ai.keychain" = "jeton dans le Trousseau macOS : reconnexion nécessaire après restauration";
+"ai.banner.encrypted" = "Les identifiants peuvent être inclus : toutes les destinations sont chiffrées. Les plugins et paquets ne sont pas copiés, ils seront réinstallés.";
+"ai.banner.unencrypted" = "Une destination n'est pas chiffrée : les identifiants sont exclus sauf confirmation.";
+"ai.measuring" = "Mesure des outils IA…";
+"ai.sqlite_note" = "Les bases SQLite sont copiées par snapshot cohérent, même outil ouvert.";
+"ai.backup_now" = "Sauvegarder les outils IA";
+"ai.credentials.confirm" = "Inclure les identifiants dans une sauvegarde non chiffrée ?";
+"ai.credentials.include" = "Inclure quand même";
+"ai.excluded" = "Jamais copiés : %@…";
