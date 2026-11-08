@@ -5,6 +5,15 @@ versions follow [SemVer](https://semver.org/). The current version is in `Cairn/
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-08
+
+### Added
+- shared destination form in the wizard and the app
+- verify and browse a destination before saving it
+
+### Fixed
+- address review on destination verification
+
 ## [0.2.0] - 2026-11-08
 
 ### Added
