@@ -20,5 +20,37 @@ if CommandLine.arguments.count >= 4 && CommandLine.arguments[1] == "--append-act
     exit(0)
 }
 
-FileHandle.standardError.write(Data("usage: CairnTestHelper --hold-lock <fichier> [secondes] | --append-activity <dossier> <n>\n".utf8))
+// Test de mémoire : hache le fichier hors du fil principal, comme pendant une sauvegarde (aucun pool n'y vide les
+// blocs lus), puis affiche l'empreinte et l'augmentation de mémoire du processus. Un processus à part : les tests
+// qui tournent en parallèle fausseraient la mesure.
+if CommandLine.arguments.count >= 3 && CommandLine.arguments[1] == "--hash-footprint" {
+    let file = URL(fileURLWithPath: CommandLine.arguments[2])
+    var growth: Int64 = 0
+    var hash = ""
+    let done = DispatchSemaphore(value: 0)
+    Thread {
+        let before = footprint()
+        hash = (try? Integrity.sha256(of: file)) ?? ""
+        growth = footprint() - before
+        done.signal()
+    }.start()
+    done.wait()
+    print("\(hash) \(growth)")
+    exit(0)
+}
+
+/// Empreinte mémoire du processus (celle que suit le noyau), en octets.
+func footprint() -> Int64 {
+    var info = task_vm_info_data_t()
+    var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<integer_t>.size)
+    let kr = withUnsafeMutablePointer(to: &info) {
+        $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count) }
+    }
+    return kr == KERN_SUCCESS ? Int64(info.phys_footprint) : 0
+}
+
+FileHandle.standardError.write(Data("""
+    usage: CairnTestHelper --hold-lock <fichier> [secondes] | --append-activity <dossier> <n> | --hash-footprint <fichier>
+
+    """.utf8))
 exit(2)
