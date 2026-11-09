@@ -170,8 +170,15 @@ async function writeChecksumsWith(
   const file = path.join(version, CHECKSUMS_FILE);
   const tmp = path.join(version, `.${CHECKSUMS_FILE}.${randomBytes(6).toString("hex")}.tmp`);
   const out = createWriteStream(tmp, { encoding: "utf8" });
+  // Une erreur du flux (disque plein, ou écriture en vol quand un arrêt le détruit) ne doit jamais rester sans
+  // écouteur : elle ferait tomber tout le process. Elle est gardée et relevée à la prochaine écriture.
+  let streamError: Error | null = null;
+  out.on("error", (error) => {
+    streamError ??= error;
+  });
   // Contre-pression : on attend `drain` (rejeté si le flux passe en erreur).
   const write = async (text: string): Promise<void> => {
+    if (streamError) throw streamError;
     if (!out.write(text)) await once(out, "drain");
   };
   try {
