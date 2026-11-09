@@ -1,8 +1,8 @@
 // Emplacements de `~/.cairn` (port de `CairnPaths`, Support.swift). `CAIRN_HOME` remplace le dossier (tests,
 // comptes de test) ; avec `--config <fichier>`, la racine est le dossier de ce fichier.
-import { chmod, mkdir, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { chmod, mkdir, stat } from "./fs-promises.ts";
 
 /** `~` et `~/…` développés comme `expandingTildeInPath` (le reste est rendu tel quel). */
 export function expandTilde(p: string): string {

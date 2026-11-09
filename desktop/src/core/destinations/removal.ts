@@ -3,13 +3,13 @@
 // sauvegardes de ce Mac sont visées ; celles des autres Mac posées sur la même destination ne sont jamais listées ni
 // supprimées. Les mots de passe (image et partage) ne sont jamais retirés du Trousseau (76e40ec) : ce module n'y
 // touche pas.
-import { rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { type BackupProvider, LocalProvider, SMBProvider } from "../backup/providers.ts";
 import { keychainSecrets } from "../backup/secrets.ts";
 import { ProviderError } from "../backup/types.ts";
 import type { DestinationConfig } from "../config.ts";
 import type { ConfigStore } from "../config-store.ts";
+import { rm, stat } from "../fs-promises.ts";
 import { t } from "../l10n.ts";
 import { OperationLock, type StatePaths } from "../lock.ts";
 import { machineName } from "../machine.ts";

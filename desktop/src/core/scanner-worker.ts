@@ -91,7 +91,7 @@ type WorkerMessage =
  */
 export function scanWorkerMain(
   wt: typeof import("node:worker_threads"),
-  fs: typeof import("node:fs"),
+  fs: typeof import("./fs.ts").fs,
   classifyWith: (
     rules: WorkerData["rules"],
     exists: (file: string) => boolean,
@@ -119,7 +119,7 @@ export function scanWorkerMain(
     pendingErrors = 0;
   };
 
-  const lstat = (p: string): import("node:fs").Stats | null => {
+  const lstat = (p: string): import("./fs.ts").Stats | null => {
     try {
       return fs.lstatSync(p, { throwIfNoEntry: false }) ?? null;
     } catch {
@@ -134,7 +134,7 @@ export function scanWorkerMain(
     }
   };
   /** Clé `(dev, ino)` exacte : l'inode est relu en bigint s'il dépasse 2^53. */
-  const linkKey = (p: string, st: import("node:fs").Stats): string => {
+  const linkKey = (p: string, st: import("./fs.ts").Stats): string => {
     if (Number.isSafeInteger(st.ino)) return `${st.dev}:${st.ino}`;
     const big = fs.lstatSync(p, { bigint: true });
     return `${big.dev}:${big.ino}`;
@@ -164,7 +164,7 @@ export function scanWorkerMain(
     }
     const rootDev = rootStat.dev;
 
-    const file = (p: string, name: string, st: import("node:fs").Stats, top: RawNode, collapsed: Category | null) => {
+    const file = (p: string, name: string, st: import("./fs.ts").Stats, top: RawNode, collapsed: Category | null) => {
       let bytes = st.blocks * 512;
       let key: string | null = null;
       if (st.isFile() && st.nlink > 1) {
@@ -232,7 +232,7 @@ export function scanWorkerMain(
     const visit = (
       p: string,
       name: string,
-      st: import("node:fs").Stats,
+      st: import("./fs.ts").Stats,
       level: number,
       parent: RawNode | null,
       parentPath: string,
@@ -282,7 +282,7 @@ export function scanWorkerMain(
     const rootStat = lstat(root);
     if (!rootStat) return { size, regenerable };
     const rootDev = rootStat.dev;
-    const walk = (p: string, name: string, st: import("node:fs").Stats, parentPath: string, inRegen: boolean) => {
+    const walk = (p: string, name: string, st: import("./fs.ts").Stats, parentPath: string, inRegen: boolean) => {
       const blocks = st.blocks * 512;
       const regen = inRegen || data.regenerable.includes(classify(name, parentPath));
       size += blocks;
@@ -318,11 +318,18 @@ export function scanWorkerMain(
   });
 }
 
+/**
+ * `fs` du worker : comme src/core/fs.ts (que ce code autonome ne peut pas importer), `original-fs` sous Electron, où le
+ * `fs` patché pour l'asar voit un fichier `*.asar` comme un dossier ; `process.getBuiltinModule` le donne aussi dans un
+ * worker_threads d'Electron (vérifié, validation 2026-11-09).
+ */
+const WORKER_FS = `(process.versions.electron ? process.getBuiltinModule("original-fs") : require("node:fs"))`;
+
 /** Code du worker : texte autonome, évalué par `new Worker(code, { eval: true })`. */
 export function workerSource(): string {
   return [
     `const classifyWith = (${classifyWith.toString()});`,
-    `(${scanWorkerMain.toString()})(require("node:worker_threads"), require("node:fs"), classifyWith);`,
+    `(${scanWorkerMain.toString()})(require("node:worker_threads"), ${WORKER_FS}, classifyWith);`,
   ].join("\n");
 }
 

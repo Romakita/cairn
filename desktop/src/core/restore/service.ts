@@ -2,12 +2,12 @@
 // sous le verrou d'opération `restore`. Parties : home, dossiers suivis (nom → cible), outils IA (fusion), outils CLI
 // (réinstallation), puis vérification finale. Les fichiers remplacés sont gardés en `.pre-restore` ; une simulation ne
 // crée rien, pas même la cible (e229e52). La progression est un objet sérialisable (IPC) diffusé par événements.
-import { mkdir } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { runningApps } from "../ai/backup.ts";
 import { type AIProfile, aiManagedPaths, BUNDLED_PROFILES, displayName } from "../ai/profiles.ts";
 import { describeError } from "../backup/types.ts";
+import { mkdir } from "../fs-promises.ts";
 import { type CommandRunner, systemRunner } from "../inventory/collector.ts";
 import { t } from "../l10n.ts";
 import { OperationLock, type StatePaths } from "../lock.ts";

@@ -1,8 +1,8 @@
 // Exploitation d'une analyse (port d'Analysis.swift et d'`AnalysisSummary` de StorageAlerts.swift) : gros objets,
 // projets et worktrees, présélection du nettoyage, résumé persistant `state/analysis-summary.json`, suppression.
-import { readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { isoDate, parseISODate } from "./dates.ts";
+import { readFile, rename, rm, stat, writeFile } from "./fs-promises.ts";
 import { compactJSON } from "./json.ts";
 import type { CairnPaths } from "./paths.ts";
 import { type Category, isRegenerable, REGENERABLE_CATEGORIES } from "./regenerable.ts";

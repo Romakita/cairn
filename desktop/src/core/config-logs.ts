@@ -1,6 +1,6 @@
 // Rétention des journaux de `~/.cairn/logs` (port de `LogJanitor`, ConfigStore.swift).
-import { readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
+import { readdir, rm, stat } from "./fs-promises.ts";
 import type { CairnPaths } from "./paths.ts";
 
 /** Supprime les journaux plus vieux que `retentionDays`, sauf ceux de `keep` (journaux de versions gardées). */

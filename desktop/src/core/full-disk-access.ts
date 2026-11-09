@@ -4,9 +4,9 @@
 // Détection : lecture d'un dossier que macOS ne laisse lire qu'avec l'Accès complet au disque (base TCC, Safari).
 // Lire un dossier n'ouvre aucune fenêtre système et ne modifie rien. EPERM/EACCES → refusé ; dossier lu → accordé ;
 // aucun des dossiers n'existe → inconnu (on ne peut rien conclure).
-import { readdir } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { readdir } from "./fs-promises.ts";
 
 export type FullDiskAccess = "granted" | "denied" | "unknown";
 

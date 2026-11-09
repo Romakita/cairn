@@ -1,9 +1,9 @@
 // Gestes système de la restauration (port de Restore.swift) : droits des secrets restaurés, cible absente, volume APFS
 // `workspaces`, Terminal pour les étapes administrateur, attentes. Tout ce qui lance un processus passe par une fonction
 // injectable : les tests n'ouvrent jamais Terminal, ne lancent ni diskutil ni osascript et n'installent rien.
-import { constants } from "node:fs";
-import { access, chmod, lstat, readdir, stat } from "node:fs/promises";
 import path from "node:path";
+import { constants } from "../fs.ts";
+import { access, chmod, lstat, readdir, stat } from "../fs-promises.ts";
 import type { CommandRunner } from "../inventory/collector.ts";
 import { expandTilde } from "../paths.ts";
 import { ProcessLaunchError, run } from "../process.ts";

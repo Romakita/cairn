@@ -1,10 +1,10 @@
 // Collecte de l'inventaire (port d'`InventoryCollector`) : outils installés, marqueurs, historique, statuts.
 // Tout est asynchrone (spawn en flux, fs/promises) : le main peut l'appeler sans geler l'interface.
-import { constants } from "node:fs";
-import { access, lstat, readdir, readFile, readlink, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { type CairnConfig, folderExpandedPath } from "../config.ts";
+import { constants } from "../fs.ts";
+import { access, lstat, readdir, readFile, readlink, stat } from "../fs-promises.ts";
 import { ENV_EXECUTABLE, ProcessLaunchError, run, systemRunnerEnv, widePath } from "../process.ts";
 import * as parse from "./parsers.ts";
 import { BUNDLED_RULES, type InventoryRules } from "./rules.ts";
@@ -155,7 +155,7 @@ export async function projectMarkers(
   const found = new Map<string, string>();
   async function walk(dir: string, depth: number): Promise<void> {
     if (depth > maxDepth || found.size >= names.size) return;
-    let items: import("node:fs").Dirent[];
+    let items: import("../fs.ts").Dirent[];
     try {
       items = await readdir(dir, { withFileTypes: true });
     } catch {

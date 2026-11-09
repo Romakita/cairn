@@ -1,10 +1,10 @@
 // Sauvegarde des outils IA (port d'`AIBackup`) : catégories, parties `ai/<id>/<cat>` et `ai/<id>/meta`,
 // identifiants seulement vers des destinations chiffrées, outils ouverts.
-import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import type { BackupPart } from "../backup/types.ts";
 import type { AIToolConfig, CairnConfig } from "../config.ts";
+import { mkdir, readdir, readFile, stat, writeFile } from "../fs-promises.ts";
 import { type JSONValue, prettyJSON } from "../json.ts";
 import { t } from "../l10n.ts";
 import { run } from "../process.ts";

@@ -3,9 +3,9 @@
 // le Node d'Electron (app), sans module natif. Rien n'est jamais créé ni modifié à côté de la base de l'outil :
 // la source est ouverte en lecture seule (`-readonly`), et en mode `immutable` seulement pour une base WAL fermée
 // proprement (`isCleanWAL`).
-import { mkdir, open, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { mkdir, open, rm, stat } from "../fs-promises.ts";
 import { t } from "../l10n.ts";
 import { run } from "../process.ts";
 

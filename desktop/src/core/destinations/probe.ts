@@ -2,12 +2,12 @@
 // DestinationProbe.swift). Rien n'est écrit sur la destination hormis un fichier témoin supprimé aussitôt, et rien
 // n'est enregistré dans le Trousseau.
 import { randomUUID } from "node:crypto";
-import type { Dirent } from "node:fs";
-import { lstat, mkdir, readdir, readFile, realpath, rm, stat, statfs, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { SMB_PORT, smbReachable } from "../backup/providers.ts";
 import { type BackupSecrets, keychainSecrets } from "../backup/secrets.ts";
+import type { Dirent } from "../fs.ts";
+import { lstat, mkdir, readdir, readFile, realpath, rm, stat, statfs, writeFile } from "../fs-promises.ts";
 import { machineName } from "../machine.ts";
 import { native } from "../native.ts";
 import { localizedStandardCompare } from "../path-completion.ts";

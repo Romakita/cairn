@@ -1,11 +1,11 @@
 // Profils déclaratifs des outils IA (`resources/ai-tools/<id>.json`, copiés tels quels de la 0.8.0).
 // Ajouter un outil = ajouter un profil (et son import ci-dessous) ; `loadProfiles` lit un dossier sans recompiler.
-import { readdir, readFile, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import claudeCode from "../../../resources/ai-tools/claude-code.json" with { type: "json" };
 import claudeDesktop from "../../../resources/ai-tools/claude-desktop.json" with { type: "json" };
 import codex from "../../../resources/ai-tools/codex.json" with { type: "json" };
+import { readdir, readFile, stat } from "../fs-promises.ts";
 import { t } from "../l10n.ts";
 
 export interface AIProfile {

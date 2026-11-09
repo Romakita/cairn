@@ -1,9 +1,9 @@
 // Types et outils communs aux commandes `cairn` (port des parties partagées de CLI.swift).
 // Aucun import d'Electron : la CLI tourne dans le main Electron, et sous `bun test` en appelant `runCli` directement.
-import { readFile } from "node:fs/promises";
 import type { BackupServiceDependencies } from "../core/backup/run.ts";
 import { type CairnConfig, decodeConfig, defaultConfig } from "../core/config.ts";
 import type { ConfigStore } from "../core/config-store.ts";
+import { readFile } from "../core/fs-promises.ts";
 import type { FullDiskAccess } from "../core/full-disk-access.ts";
 import { type JSONValue, prettyJSON } from "../core/json.ts";
 import type { RestoreDependencies } from "../core/restore/service.ts";

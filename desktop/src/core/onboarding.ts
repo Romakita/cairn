@@ -1,10 +1,10 @@
 // Brouillon de l'assistant de premier lancement (port de `OnboardingDraft`, Onboarding.swift). Rien n'est écrit sur
 // disque : `makeConfig` produit la configuration, que l'appelant enregistre à la fin.
-import { lstat, readdir, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { type AIProfile, aiManagedPaths, BUNDLED_PROFILES } from "./ai/profiles.ts";
 import { AI_CATEGORIES, type CairnConfig, defaultConfig, destination, type Frequency, folder } from "./config.ts";
+import { lstat, readdir, stat } from "./fs-promises.ts";
 import { localizedStandardCompare } from "./path-completion.ts";
 import { ALWAYS_REGENERABLE, HOME_EXCLUDES } from "./regenerable.ts";
 

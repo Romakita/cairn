@@ -1,7 +1,7 @@
 // Analyse d'un dépôt, en lecture seule (port de `GitMaintenance.analyze`, `mergeStatus`, `worktrees`, `estimate`).
 // Aucun appel réseau sauf `options.fetch`. Les diffs et historiques passent de git à `git patch-id` en flux.
 // Appelée dans un worker_thread du pool (`pool.ts`) : jamais directement depuis le process principal (b23d23f).
-import { existsSync } from "node:fs";
+import { existsSync } from "../fs.ts";
 import { lastModified } from "./discovery.ts";
 import { Git } from "./git.ts";
 import { selectedBranchByDefault } from "./selection.ts";

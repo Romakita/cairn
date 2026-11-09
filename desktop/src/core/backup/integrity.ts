@@ -5,10 +5,10 @@
 // - Racine résolue une seule fois (`/var` → `/private/var`), puis aucune résolution de lien par fichier (46a9475).
 import { createHash, randomBytes, randomInt } from "node:crypto";
 import { once } from "node:events";
-import { createReadStream, createWriteStream } from "node:fs";
-import { open, opendir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createInterface } from "node:readline";
+import { createReadStream, createWriteStream } from "../fs.ts";
+import { open, opendir, readFile, realpath, rename, rm, stat, writeFile } from "../fs-promises.ts";
 import { BackupError, type BackupPart } from "./types.ts";
 import { compareNames, listVersions } from "./versions.ts";
 

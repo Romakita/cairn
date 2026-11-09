@@ -1,9 +1,9 @@
 // `cairn analyze [dossiers…] [--json]` (port de `CLI.analyze`). Lecture seule : rien n'est écrit, ni sur le disque
 // analysé, ni dans `config.toml`, ni dans `~/.cairn` (pas de résumé d'analyse).
-import { stat } from "node:fs/promises";
 import { findBigObjects, findProjects, projectTotalSize, worktreeBytes } from "../../core/analysis.ts";
 import { folderExpandedPath } from "../../core/config.ts";
 import { Fmt } from "../../core/format.ts";
+import { stat } from "../../core/fs-promises.ts";
 import type { JSONValue } from "../../core/json.ts";
 import { t } from "../../core/l10n.ts";
 import { expandTilde } from "../../core/paths.ts";

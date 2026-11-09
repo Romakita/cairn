@@ -1,6 +1,5 @@
 // Inventaire des outils et outils IA dans l'app : relevés à la demande (lecture seule) et exports choisis par
 // l'utilisateur (dossier ou fichier désigné par une boîte de dialogue du main, jamais par l'interface).
-import { stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { dialog } from "electron";
 import {
@@ -12,6 +11,7 @@ import {
   type ToolStats,
 } from "../core/ai/index.ts";
 import type { AIProfile } from "../core/ai/profiles.ts";
+import { stat, writeFile } from "../core/fs-promises.ts";
 import { collect, writeInventory } from "../core/inventory/index.ts";
 import type { Inventory } from "../core/inventory/types.ts";
 import { expandTilde } from "../core/paths.ts";

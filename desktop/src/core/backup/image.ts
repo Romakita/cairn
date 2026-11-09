@@ -2,8 +2,8 @@
 // Providers.swift). Commandes exactes de la 0.8.0 (parity/platform.md §2.1) : `/usr/bin/hdiutil`, `LC_ALL=C LANG=C`,
 // mot de passe sur stdin terminé par `\0`, jamais en argument.
 import { randomInt } from "node:crypto";
-import { readdir, stat } from "node:fs/promises";
 import path from "node:path";
+import { readdir, stat } from "../fs-promises.ts";
 import { run } from "../process.ts";
 import type { BackupSecrets } from "./secrets.ts";
 import { ProviderError } from "./types.ts";

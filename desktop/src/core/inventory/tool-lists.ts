@@ -1,8 +1,8 @@
 // Lecture des listes d'outils d'une sauvegarde (port de `ToolPlan.read`) : `tools.toml` (Cairn), sinon les listes
 // héritées de scripts/backup.sh (`Brewfile`, `npm-globals.txt`, `uv-tools.txt`, `mise-config.toml`, `pipx.json`).
 // Les commandes d'installation (`installCommand`) relèvent de la restauration.
-import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
+import { readFile, stat } from "../fs-promises.ts";
 import { asArray, asInlineTable, asString, TOMLDocument, type TOMLTable } from "../toml.ts";
 import { BUNDLED_RULES, commandsFor, type InventoryRules } from "./rules.ts";
 import type { ToolSource } from "./types.ts";

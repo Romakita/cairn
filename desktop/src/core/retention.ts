@@ -1,11 +1,11 @@
 // Rétention des versions (port de `RetentionPolicy`, Retention.swift, et de `BackupEngine.excessVersions` /
 // `uniqueBytes`) : fonctions pures testées avec une horloge simulée, plus la suppression manuelle des versions en
 // trop, qui prend le verrou d'opération (design.md §12 : la 0.8.0 ne le prenait pas).
-import { lstat, readdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { excessVersions as engineExcessVersions } from "./backup/engine.ts";
 import { dateOfVersion } from "./backup/versions.ts";
 import type { Frequency, Retention } from "./config.ts";
+import { lstat, readdir, rm } from "./fs-promises.ts";
 import { OperationLock, type StatePaths } from "./lock.ts";
 
 const DAY_MS = 86_400 * 1000;
@@ -90,7 +90,7 @@ export function excessVersions(versionsDir: string, retention: Retention, now: D
 export async function uniqueBytes(dirs: readonly string[]): Promise<number> {
   const counts = new Map<string, { seen: number; bytes: number; links: number }>();
   const walk = async (dir: string): Promise<void> => {
-    let entries: import("node:fs").Dirent[];
+    let entries: import("./fs.ts").Dirent[];
     try {
       entries = await readdir(dir, { withFileTypes: true });
     } catch {
@@ -103,7 +103,7 @@ export async function uniqueBytes(dirs: readonly string[]): Promise<number> {
         continue;
       }
       if (!e.isFile()) continue;
-      let st: import("node:fs").BigIntStats;
+      let st: import("./fs.ts").BigIntStats;
       try {
         st = await lstat(p, { bigint: true });
       } catch {

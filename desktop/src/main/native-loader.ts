@@ -1,8 +1,8 @@
 // Chargement du module natif (Trousseau, montage SMB, flock, espace libre APFS) au démarrage, avant l'aiguillage :
 // l'interface ET la commande `cairn` en ont besoin. Empaqueté, il est déballé hors de l'asar (`asarUnpack`).
-import { existsSync } from "node:fs";
 import path from "node:path";
 import { app } from "electron";
+import { existsSync } from "../core/fs.ts";
 import { loadNative } from "../core/native.ts";
 
 const RELATIVE = "native/build/Release/cairn_native.node";

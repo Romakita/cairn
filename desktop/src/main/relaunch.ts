@@ -2,8 +2,8 @@
 // ses processus auxiliaires (GPU, réseau, rendu) à côté du chemin du LIEN et ne les trouve pas (« Unable to find
 // helper app »). On relance donc l'exécutable par son vrai chemin, avant toute initialisation de Chromium.
 import { spawn, spawnSync } from "node:child_process";
-import { realpathSync } from "node:fs";
 import path from "node:path";
+import { realpathSync } from "../core/fs.ts";
 
 /** Chemin par lequel l'exécutable a été lancé (`argv0`), résolu dans le PATH s'il n'a pas de `/`. */
 export function launchedPath(argv0: string, envPath: string | undefined): string | null {

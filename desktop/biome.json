@@ -1,11 +1,19 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.6.6/schema.json",
-  "files": { "includes": ["src/**", "scripts/**", "test/**", "!**/dist/**"] },
-  "formatter": { "indentStyle": "space", "indentWidth": 2, "lineWidth": 120 },
+  "files": {
+    "includes": ["src/**", "scripts/**", "test/**", "!**/dist/**"]
+  },
+  "formatter": {
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 120
+  },
   "linter": {
     "rules": {
       "preset": "recommended",
-      "style": { "noNonNullAssertion": "off" }
+      "style": {
+        "noNonNullAssertion": "off"
+      }
     }
   },
   "overrides": [
@@ -16,14 +24,72 @@
           "style": {
             "noRestrictedGlobals": {
               "level": "error",
-              "options": { "deniedGlobals": { "Bun": "Le core tourne sous le Node d'Electron : utiliser node:*." } }
+              "options": {
+                "deniedGlobals": {
+                  "Bun": "Le core tourne sous le Node d'Electron : utiliser node:*."
+                }
+              }
             },
             "noRestrictedImports": {
               "level": "error",
               "options": {
                 "patterns": [
-                  { "group": ["bun", "bun:*"], "message": "Le core tourne sous Node : pas d'API Bun." },
-                  { "group": ["electron", "react", "react-dom"], "message": "Le core reste sans Electron ni React." }
+                  {
+                    "group": ["bun", "bun:*"],
+                    "message": "Le core tourne sous Node : pas d'API Bun."
+                  },
+                  {
+                    "group": ["electron", "react", "react-dom"],
+                    "message": "Le core reste sans Electron ni React."
+                  },
+                  {
+                    "group": ["node:fs", "node:fs/promises", "fs", "fs/promises", "original-fs"],
+                    "message": "Importer src/core/fs.ts ou src/core/fs-promises.ts : sous Electron, node:fs est patché pour l'asar et voit un fichier *.asar comme un dossier (EISDIR, taille 0)."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/main/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["node:fs", "node:fs/promises", "fs", "fs/promises", "original-fs"],
+                    "message": "Importer src/core/fs.ts ou src/core/fs-promises.ts : sous Electron, node:fs est patché pour l'asar et voit un fichier *.asar comme un dossier (EISDIR, taille 0)."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/core/fs.ts", "src/core/fs-promises.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["bun", "bun:*"],
+                    "message": "Le core tourne sous Node : pas d'API Bun."
+                  },
+                  {
+                    "group": ["electron", "react", "react-dom"],
+                    "message": "Le core reste sans Electron ni React."
+                  }
                 ]
               }
             }
