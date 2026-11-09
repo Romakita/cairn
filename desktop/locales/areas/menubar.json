@@ -1,4 +1,14 @@
 {
-  "en": {},
-  "fr": {}
+  "en": {
+    "menubar.analyzing": "Analysis in progress…",
+    "menubar.nothing_to_clean": "Nothing to clean up: the last analysis found no regenerable folder.",
+    "menubar.snooze": "Ignore for 7 days",
+    "menubar.used_share": "Used space of the volume"
+  },
+  "fr": {
+    "menubar.analyzing": "Analyse en cours…",
+    "menubar.nothing_to_clean": "Rien à nettoyer : la dernière analyse n'a trouvé aucun dossier régénérable.",
+    "menubar.snooze": "Ignorer 7 jours",
+    "menubar.used_share": "Espace utilisé du volume"
+  }
 }

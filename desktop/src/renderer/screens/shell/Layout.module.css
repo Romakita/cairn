@@ -1,0 +1,95 @@
+.split {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: var(--size-sidebar);
+  padding: var(--space-6) var(--space-4);
+  overflow-y: auto;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-sidebar);
+}
+
+.sidebarTitle {
+  margin: var(--space-1) var(--space-3) var(--space-2);
+  font: var(--text-sidebar-title);
+  color: var(--color-text);
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.pageFrame {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-9);
+  margin: 0 auto;
+  padding: var(--space-10) var(--space-10) var(--space-12);
+}
+
+.pageHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+}
+
+.pageTitle {
+  flex: 1;
+  margin: 0;
+  font: var(--text-page-title);
+  color: var(--color-text);
+}
+
+.pageActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  min-height: 24px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font: var(--text-section-title);
+  color: var(--color-text);
+}
+
+.footer {
+  flex-shrink: 0;
+  padding: var(--space-5) var(--space-10);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-content);
+}

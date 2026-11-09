@@ -1,4 +1,14 @@
 {
-  "en": {},
-  "fr": {}
+  "en": {
+    "shell.loading": "Loading…",
+    "shell.sections": "Sections",
+    "shell.update.notes": "Release notes",
+    "shell.update.versions": "Current {1} → new {2}"
+  },
+  "fr": {
+    "shell.loading": "Chargement…",
+    "shell.sections": "Sections",
+    "shell.update.notes": "Notes de version",
+    "shell.update.versions": "Actuelle {1} → nouvelle {2}"
+  }
 }

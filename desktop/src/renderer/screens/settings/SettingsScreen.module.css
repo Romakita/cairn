@@ -1,0 +1,49 @@
+.root {
+  height: 100%;
+}
+
+.hint {
+  margin: var(--space-2) var(--space-3);
+  font: var(--text-meta);
+  color: var(--color-text-secondary);
+}
+
+.anchor {
+  scroll-margin-top: var(--space-9);
+}
+
+.locked {
+  display: inline-flex;
+  opacity: var(--opacity-disabled);
+}
+
+.empty {
+  margin: 0;
+  padding: var(--space-7);
+  font: var(--text-body);
+  color: var(--color-text-secondary);
+}
+
+.inlineLabel {
+  font: var(--text-caption);
+  color: var(--color-text-secondary);
+}
+
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.grow > span {
+  display: flex;
+}
+
+.timeField {
+  width: 96px;
+}
+
+.steppers {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+}
