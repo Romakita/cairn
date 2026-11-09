@@ -21,6 +21,9 @@ final class AppModel: ObservableObject {
     /// Espace libéré estimé pour la sélection git réelle (nil pendant le calcul).
     @Published var gitSelectionReclaimable: Int64?
     var gitEstimateGeneration = 0
+    /// Analyse git en cours : rapports déjà reçus et avancement (nil hors analyse).
+    @Published var gitLive: GitLiveAnalysis?
+    var gitAnalysisGeneration = 0
     /// Présélection à appliquer à l'écran Nettoyable (arrivée depuis une alerte ou le panneau).
     @Published var pendingCleanupPreselection = false
     // Sauvegardes.

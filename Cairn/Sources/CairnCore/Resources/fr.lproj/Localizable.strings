@@ -420,6 +420,13 @@
 "git.tab.branches" = "Branches";
 "git.tab.worktrees" = "Worktrees";
 "git.analyzing" = "Analyse des dépôts…";
+"git.live.discovering" = "Recherche des dépôts…";
+"git.live.progress" = "Dépôts analysés : %1$lld sur %2$lld";
+"git.live.running" = "En cours : %@";
+"git.live.locked" = "La sélection sera possible à la fin de l'analyse";
+"git.live.none_yet" = "Rien pour l'instant : les lignes apparaissent à mesure que les dépôts sont analysés.";
+"git.worktrees.empty" = "Aucun worktree lié dans les dépôts analysés.";
+"git.branches.empty" = "Aucune branche dont la branche distante a disparu.";
 "git.intro" = "Repère les branches dont la branche distante a disparu et les worktrees obsolètes. Rien ne change avant votre confirmation.";
 "git.analyze" = "Analyser";
 "git.apply" = "Supprimer";

@@ -13,6 +13,24 @@ struct BranchRow: Identifiable {
     var status: String { b.status.rawValue }
 }
 
+/// Analyse git en cours : rapports reçus au fil de l'eau, avancement et présélection calculée sur ces rapports.
+/// Rien n'est sélectionnable tant que l'analyse n'est pas finie (la présélection définitive est posée à la fin).
+struct GitLiveAnalysis {
+    var reports: [RepoReport] = []
+    var done = 0
+    var total: Int?
+    var running: [String] = []
+    var branches = Set<String>()
+    var worktrees = Set<String>()
+
+    mutating func add(_ report: RepoReport, options: GitOptions) {
+        reports.append(report)
+        let (b, w) = GitMaintenance.preselection([report], options: options)
+        branches.formUnion(b)
+        worktrees.formUnion(w)
+    }
+}
+
 struct WorktreeRow: Identifiable {
     let w: WorktreeInfo
     let repoRel: String
@@ -33,9 +51,18 @@ struct GitView: View {
             TabBar(options: [(GitTab.repos, T("git.tab.repos")), (.branches, T("git.tab.branches")), (.worktrees, T("git.tab.worktrees"))],
                        selection: $tab)
                 .frame(height: 64)
-            if model.isAnalyzingGit {
-                VStack(spacing: 12) { ProgressView(); Text(T("git.analyzing")).foregroundStyle(Palette.secondary) }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if let live = model.gitLive, !live.reports.isEmpty {
+                content(live.reports, live: live)
+            } else if model.isAnalyzingGit {
+                VStack(spacing: 12) {
+                    ProgressView()
+                    Text(model.gitLive.map(progressText) ?? T("git.analyzing")).foregroundStyle(Palette.secondary)
+                    if let running = model.gitLive?.running, !running.isEmpty {
+                        Text(T("git.live.running", running.map(rel).joined(separator: ", ")))
+                            .font(.system(size: 12)).foregroundStyle(Palette.secondary).lineLimit(2).frame(maxWidth: 520)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let reports = model.gitReports {
                 content(reports)
             } else {
@@ -56,11 +83,24 @@ struct GitView: View {
 
     var rootPath: String { model.trackedFolders.first?.expandedPath ?? "" }
 
-    func content(_ reports: [RepoReport]) -> some View {
+    func rel(_ p: String) -> String {
         let root = rootPath
-        func rel(_ p: String) -> String { p.hasPrefix(root + "/") ? String(p.dropFirst(root.count + 1)) : p }
+        return p.hasPrefix(root + "/") ? String(p.dropFirst(root.count + 1)) : p
+    }
+
+    func progressText(_ live: GitLiveAnalysis) -> String {
+        guard let total = live.total else { return T("git.live.discovering") }
+        return T("git.live.progress", live.done, total)
+    }
+
+    /// `live` : analyse en cours, rapports partiels en lecture seule (présélection affichée, rien de modifiable).
+    func content(_ reports: [RepoReport], live: GitLiveAnalysis? = nil) -> some View {
+        let root = rootPath
+        let rel = self.rel
         let allWT = reports.flatMap(\.worktrees)
-        let recap = GitMaintenance.recap(reports, branches: model.selectedBranches, worktrees: model.selectedWorktrees)
+        let selBranches = live?.branches ?? model.selectedBranches
+        let selWorktrees = live?.worktrees ?? model.selectedWorktrees
+        let recap = GitMaintenance.recap(reports, branches: selBranches, worktrees: selWorktrees)
         return VStack(spacing: 14) {
             if let only = model.gitOptions.only {
                 HStack(spacing: 10) {
@@ -77,18 +117,41 @@ struct GitView: View {
                 stat(T("git.stat.worktrees"), "\(allWT.count)")
                 stat(T("git.stat.obsolete"), "\(allWT.filter(\.isObsolete).count)")
                 stat(T("git.stat.risk"), "\(allWT.filter(\.isAtRisk).count)", tone: .warning)
-                stat(T("git.stat.reclaimable"), model.gitSelectionReclaimable.map(Fmt.bytes) ?? "…")
+                stat(T("git.stat.reclaimable"), live == nil ? model.gitSelectionReclaimable.map(Fmt.bytes) ?? "…" : "…")
             }
             Group {
                 switch tab {
                 case .repos: reposTable(reports, rel: rel)
-                case .branches: branchesTable(reports, rel: rel)
-                case .worktrees: worktreesTable(reports, rel: rel)
+                case .branches: branchesTable(reports, rel: rel, live: live)
+                case .worktrees: worktreesTable(reports, rel: rel, live: live)
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(Palette.border))
-            HStack(spacing: 14) {
+            if let live { liveBar(live) } else { actionBar(reports, recap: recap) }
+        }
+        .padding(.horizontal, 32).padding(.bottom, 24)
+    }
+
+    /// Avancement de l'analyse, à la place des actions tant qu'elle n'est pas finie.
+    func liveBar(_ live: GitLiveAnalysis) -> some View {
+        HStack(spacing: 14) {
+            ProgressView(value: Double(live.done), total: Double(max(live.total ?? 1, 1))).frame(width: 160)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(progressText(live)).fontWeight(.semibold)
+                if !live.running.isEmpty {
+                    Text(T("git.live.running", live.running.map(rel).joined(separator: ", ")))
+                        .font(.system(size: 12)).foregroundStyle(Palette.secondary).lineLimit(1).truncationMode(.tail)
+                }
+            }
+            Spacer()
+            Text(T("git.live.locked")).font(.system(size: 12.5)).foregroundStyle(Palette.secondary)
+        }
+    }
+
+    func actionBar(_ reports: [RepoReport], recap: GitMaintenance.Recap) -> some View {
+        let root = rootPath
+        return HStack(spacing: 14) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(T("git.selection", model.selectedBranches.count, model.selectedWorktrees.count)).fontWeight(.semibold)
                     Text(T("git.recap", recap.deletedBranches, recap.keptBranches, recap.removedWorktrees, recap.keptWorktrees))
@@ -102,9 +165,7 @@ struct GitView: View {
                 Button(T("git.analyze")) { model.analyzeGit() }.buttonStyle(.pill)
                 Button(T("git.apply_ellipsis")) { confirming = true }.buttonStyle(.pillPrimary)
                     .disabled(model.selectedBranches.isEmpty && model.selectedWorktrees.isEmpty)
-            }
         }
-        .padding(.horizontal, 32).padding(.bottom, 24)
     }
 
     func stat(_ title: String, _ value: String, tone: Palette.Tone? = nil) -> some View {
@@ -127,15 +188,15 @@ struct GitView: View {
         }
     }
 
-    func branchesTable(_ reports: [RepoReport], rel: @escaping (String) -> String) -> some View {
+    func branchesTable(_ reports: [RepoReport], rel: @escaping (String) -> String, live: GitLiveAnalysis?) -> some View {
         let rows = reports.flatMap { r in r.branches.map { BranchRow(b: $0, repoRel: rel(r.path)) } }
         return Table(rows) {
             TableColumn("") { row in
-                Toggle("", isOn: Binding(get: { model.selectedBranches.contains(row.id) },
+                Toggle("", isOn: Binding(get: { (live?.branches ?? model.selectedBranches).contains(row.id) },
                                          set: { on in if on { model.selectedBranches.insert(row.id) } else { model.selectedBranches.remove(row.id) } }))
                     .labelsHidden().toggleStyle(.checkbox)
                     // Branche extraite dans un worktree : supprimable seulement avec lui.
-                    .disabled(row.b.checkedOutInWorktree.map { !model.selectedWorktrees.contains($0) } ?? false)
+                    .disabled(live != nil || (row.b.checkedOutInWorktree.map { !model.selectedWorktrees.contains($0) } ?? false))
             }
             .width(30)
             TableColumn(T("col.repo")) { r in Text(r.repoRel).lineLimit(1).truncationMode(.head).foregroundStyle(Palette.secondary) }
@@ -155,16 +216,21 @@ struct GitView: View {
             TableColumn(T("git.col.last_commit")) { r in Text(r.b.date).foregroundStyle(Palette.secondary) }.width(100)
             TableColumn(T("git.col.subject")) { r in Text(r.b.subject).lineLimit(1).foregroundStyle(Palette.secondary) }
         }
+        .overlay { if rows.isEmpty { emptyTable(live == nil ? T("git.branches.empty") : T("git.live.none_yet")) } }
     }
 
-    func worktreesTable(_ reports: [RepoReport], rel: @escaping (String) -> String) -> some View {
+    func emptyTable(_ text: String) -> some View {
+        Text(text).foregroundStyle(Palette.secondary).multilineTextAlignment(.center).frame(maxWidth: 420)
+    }
+
+    func worktreesTable(_ reports: [RepoReport], rel: @escaping (String) -> String, live: GitLiveAnalysis?) -> some View {
         let rows = reports.flatMap { r in r.worktrees.map { WorktreeRow(w: $0, repoRel: rel(r.path)) } }
         return Table(rows) {
             TableColumn("") { row in
-                Toggle("", isOn: Binding(get: { model.selectedWorktrees.contains(row.id) },
+                Toggle("", isOn: Binding(get: { (live?.worktrees ?? model.selectedWorktrees).contains(row.id) },
                                          set: { on in model.setWorktree(row.id, selected: on) }))
                     .labelsHidden().toggleStyle(.checkbox)
-                    .disabled(row.w.status == .active)
+                    .disabled(live != nil || row.w.status == .active)
             }
             .width(30)
             TableColumn(T("git.col.worktree")) { r in
@@ -192,6 +258,7 @@ struct GitView: View {
             .width(min: 110, ideal: 140)
             TableColumn(T("col.size")) { r in Text(Fmt.bytes(r.size)).monospacedDigit() }.width(90)
         }
+        .overlay { if rows.isEmpty { emptyTable(live == nil ? T("git.worktrees.empty") : T("git.live.none_yet")) } }
     }
 }
 
@@ -319,26 +386,41 @@ extension AppModel {
     /// `cancel` : résultats ignorés et analyse arrêtée (vérification complète) ; `onDone(false)` dans ce cas.
     /// `fullCheck` (« Tout vérifier ») : tous les dépôts, sans le filtre de l'écran Git, et jamais de `git fetch`
     /// (qui modifie le dépôt et supprime des références distantes avec `--prune`).
+    /// Chaque dépôt s'affiche dès que son worker a fini (`gitLive`) ; les résultats précédents restent en place
+    /// si l'analyse est arrêtée. Une analyse relancée remplace la précédente (ses résultats tardifs sont ignorés).
     func analyzeGit(cancel: CancelToken? = nil, fullCheck: Bool = false, onDone: ((Bool) -> Void)? = nil) {
         isAnalyzingGit = true
+        gitAnalysisGeneration += 1
+        let generation = gitAnalysisGeneration
+        gitLive = GitLiveAnalysis()
         let options = gitOptions.forAnalysis(config: config, fullCheck: fullCheck)
         let folders = trackedFolders.filter(\.isAvailable).map(\.expandedPath)
+        // Rappels des workers vers l'interface, dans l'ordre d'arrivée.
+        let live: (@escaping @MainActor (inout GitLiveAnalysis) -> Void) -> Void = { update in
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    guard generation == self.gitAnalysisGeneration, cancel?.isCancelled != true, self.gitLive != nil else { return }
+                    update(&self.gitLive!)
+                }
+            }
+        }
         Task.detached(priority: .userInitiated) {
-            let reports = GitMaintenance.analyzeAll(folders: folders, options: options, cancel: cancel)
+            let reports = GitMaintenance.analyzeAll(folders: folders, options: options, cancel: cancel, progress: { p in
+                let running = p.running.keys.sorted()
+                live { $0.total = p.total; $0.done = p.done; $0.running = running }
+            }, onReport: { report in
+                live { $0.add(report, options: options) }
+            })
             await MainActor.run {
+                guard generation == self.gitAnalysisGeneration else { onDone?(cancel?.isCancelled != true); return }
+                self.gitLive = nil
                 if cancel?.isCancelled == true {
                     self.isAnalyzingGit = false
                     onDone?(false)
                     return
                 }
                 self.gitReports = reports
-                // Présélection : branches fusionnées/squashées, worktrees obsolètes sans travail en cours,
-                // et la branche fusionnée de chaque worktree présélectionné.
-                let worktrees = Set(reports.flatMap(\.worktrees).filter { GitMaintenance.selectedByDefault($0, options: options) }.map(\.id))
-                let all = reports.flatMap(\.branches)
-                self.selectedWorktrees = worktrees
-                self.selectedBranches = Set(all.filter { GitMaintenance.selectedByDefault($0, options: options) }.map(\.id))
-                    .union(GitMaintenance.branchesFollowing(worktrees: worktrees, in: all).map(\.id))
+                (self.selectedBranches, self.selectedWorktrees) = GitMaintenance.preselection(reports, options: options)
                 self.isAnalyzingGit = false
                 // Les worktrees obsolètes comptent dans le résumé (barre des menus).
                 self.refreshSummary()

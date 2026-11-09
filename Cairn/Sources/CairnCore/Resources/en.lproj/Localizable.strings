@@ -420,6 +420,13 @@
 "git.tab.branches" = "Branches";
 "git.tab.worktrees" = "Worktrees";
 "git.analyzing" = "Analyzing repositories…";
+"git.live.discovering" = "Looking for repositories…";
+"git.live.progress" = "Repositories analyzed: %1$lld of %2$lld";
+"git.live.running" = "In progress: %@";
+"git.live.locked" = "Selection is available once the analysis is finished";
+"git.live.none_yet" = "Nothing yet: rows appear as each repository is analyzed.";
+"git.worktrees.empty" = "No linked worktrees in the analyzed repositories.";
+"git.branches.empty" = "No branch whose remote was deleted.";
 "git.intro" = "Finds branches whose remote was deleted and stale worktrees. Nothing changes until you confirm.";
 "git.analyze" = "Analyze";
 "git.apply" = "Delete";
