@@ -1,5 +1,6 @@
 import AppKit
 import CairnCore
+import CairnUI
 import SwiftUI
 
 /// Rendu hors écran des vues principales en PNG (vérification visuelle sans capture d'écran).
@@ -83,6 +84,7 @@ enum Snapshot {
                 renderDestinationStates(model: model, outDir: outDir, suffix: suffix, size: size, dark: dark)
                 renderHubStates(model, sample: sample, dark: dark, suffix: suffix, outDir: outDir)
                 renderGitStates(model, reports: gitReports, sample: sample, dark: dark, suffix: suffix, outDir: outDir)
+                renderGallery(dark: dark, suffix: suffix, outDir: outDir)
                 for step in OnboardingView.steps.indices {
                     render(OnboardingView(step: step).environmentObject(model).frame(width: size.width, height: size.height)
                             .background(Palette.content),
@@ -203,19 +205,18 @@ enum Snapshot {
         model.gitReports = nil
     }
 
+    /// Catalogue des composants : vue par défaut, puis aperçu sombre d'une jauge réglée à 95 % dans une fenêtre claire.
+    static func renderGallery(dark: Bool, suffix: String, outDir: String) {
+        let size = CGSize(width: 1280, height: 800)
+        render(GalleryView(), size: size, dark: dark, to: "\(outDir)/gallery-\(suffix).png")
+        var values = StoryValues(Stories.story("feedback.fill_bar")?.controls ?? [])
+        values.values["percent"] = .number(95)
+        render(GalleryView(selection: "feedback.fill_bar", dark: !dark, values: ["feedback.fill_bar": values]),
+               size: size, dark: dark, to: "\(outDir)/gallery-controls-\(suffix).png")
+    }
+
     static func render<V: View>(_ view: V, size: CGSize, dark: Bool, to path: String) {
-        let host = NSHostingView(rootView: view.environment(\.locale, L10n.locale))
-        host.frame = NSRect(origin: .zero, size: size)
-        let window = NSWindow(contentRect: host.frame, styleMask: [.borderless], backing: .buffered, defer: false)
-        window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
-        window.contentView = host
-        host.layoutSubtreeIfNeeded()
-        RunLoop.main.run(until: Date().addingTimeInterval(0.6))
-        host.layoutSubtreeIfNeeded()
-        guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { return }
-        host.cacheDisplay(in: host.bounds, to: rep)
-        try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
-        window.contentView = nil
+        Offscreen.png(view, width: size.width, height: size.height, dark: dark, to: URL(fileURLWithPath: path))
     }
 }
 

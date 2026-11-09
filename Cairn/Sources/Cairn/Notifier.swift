@@ -1,4 +1,5 @@
 import AppKit
+import CairnUI
 import Foundation
 import UserNotifications
 

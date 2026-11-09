@@ -1,5 +1,6 @@
 import AppKit
 import CairnCore
+import CairnUI
 import SwiftUI
 
 /// Mise à jour de l'app : contrôle périodique des releases GitHub, proposition dans le rail, installation et relance.

@@ -1,5 +1,6 @@
 import AppKit
 import CairnCore
+import CairnUI
 import SwiftUI
 
 /// Accueil : état global, « Tout vérifier », une carte par module, activité récente et problème prioritaire.
@@ -246,26 +247,6 @@ struct ModuleChart: View {
         case .restore:
             Color.clear
         }
-    }
-}
-
-/// Barre segmentée (proportions), sur la piste grise des jauges.
-struct SegmentBar: View {
-    let parts: [(Double, Color)]
-    var body: some View {
-        let total = parts.reduce(0) { $0 + $1.0 }
-        GeometryReader { g in
-            HStack(spacing: 2) {
-                ForEach(Array(parts.enumerated()), id: \.offset) { _, p in
-                    if p.0 > 0 { Rectangle().fill(p.1).frame(width: max(3, (g.size.width - 2 * CGFloat(parts.count - 1)) * p.0 / total)) }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Palette.field)
-            .clipShape(Capsule())
-        }
-        .frame(height: 8)
-        .opacity(total > 0 ? 1 : 0)
     }
 }
 

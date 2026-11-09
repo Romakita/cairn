@@ -1,4 +1,5 @@
 import CairnCore
+import CairnUI
 import SwiftUI
 
 /// « Supprimer la destination » : garder les sauvegardes (par défaut) ou les supprimer aussi, après une simulation

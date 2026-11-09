@@ -1,4 +1,5 @@
 import CairnCore
+import CairnUI
 import SwiftUI
 
 /// Réglages : chaque modification réécrit config.toml en conservant commentaires et clés inconnues.

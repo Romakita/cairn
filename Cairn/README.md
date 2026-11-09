@@ -11,8 +11,24 @@ just test              # tests (Swift Testing, Xcode requis)
 just storage-install   # construit Cairn.app et l'installe dans ~/Applications
 ```
 
-Structure : `Sources/CairnCore` (logique, sans SwiftUI), `Sources/Cairn` (interface + aiguillage ligne de commande),
-`Tests/CairnTests` (tests Swift Testing), `Tests/CairnTestHelper` (processus auxiliaire des tests). Textes : `Sources/CairnCore/Resources/{en,fr}.lproj/Localizable.strings`.
+Structure : `Sources/CairnCore` (logique, sans SwiftUI), `Sources/CairnUI` (design system : jetons de thème,
+composants, catalogue), `Sources/Cairn` (écrans + aiguillage ligne de commande), `Tests/CairnTests` (tests Swift
+Testing), `Tests/CairnTestHelper` (processus auxiliaire des tests).
+Textes : `Sources/CairnCore/Resources/{en,fr}.lproj/Localizable.strings`.
+
+## Catalogue des composants
+
+Équivalent de Storybook sans Xcode : chaque composant de `CairnUI` a ses « stories » (variantes nommées, données
+factices) dans `Sources/CairnUI/Gallery/Stories+*.swift`.
+
+```bash
+just gallery                    # fenêtre : stories, clair/sombre, en/fr, largeur, réglages de la story
+just gallery-export [dossier]   # PNG par story × thème × langue + index.html (défaut : build/gallery)
+```
+
+Nouveau composant public dans `Sources/CairnUI/Components` : lui ajouter une story (titre `gallery.story.<id>` dans
+les deux catalogues), sinon `just test Gallery` échoue. Le catalogue ne lit ni n'écrit rien dans le home ; l'export
+n'écrit que dans le dossier demandé.
 
 ## Ligne de commande
 

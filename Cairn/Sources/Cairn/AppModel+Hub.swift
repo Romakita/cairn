@@ -1,4 +1,5 @@
 import CairnCore
+import CairnUI
 import Foundation
 
 /// Avancement d'un module pendant la vérification complète (absent : pas de vérification en cours).

@@ -1,5 +1,6 @@
 import AppKit
 import CairnCore
+import CairnUI
 import SwiftUI
 
 struct VersionInfo: Identifiable, Hashable {
@@ -618,31 +619,5 @@ struct BackupProgressCard: View {
             }
         }
         .frame(width: 84, height: 84)
-    }
-}
-
-/// Ligne d'un worker (copie ou comptage) : icône, titre, détail en police fixe, sablier ou coche.
-private struct WorkerRow: View {
-    let icon: String
-    let title: String
-    let detail: String
-    let done: Bool
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Icon(icon, size: 15).foregroundStyle(Palette.secondary).frame(width: 18)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.system(size: 13, weight: .medium)).foregroundStyle(Palette.text).monospacedDigit()
-                Text(detail).font(.system(size: 11.5, design: .monospaced)).foregroundStyle(Palette.secondary)
-                    .lineLimit(1).truncationMode(.middle)
-            }
-            Spacer(minLength: 8)
-            if done {
-                Icon("checkmark.circle", size: 15).foregroundStyle(Palette.foreground(.success))
-            } else {
-                ProgressView().controlSize(.small)
-            }
-        }
-        .padding(.vertical, 9)
     }
 }
