@@ -424,7 +424,7 @@ struct AnalysisSection: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TabBar(options: [(AnalysisTab.explorer, T("tab.explorer")), (.cleanable, T("tab.cleanable")),
+            PillPicker(options: [(AnalysisTab.explorer, T("tab.explorer")), (.cleanable, T("tab.cleanable")),
                                  (.projects, T("tab.projects")), (.bigFiles, T("tab.big_objects"))],
                        selection: $model.analysisTab)
                 .frame(height: 64)

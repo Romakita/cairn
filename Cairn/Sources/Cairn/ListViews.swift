@@ -87,10 +87,11 @@ struct CleanableView: View {
                 Button(T("action.delete_ellipsis"), role: .destructive) {
                     pending = PendingDeletion(nodes: selectedNodes, permanently: true)
                 }
+                .buttonStyle(.pill)
                 .disabled(selectedNodes.isEmpty)
                 Button(T("action.trash_ellipsis")) { pending = PendingDeletion(nodes: selectedNodes, permanently: false) }
                     .disabled(selectedNodes.isEmpty)
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.pillPrimary)
             }
             .padding(10)
         }

@@ -48,7 +48,7 @@ struct GitView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TabBar(options: [(GitTab.repos, T("git.tab.repos")), (.branches, T("git.tab.branches")), (.worktrees, T("git.tab.worktrees"))],
+            PillPicker(options: [(GitTab.repos, T("git.tab.repos")), (.branches, T("git.tab.branches")), (.worktrees, T("git.tab.worktrees"))],
                        selection: $tab)
                 .frame(height: 64)
             if let live = model.gitLive, !live.reports.isEmpty {
