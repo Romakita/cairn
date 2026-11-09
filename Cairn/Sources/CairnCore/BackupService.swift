@@ -202,7 +202,7 @@ public final class BackupService: @unchecked Sendable {
                 }
                 let started = ds
                 finishing.enter()
-                DispatchQueue.global(qos: .utility).async {
+                WaitedWork.async {
                     defer { finishing.leave() }
                     self.finalize(d, session: session, copied: copied, state: started, versionsDir: versionsDir,
                                   recopy: recopy, dryRun: request.dryRun, log: log, collected: collected) { progress(d.id, $0) }

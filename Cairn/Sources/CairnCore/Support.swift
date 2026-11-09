@@ -118,6 +118,24 @@ public final class RunLog: @unchecked Sendable {
     }
 }
 
+/// Travaux qu'un appelant attend en restant bloqué (écriture sur un pipe, comptage, worker git, minuteries qui
+/// arrêtent un processus bloqué…). Jamais `DispatchQueue.global()` ni une file concurrente pour eux : quand tous les
+/// fils du pool de Swift Concurrency sont pris par des tâches qui attendent (`Task.detached` de l'app, tests en
+/// parallèle), GCD ne leur donne plus de fil et l'appelant attend pour toujours. Une file série créée par l'app
+/// obtient toujours un fil.
+public enum WaitedWork {
+    /// Lance `work` sur sa propre file série ; `group` suit sa fin.
+    public static func async(qos: DispatchQoS = .utility, group: DispatchGroup? = nil, _ work: @escaping @Sendable () -> Void) {
+        let queue = DispatchQueue(label: "fr.lenzotti.cairn.waited-work", qos: qos)
+        if let group { queue.async(group: group, execute: work) } else { queue.async(execute: work) }
+    }
+
+    /// File série pour une minuterie (`DispatchSource`) dont l'appelant dépend.
+    public static func timerQueue(_ name: String) -> DispatchQueue {
+        DispatchQueue(label: "fr.lenzotti.cairn.\(name)", qos: .utility)
+    }
+}
+
 /// Bundle des ressources de CairnCore (catalogues, profils IA, règles).
 /// `Bundle.module` n'est jamais utilisé : il ne cherche qu'à la racine de l'app et dans le dossier de build de la
 /// machine qui a compilé, et plante (assertion) s'il ne trouve rien, ce qui arrivait au lancement d'une app téléchargée.

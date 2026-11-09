@@ -29,7 +29,7 @@ public struct Git: Sendable {
             // Écriture sur un autre fil : sinon, avec une grosse entrée, git remplit sa sortie pendant qu'on écrit
             // encore son entrée et les deux processus s'attendent mutuellement.
             let writer = inPipe.fileHandleForWriting
-            DispatchQueue.global(qos: .userInitiated).async {
+            WaitedWork.async(qos: .userInitiated) {
                 writer.write(Data(stdin.utf8))
                 try? writer.close()
             }
