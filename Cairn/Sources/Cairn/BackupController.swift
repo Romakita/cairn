@@ -28,11 +28,11 @@ final class BackupController {
         monitor.start(queue: .global(qos: .utility))
         let ws = NSWorkspace.shared.notificationCenter
         observers.append(ws.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.service?.engine.suspend() }
+            MainActor.assumeIsolated { self?.service?.suspend() }
         })
         observers.append(ws.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.service?.engine.resume()
+                self?.service?.resume()
                 self?.tick()
             }
         })
@@ -103,6 +103,7 @@ final class BackupController {
         model.isBackingUp = true
         model.backupProgresses = [:]
         model.backupTargets = Set(destinations ?? config.destinations.map(\.id))
+        let requested = model.backupTargets
         var req = BackupService.Request()
         req.destinationIDs = destinations
         req.dryRun = dryRun
@@ -131,8 +132,8 @@ final class BackupController {
             }
             let (r, f, log, wasBusy) = (results, failure, service.logURL, busy)
             await MainActor.run {
-                // Arrêt demandé par l'utilisateur : pas de notification d'échec.
-                let stopped = model.isStoppingBackup
+                // Arrêt demandé par l'utilisateur : pas de notification d'échec pour ces destinations.
+                let stopping = model.stoppingBackups
                 model.isBackingUp = false
                 model.backupProgresses = [:]
                 model.backupTargets = []
@@ -144,12 +145,12 @@ final class BackupController {
                 // en cours (verrou pris) n'est pas un échec : simple message.
                 if let f {
                     model.lastMessage = f
-                    if !dryRun && !wasBusy && !stopped { self.notify(title: T("backup.notify.failed_title"), body: f, log: log) }
+                    if !dryRun && !wasBusy && !stopping.isSuperset(of: requested) { self.notify(title: T("backup.notify.failed_title"), body: f, log: log) }
                 }
                 for res in r {
                     if let pw = res.newImagePassword { model.newImagePassword = (res.destination, pw) }
                     let label = config.destinations.first { $0.id == res.destination }.map(model.destinationLabel) ?? res.destination
-                    if let e = res.error, !res.waiting, !dryRun, !stopped {
+                    if let e = res.error, !res.waiting, !dryRun, !stopping.contains(res.destination) {
                         self.notify(title: T("backup.notify.failed_title"), body: e, log: res.log)
                     }
                     if !res.damagedFiles.isEmpty {
@@ -177,10 +178,11 @@ final class BackupController {
         return other
     }
 
-    func cancel() {
-        guard let service, let model, model.isBackingUp else { return }
-        model.isStoppingBackup = true
-        service.cancel()
+    /// « Arrêter » sur la page d'une destination : seule celle-ci s'arrête, les autres continuent.
+    func cancel(destination id: String) {
+        guard let service, let model, model.isBackingUp, model.backupTargets.contains(id) else { return }
+        model.stoppingBackups.insert(id)
+        service.cancel(destination: id)
     }
 
     /// Fin de l'app : la sauvegarde en cours est annulée et on attend brièvement que rsync s'arrête

@@ -529,6 +529,82 @@ extension CairnTests {
             }
         }
 
+        @Test func stop_one_destination_keeps_the_others() throws {
+            try withTempDir { dir in
+                let src = dir.appendingPathComponent("src")
+                for i in 0..<20 { try writeFile(src.appendingPathComponent("f\(i).bin"), size: 5_000_000) }
+                let paths = CairnPaths(root: dir.appendingPathComponent(".cairn"))
+                var c = CairnConfig()
+                c.folders = [.init(path: src.path)]
+                c.destinations = ["a", "b"].map { .init(id: $0, provider: .local, path: dir.appendingPathComponent("dest-\($0)").path, encrypted: false) }
+                var req = BackupService.Request()
+                req.only = [.folder]
+                let service = BackupService(paths: paths, config: c)
+                // « Arrêter » sur « a » dès le début de sa copie : « b » est sauvegardée quand même.
+                let r = try service.run(req) { d, p in
+                    if d == "a", !p.part.isEmpty { service.cancel(destination: "a") }
+                }
+                #expect(r.map(\.destination) == ["a", "b"])
+                #expect(r[0].error != nil, "a arrêtée")
+                #expect(r[1].error == nil, "\(r[1].error ?? "")")
+                let state = RunState.load(paths)
+                #expect(state["a"].lastSuccess == nil && state["b"].lastSuccess != nil)
+            }
+        }
+
+        @Test func stop_before_the_run_starts() throws {
+            try withTempDir { dir in
+                let src = dir.appendingPathComponent("src")
+                try writeFile(src.appendingPathComponent("a.bin"), size: 1000)
+                let paths = CairnPaths(root: dir.appendingPathComponent(".cairn"))
+                var c = CairnConfig()
+                c.folders = [.init(path: src.path)]
+                c.destinations = ["a", "b"].map { .init(id: $0, provider: .local, path: dir.appendingPathComponent("dest-\($0)").path, encrypted: false) }
+                var req = BackupService.Request()
+                req.only = [.folder]
+                // « Arrêter » sur « a » avant que la tâche n'entre dans `run` : « b » est sauvegardée quand même.
+                let service = BackupService(paths: paths, config: c)
+                service.cancel(destination: "a")
+                let r = try service.run(req)
+                #expect(r.map(\.destination) == ["b"], "a passée sans démarrer")
+                #expect(r.first?.error == nil, "\(r.first?.error ?? "")")
+                let state = RunState.load(paths)
+                #expect(state["a"].lastSuccess == nil && state["a"].lastFailure == nil && state["b"].lastSuccess != nil)
+                // Toutes les destinations visées arrêtées avant le lancement : rien ne démarre.
+                let both = BackupService(paths: paths, config: c)
+                both.cancel(destination: "a")
+                both.cancel(destination: "b")
+                let error = #expect(throws: BackupError.self) { _ = try both.run(req) }
+                if case .cancelled? = error {} else { Issue.record("BackupError.cancelled attendu : \(String(describing: error))") }
+            }
+        }
+
+        @Test func stop_during_preparation() throws {
+            try withTempDir { dir in
+                let src = dir.appendingPathComponent("src")
+                try writeFile(src.appendingPathComponent("a.bin"), size: 10)
+                let paths = CairnPaths(root: dir.appendingPathComponent(".cairn"))
+                var c = CairnConfig()
+                c.folders = [.init(path: src.path)]
+                c.destinations = [.init(id: "a", provider: .local, path: dir.appendingPathComponent("dest").path, encrypted: false)]
+                let service = BackupService(paths: paths, config: c)
+                // Le parcours des dossiers s'interrompt : la préparation lève l'arrêt.
+                let walk = #expect(throws: BackupError.self) {
+                    _ = try service.parts(staging: dir, request: .init(), isCancelled: { true })
+                }
+                if case .cancelled? = walk {} else { Issue.record("BackupError.cancelled attendu : \(String(describing: walk))") }
+                // Arrêter la seule destination visée pendant la préparation arrête toute la sauvegarde, sans échec noté.
+                var req = BackupService.Request()
+                req.only = [.folder]
+                let run = #expect(throws: BackupError.self) {
+                    _ = try service.run(req) { d, p in if p.preparing != nil { service.cancel(destination: d) } }
+                }
+                if case .cancelled? = run {} else { Issue.record("BackupError.cancelled attendu : \(String(describing: run))") }
+                #expect(RunState.load(paths)["a"].lastFailure == nil, "un arrêt n'est pas un échec")
+                #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent("dest/cairn").path), "rien d'écrit")
+            }
+        }
+
         @Test func unreachable_destination_is_not_a_failure() throws {
             try withTempDir { dir in
                 let src = dir.appendingPathComponent("src")

@@ -133,7 +133,8 @@ public enum BackupActions {
 
     /// Clé de traduction de la raison pour laquelle l'action est indisponible, `nil` si elle est possible.
     public static func unavailableReason(_ action: BackupAction, _ c: Context) -> String? {
-        if c.backingUp && action != .backup { return "backup.unavailable.running" }
+        // Pendant une sauvegarde, la destination sauvegardée affiche « Arrêter » à la place de « Sauvegarder maintenant ».
+        if c.backingUp { return "backup.unavailable.running" }
         if c.verifying { return "backup.unavailable.verifying" }
         if c.reachable == false { return "backup.unavailable.unreachable" }
         if !c.hasBackups && (action == .verify || action == .verifyFull) { return "backup.unavailable.nothing_to_verify" }

@@ -77,9 +77,11 @@ struct BackupView: View {
                     Spacer()
                     moreMenu(d)
                     Button { editing = d } label: { Label(T("destination.edit"), systemImage: "gearshape") }.buttonStyle(.pill)
-                    if model.isBackingUp {
-                        Button(T(model.isStoppingBackup ? "action.stopping" : "action.stop")) { model.backups.cancel() }
-                            .buttonStyle(.pill).disabled(model.isStoppingBackup)
+                    // « Arrêter » seulement sur une destination en cours de sauvegarde, et pour elle seule.
+                    if model.backupTargets.contains(d.id) {
+                        let stopping = model.stoppingBackups.contains(d.id)
+                        Button(T(stopping ? "action.stopping" : "action.stop")) { model.backups.cancel(destination: d.id) }
+                            .buttonStyle(.pill).disabled(stopping)
                     } else {
                         Button(T("action.backup_now")) { model.backups.run(destinations: [d.id], dryRun: false) }.buttonStyle(.pillPrimary)
                             .disabled(reason(.backup, d) != nil || model.otherOperationRunning)
@@ -88,6 +90,10 @@ struct BackupView: View {
                 }
                 if model.otherOperationRunning && !model.isBackingUp {
                     Banner(icon: "clock", text: T("backup.busy_other"), tone: .info)
+                }
+                if model.isBackingUp && !model.backupTargets.contains(d.id) {
+                    let others = (model.config?.destinations ?? []).filter { model.backupTargets.contains($0.id) }
+                    Banner(icon: "clock", text: T("backup.busy_running", others.map(model.destinationLabel).joined(separator: ", ")), tone: .info)
                 }
                 if !d.encrypted && model.config?.home.include.contains(where: { $0.hasPrefix(".ssh") || $0.hasPrefix(".aws") }) == true {
                     Banner(icon: "lock.open", text: T("onboarding.destination.unencrypted_warning"), tone: .warning)

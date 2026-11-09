@@ -30,14 +30,14 @@ final class AppModel: ObservableObject {
     @Published var runState = RunState()
     /// Opération Cairn lancée ailleurs (commande `cairn`) qui tient le verrou : aucune sauvegarde ne peut démarrer.
     @Published var otherOperationRunning = false
-    /// « Arrêter » demandé : la sauvegarde s'arrête à la fin de l'étape en cours (montage, image, rsync).
-    @Published var isStoppingBackup = false
+    /// Destinations dont l'arrêt est demandé : chacune s'arrête à la fin de l'étape en cours (montage, image, rsync).
+    @Published var stoppingBackups: Set<String> = []
     @Published var isBackingUp = false {
         didSet {
             guard oldValue != isBackingUp else { return }
             // Le panneau de mise à jour n'observe que `updates` : on le prévient, son bouton dépend de la sauvegarde.
             updates.objectWillChange.send()
-            if !isBackingUp { isStoppingBackup = false }
+            if !isBackingUp { stoppingBackups = [] }
             menuBarTimer?.invalidate()
             menuBarTimer = nil
             menuBarFrame = 0

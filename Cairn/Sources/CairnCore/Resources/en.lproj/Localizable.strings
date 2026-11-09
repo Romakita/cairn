@@ -785,6 +785,7 @@
 "backup.history.empty" = "No backup of this Mac on this destination yet.";
 "backup.history.error" = "Could not read the backups: %@";
 "backup.history.busy" = "A backup is in progress: the history will show when it finishes.";
+"backup.busy_running" = "Backing up to %@. This destination can be backed up when it finishes.";
 "backup.busy_other" = "Another Cairn operation is running (started from the cairn command). Backing up will be available when it finishes.";
 "backup.history.refresh" = "Refresh";
 "backup.history.more" = "and %lld older backups";
