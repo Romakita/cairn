@@ -1,0 +1,67 @@
+.field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  height: var(--size-field);
+  padding: 0 var(--space-6);
+  border-radius: var(--radius-capsule);
+  background: var(--color-content);
+  box-shadow: inset 0 0 0 1px var(--color-field-border);
+  transition: box-shadow var(--duration-fade) var(--ease-out);
+  cursor: text;
+}
+
+.field:focus-within {
+  box-shadow: inset 0 0 0 1.5px var(--color-accent);
+}
+
+.field[data-invalid],
+.field[data-invalid]:focus-within {
+  box-shadow: inset 0 0 0 1.5px var(--tone-danger-fg);
+}
+
+.field[data-disabled] {
+  opacity: var(--opacity-disabled);
+}
+
+.field:has(> :last-child:not(input)) {
+  padding-right: var(--space-1);
+}
+
+.icon {
+  display: inline-flex;
+  color: var(--color-text-secondary);
+}
+
+.prefix {
+  font: var(--text-mono);
+  font-size: 13.5px;
+  color: var(--color-text-secondary);
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--color-text);
+  font: var(--text-body);
+  user-select: text;
+}
+
+.input:focus-visible {
+  outline: none;
+}
+
+.input::placeholder {
+  color: var(--color-placeholder);
+}
+
+.mono {
+  font: var(--text-mono);
+  font-size: 13.5px;
+}

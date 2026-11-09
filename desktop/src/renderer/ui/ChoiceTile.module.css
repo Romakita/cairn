@@ -1,0 +1,61 @@
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+  width: 100%;
+  height: 100%;
+  padding: var(--space-6);
+  border: 0;
+  border-radius: var(--radius-panel);
+  box-shadow: inset 0 0 0 1px var(--color-border);
+  background: var(--color-content);
+  text-align: left;
+  transition:
+    background-color var(--duration-state) var(--ease-out),
+    box-shadow var(--duration-state) var(--ease-out);
+}
+
+.tile:not([data-selected]):hover,
+:global([data-simulate="hover"]) .tile:not([data-selected]) {
+  background: var(--color-row-hover);
+}
+
+.tile[data-selected] {
+  box-shadow: inset 0 0 0 1.5px var(--color-text);
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 7px;
+}
+
+.mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  margin: 1px;
+  border-radius: var(--radius-capsule);
+  box-shadow: inset 0 0 0 1.5px var(--color-field-border);
+}
+
+.tile[data-selected] .mark {
+  box-shadow: none;
+  background: var(--color-text);
+  color: var(--color-content);
+}
+
+.title {
+  font: var(--text-row);
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.description {
+  font: var(--text-small);
+  color: var(--color-text-secondary);
+}

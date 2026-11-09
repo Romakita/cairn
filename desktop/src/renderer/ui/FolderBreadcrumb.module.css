@@ -1,0 +1,43 @@
+.root {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.chevron {
+  display: inline-flex;
+  color: var(--color-text-secondary);
+}
+
+.crumb,
+.gap {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 5px 9px;
+  border: 0;
+  border-radius: var(--radius-row);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: var(--text-caption);
+}
+
+.crumb {
+  transition:
+    background-color var(--duration-state) var(--ease-out),
+    color var(--duration-state) var(--ease-out);
+}
+
+.crumb:hover,
+:global([data-simulate="hover"]) .crumb {
+  background: var(--color-row-hover);
+  color: var(--color-text);
+}
+
+.crumb[aria-current] {
+  background: var(--color-field);
+  color: var(--color-text);
+  font-weight: 500;
+}

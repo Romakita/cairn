@@ -1,0 +1,42 @@
+.track {
+  position: relative;
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  padding: 3px;
+  border: 0.5px solid var(--color-border-soft);
+  border-radius: var(--radius-capsule);
+  background: var(--color-field);
+}
+
+.thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / var(--pill-count));
+  border: 0.5px solid var(--color-border);
+  border-radius: var(--radius-capsule);
+  background: var(--color-content);
+  box-shadow: var(--shadow-segment);
+  transform: translateX(calc(var(--pill-index) * 100%));
+  transition: transform var(--duration-snappy) var(--ease-out);
+}
+
+.segment {
+  position: relative;
+  min-height: var(--size-control);
+  padding: 0 22px;
+  border: 0;
+  border-radius: var(--radius-capsule);
+  background: transparent;
+  color: var(--color-text-tertiary);
+  font: var(--text-row);
+  white-space: nowrap;
+  transition: color var(--duration-state) var(--ease-out);
+}
+
+.segment[aria-selected="true"],
+.segment:hover {
+  color: var(--color-text);
+}

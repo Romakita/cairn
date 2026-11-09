@@ -1,0 +1,27 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border: 0;
+  border-radius: var(--radius-capsule);
+  box-shadow: inset 0 0 0 1px var(--color-field-border);
+  background: var(--color-content);
+  color: var(--color-text-tertiary);
+  font: var(--text-small);
+  white-space: nowrap;
+  transition:
+    background-color var(--duration-state) var(--ease-out),
+    color var(--duration-state) var(--ease-out);
+}
+
+.chip:not([data-on]):hover,
+:global([data-simulate="hover"]) .chip:not([data-on]) {
+  background: var(--color-row-hover);
+}
+
+.chip[data-on] {
+  box-shadow: none;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+}

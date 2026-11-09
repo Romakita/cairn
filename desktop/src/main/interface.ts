@@ -18,8 +18,8 @@ function rendererRoot(): string {
   return path.join(distDir(), "renderer");
 }
 
-/** Sert dist/renderer sous app://cairn/…, sans sortir de ce dossier. */
-function serveRenderer(): void {
+/** Sert dist/renderer sous app://cairn/…, sans sortir de ce dossier (interface et galerie). */
+export function serveRenderer(): void {
   const root = rendererRoot();
   protocol.handle(APP_SCHEME, (request) => {
     const url = new URL(request.url);

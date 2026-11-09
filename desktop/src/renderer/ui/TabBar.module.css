@@ -1,0 +1,28 @@
+.bar {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+.chip {
+  padding: 7px var(--space-5);
+  border: 0;
+  border-radius: var(--radius-capsule);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: var(--text-body);
+  white-space: nowrap;
+  transition:
+    background-color var(--duration-state) var(--ease-out),
+    color var(--duration-state) var(--ease-out);
+}
+
+.chip:hover,
+:global([data-simulate="hover"]) .chip {
+  background: var(--color-row-hover);
+  color: var(--color-text);
+}
+
+.chip[aria-checked="true"] {
+  background: var(--color-field);
+  color: var(--color-text);
+}

@@ -1,0 +1,29 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-icon-button);
+  height: var(--size-icon-button);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-row);
+  background: transparent;
+  color: var(--color-text-secondary);
+  transition:
+    background-color var(--duration-state) var(--ease-out),
+    color var(--duration-state) var(--ease-out);
+}
+
+.button:not([aria-disabled]):hover,
+:global([data-simulate="hover"]) .button:not([aria-disabled]) {
+  background: var(--color-field);
+  color: var(--color-text);
+}
+
+.button:not([aria-disabled]):active {
+  opacity: var(--opacity-pressed);
+}
+
+.button[aria-disabled="true"] {
+  opacity: var(--opacity-disabled);
+}

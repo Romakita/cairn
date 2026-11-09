@@ -1,0 +1,42 @@
+.banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: 11px var(--space-7);
+  border-radius: var(--radius-panel);
+  font: var(--text-body);
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+}
+
+.action {
+  flex-shrink: 0;
+}
+
+.banner[data-tone="neutral"] {
+  background: var(--tone-neutral-bg);
+  color: var(--tone-neutral-fg);
+}
+
+.banner[data-tone="success"] {
+  background: var(--tone-success-bg);
+  color: var(--tone-success-fg);
+}
+
+.banner[data-tone="warning"] {
+  background: var(--tone-warning-bg);
+  color: var(--tone-warning-fg);
+}
+
+.banner[data-tone="danger"] {
+  background: var(--tone-danger-bg);
+  color: var(--tone-danger-fg);
+}
+
+.banner[data-tone="info"] {
+  background: var(--tone-info-bg);
+  color: var(--tone-info-fg);
+}

@@ -1,0 +1,6 @@
+.header {
+  margin: 0;
+  padding: var(--space-6) var(--space-3) var(--space-1);
+  font: var(--text-meta-strong);
+  color: var(--color-text-secondary);
+}

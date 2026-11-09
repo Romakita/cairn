@@ -1,0 +1,37 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: 13px var(--space-7);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  font: var(--text-row);
+  color: var(--color-text);
+}
+
+.mono {
+  font: var(--text-mono);
+  font-size: 14px;
+}
+
+.description {
+  font: var(--text-caption);
+  color: var(--color-text-secondary);
+}
+
+.trailing {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-shrink: 0;
+  margin-left: var(--space-5);
+}

@@ -1,0 +1,110 @@
+.root {
+  position: relative;
+  width: 100%;
+}
+
+.line {
+  position: absolute;
+  top: calc(var(--size-step) / 2 - 1px);
+  left: calc(100% / var(--steps) / 2);
+  right: calc(100% / var(--steps) / 2);
+  height: 2px;
+  border-radius: var(--radius-capsule);
+  background: var(--color-border);
+}
+
+.progress {
+  display: block;
+  height: 100%;
+  width: calc(100% * var(--current) / max(var(--steps) - 1, 1));
+  border-radius: inherit;
+  background: var(--color-text);
+  transition: width var(--duration-snappy) var(--ease-out);
+}
+
+.list {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--steps), 1fr);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+
+.button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.button[data-enabled] {
+  pointer-events: auto;
+}
+
+.node {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-step);
+  height: var(--size-step);
+  border-radius: var(--radius-capsule);
+  border: 1.5px solid var(--color-field-border);
+  background: var(--color-content);
+  color: var(--color-text-secondary);
+  font: var(--text-meta);
+  font-weight: 600;
+  transition: transform var(--duration-state) var(--ease-out);
+}
+
+.button[data-state="reached"] .node {
+  border-color: var(--color-text);
+  color: var(--color-text);
+}
+
+.button[data-state="current"] .node,
+.button[data-state="done"] .node {
+  border-color: transparent;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+}
+
+.button[data-state="current"] .node {
+  box-shadow: 0 0 0 5px var(--color-halo);
+}
+
+.button[data-enabled]:hover .node,
+:global([data-simulate="hover"]) .button[data-enabled] .node {
+  transform: scale(1.08);
+}
+
+.title {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: var(--text-small);
+  color: var(--color-text-secondary);
+}
+
+.button[data-state="reached"] .title,
+.button[data-state="done"] .title {
+  color: var(--color-text-tertiary);
+}
+
+.button[data-state="current"] .title,
+.button[data-enabled]:hover .title {
+  color: var(--color-text);
+  font-weight: 500;
+}

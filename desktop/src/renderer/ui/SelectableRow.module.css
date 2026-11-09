@@ -1,0 +1,52 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  width: 100%;
+  padding: 9px var(--space-7);
+  border: 0;
+  background: transparent;
+  text-align: left;
+  transition: background-color var(--duration-state) var(--ease-out);
+}
+
+.row:not([aria-disabled]):hover,
+:global([data-simulate="hover"]) .row {
+  background: var(--color-row-hover);
+}
+
+.row[aria-disabled="true"] {
+  opacity: var(--opacity-disabled);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.titleLine {
+  display: flex;
+  min-width: 0;
+  color: var(--color-text);
+}
+
+.titleLine[data-off] {
+  color: var(--color-text-secondary);
+}
+
+.title {
+  font: var(--text-body);
+}
+
+.mono {
+  font: var(--text-mono);
+  font-size: 13.5px;
+}
+
+.subtitle {
+  font: var(--text-meta);
+  color: var(--color-text-secondary);
+}

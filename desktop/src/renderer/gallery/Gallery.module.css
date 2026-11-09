@@ -1,0 +1,164 @@
+.gallery {
+  display: grid;
+  grid-template-columns: var(--size-gallery-sidebar) minmax(0, 1fr) var(--size-gallery-controls);
+  height: 100%;
+  background: var(--color-content);
+  color: var(--color-text);
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-5);
+  overflow-y: auto;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-sidebar);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-3) 0;
+}
+
+.brandTitle {
+  font: var(--text-row);
+  font-weight: 600;
+}
+
+.count {
+  padding: 0 var(--space-3);
+  font: var(--text-meta);
+  color: var(--color-text-secondary);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-7);
+  padding: var(--space-5) var(--space-9);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-content);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.toolbarLabel {
+  font: var(--text-caption);
+  color: var(--color-text-secondary);
+}
+
+.stage {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-10);
+  background: var(--color-rail);
+}
+
+.frame {
+  display: inline-block;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-window);
+  background: var(--color-content);
+  overflow: clip;
+}
+
+.canvas {
+  display: block;
+  padding: var(--space-9);
+  background: var(--color-content);
+  color: var(--color-text);
+  font: var(--text-body);
+}
+
+.capture {
+  min-width: 100vw;
+  min-height: 100vh;
+  background: var(--color-content);
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+  padding: var(--space-9) var(--space-8);
+  overflow-y: auto;
+  border-left: 1px solid var(--color-border);
+  background: var(--color-content);
+}
+
+.controlsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.controlsTitle {
+  font: var(--text-section-title);
+}
+
+.storyInfo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.storyTitle {
+  font: var(--text-caption);
+  font-weight: 500;
+}
+
+.storyComponent {
+  font: var(--text-mono-small);
+  color: var(--color-text-secondary);
+}
+
+.control {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.control > :last-child {
+  align-self: stretch;
+}
+
+.controlInline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+}
+
+.controlLabel {
+  font: var(--text-meta);
+  color: var(--color-text-secondary);
+}
+
+.controlText {
+  font: var(--text-caption);
+}
+
+.none {
+  font: var(--text-caption);
+  color: var(--color-text-secondary);
+}

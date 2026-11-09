@@ -1,0 +1,13 @@
+.root {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding: var(--space-6) 0 2px;
+}
+
+.title {
+  margin: 0;
+  font: var(--text-section-title);
+  color: var(--color-text);
+}
