@@ -440,6 +440,33 @@ let backupTests: [TestCase] = [
             }
         }
     },
+    TestCase("next_destination_copies_while_the_previous_one_finishes") {
+        try withTempDir { dir in
+            let src = dir.appendingPathComponent("src")
+            // Un gros fichier : ses empreintes (finalisation de « a ») prennent le temps de voir la copie vers « b » partir.
+            try writeFile(src.appendingPathComponent("big.bin"), size: 150_000_000)
+            try writeFile(src.appendingPathComponent("small.txt"), size: 10)
+            let paths = CairnPaths(root: dir.appendingPathComponent(".cairn"))
+            var c = CairnConfig()
+            c.folders = [.init(path: src.path)]
+            c.destinations = ["a", "b"].map { .init(id: $0, provider: .local, path: dir.appendingPathComponent("dest-\($0)").path, encrypted: false) }
+            var req = BackupService.Request()
+            req.only = [.folder]
+            final class Events: @unchecked Sendable { var all: [(String, BackupProgress)] = []; let lock = NSLock() }
+            let events = Events()
+            let r = try BackupService(paths: paths, config: c).run(req) { d, p in events.lock.withLock { events.all.append((d, p)) } }
+            try expectEqual(r.map(\.destination), ["a", "b"])
+            try expect(r.allSatisfy { $0.error == nil }, "\(r.map(\.error))")
+            let all = events.all
+            // Chaque destination annonce sa fin ; la copie vers « b » commence avant la fin de « a ».
+            let aDone = all.firstIndex { $0.0 == "a" && $0.1.finished }
+            let bCopy = all.firstIndex { $0.0 == "b" && !$0.1.part.isEmpty && $0.1.finishing == nil }
+            try expect(aDone != nil && all.contains { $0.0 == "b" && $0.1.finished }, "fin de chaque destination")
+            try expect(bCopy.map { $0 < aDone! } ?? false, "copie vers b pendant la finalisation de a")
+            let state = RunState.load(paths)
+            try expect(state["a"].lastSuccess != nil && state["b"].lastSuccess != nil, "état des deux destinations")
+        }
+    },
     TestCase("unreachable_destination_is_not_a_failure") {
         try withTempDir { dir in
             let src = dir.appendingPathComponent("src")

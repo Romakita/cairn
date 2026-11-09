@@ -514,6 +514,7 @@
 "backup.verify" = "Check integrity";
 "backup.running" = "Backing up %@…";
 "backup.preparing" = "Preparing the backup…";
+"backup.queued" = "Waiting: the copy to “%@” is in progress.";
 "backup.never" = "never";
 "backup.transferred" = "%1$@ copied in %2$@";
 "backup.next" = "Next";

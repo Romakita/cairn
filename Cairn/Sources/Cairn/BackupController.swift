@@ -101,7 +101,7 @@ final class BackupController {
         service.extraParts = CLI.aiParts
         self.service = service
         model.isBackingUp = true
-        model.backupProgress = nil
+        model.backupProgresses = [:]
         model.backupTargets = Set(destinations ?? config.destinations.map(\.id))
         var req = BackupService.Request()
         req.destinationIDs = destinations
@@ -113,7 +113,15 @@ final class BackupController {
             var busy = false
             do {
                 results = try service.run(req) { dest, p in
-                    Task { @MainActor in model.backupProgress = (dest, p) }
+                    Task { @MainActor in
+                        // Destination finie : sa carte et son indicateur disparaissent, les autres continuent.
+                        if p.finished {
+                            model.backupProgresses[dest] = nil
+                            model.backupTargets.remove(dest)
+                        } else if model.backupTargets.contains(dest) {
+                            model.backupProgresses[dest] = p
+                        }
+                    }
                 }
             } catch OperationLock.Failure.alreadyHeld {
                 failure = T("cli.busy")
@@ -126,7 +134,7 @@ final class BackupController {
                 // Arrêt demandé par l'utilisateur : pas de notification d'échec.
                 let stopped = model.isStoppingBackup
                 model.isBackingUp = false
-                model.backupProgress = nil
+                model.backupProgresses = [:]
                 model.backupTargets = []
                 self.service = nil
                 model.runState = RunState.load(model.paths)

@@ -514,6 +514,7 @@
 "backup.verify" = "Vérifier l'intégrité";
 "backup.running" = "Sauvegarde de %@…";
 "backup.preparing" = "Préparation de la sauvegarde…";
+"backup.queued" = "En attente : copie vers « %@ » en cours.";
 "backup.never" = "jamais";
 "backup.transferred" = "%1$@ copiés en %2$@";
 "backup.next" = "Prochaine";
