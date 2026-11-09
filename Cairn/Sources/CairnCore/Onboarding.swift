@@ -56,6 +56,38 @@ public struct OnboardingDraft: Equatable, Sendable {
         }
     }
 
+    /// Dossiers visibles à la racine du home, sans `Library` (système, gérée à part pour les outils IA)
+    /// ni liens symboliques.
+    public static func listVisibleFolders(_ home: URL) -> [String] {
+        let fm = FileManager.default
+        let names = (try? fm.contentsOfDirectory(atPath: home.path)) ?? []
+        return names.filter { name in
+            guard !name.hasPrefix("."), name != "Library" else { return false }
+            let values = try? home.appendingPathComponent(name).resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+            return values?.isDirectory == true && values?.isSymbolicLink != true
+        }
+    }
+
+    /// Éléments du home proposés dans les réglages, triés par nom (sans le point initial) : ceux déjà sauvegardés,
+    /// les fichiers de configuration connus présents, et tous les dossiers cachés ou visibles de la racine du home
+    /// (hors outils IA, caches et corbeille).
+    public static func homeChoices(include: [String], home: URL = FileManager.default.homeDirectoryForCurrentUser,
+                                   exists: (String) -> Bool = { FileManager.default.fileExists(atPath: $0) },
+                                   hiddenFolders: (URL) -> [String] = OnboardingDraft.listHiddenFolders,
+                                   visibleFolders: (URL) -> [String] = OnboardingDraft.listVisibleFolders,
+                                   profiles: [AIProfile] = AIProfiles.bundled) -> [String] {
+        let known = homeCandidates.filter { exists(home.appendingPathComponent($0).path) }
+        let folders = (hiddenFolders(home) + visibleFolders(home)).filter { !homeSkipped($0, profiles: profiles) }
+        return sortedHomeItems(include + known + folders)
+    }
+
+    /// Éléments du home sans doublons, triés par nom sans le point initial (`.aws` avec les `a`).
+    public static func sortedHomeItems(_ items: [String]) -> [String] {
+        var seen = Set<String>()
+        return items.filter { seen.insert($0).inserted }
+            .sorted { sortKey($0).localizedStandardCompare(sortKey($1)) == .orderedAscending }
+    }
+
     /// Dossiers cachés jamais proposés : outils IA (gérés à part), caches et corbeille, dossier de Cairn.
     static func homeSkipped(_ name: String, profiles: [AIProfile]) -> Bool {
         if name == ".cairn" || Scanner.alwaysRegenerable[name] != nil { return true }

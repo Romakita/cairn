@@ -28,6 +28,16 @@ extension CairnTests {
             #expect(d.home.filter(\.selected).map(\.path) == [".aws", ".config/gh", ".ssh", ".zshrc"])
         }
 
+        @Test func settings_list_every_home_item_sorted() {
+            let home = URL(fileURLWithPath: "/Users/test")
+            let existing: Set<String> = ["/Users/test/.zshrc", "/Users/test/.gitconfig"]
+            let items = OnboardingDraft.homeChoices(include: [".config/mise", ".zshrc"], home: home, exists: existing.contains,
+                                                    hiddenFolders: { _ in [".ssh", ".aws", ".cache", ".claude", ".Trash"] },
+                                                    visibleFolders: { _ in ["Documents", "bin"] })
+            // Éléments sauvegardés, fichiers connus, dossiers cachés et visibles : sans doublon, par ordre alphabétique.
+            #expect(items == [".aws", "bin", ".config/mise", "Documents", ".gitconfig", ".ssh", ".zshrc"])
+        }
+
         @Test func make_config_is_valid() throws {
             var d = OnboardingDraft.detect(home: URL(fileURLWithPath: "/Users/test"),
                                            exists: { ["/tmp", "/Users/test/.codex", "/Users/test/.zshrc"].contains($0)
