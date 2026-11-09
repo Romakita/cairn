@@ -56,3 +56,11 @@ Une entrée après chaque correction de l'utilisateur. À relire au début de ch
   semantic-release génère le CHANGELOG et la release GitHub.
 - Règle : ne jamais modifier `CHANGELOG.md` ; la note de release vient des sujets des commits `feat`/`fix`/`perf`,
   qu'il faut donc écrire comme des lignes lisibles par un utilisateur.
+
+## 2026-11-09 — `git push -u` réécrit par rtk : poussé sur `main`
+- Erreur : `git push -u origin fix/…` passe par le hook rtk, qui prend `-u` pour son option `--ultra-compact`, jette
+  les arguments et lance un `git push` nu. La branche (créée par `git worktree add -b … origin/main`) suivait
+  `origin/main` : le commit est parti directement sur `main`, sans PR.
+- Règle : pousser avec `rtk proxy git push --set-upstream origin <branche>` (jamais `-u`), et créer une branche de
+  correctif avec `--no-track` (`git worktree add --no-track -b <branche> <dossier> origin/main`) pour qu'un push nu
+  ne vise jamais `main`. Vérifier `git ls-remote origin main <branche>` juste après.

@@ -3,3 +3,4 @@ git-cleanup-report-*.tsv
 
 # Worktrees des agents Claude Code
 .claude/worktrees/
+.idea
