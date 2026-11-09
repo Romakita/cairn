@@ -77,3 +77,8 @@ Une entrée après chaque correction de l'utilisateur. À relire au début de ch
 - Erreur : `smb://syno` refusé (« n'est pas une adresse de partage ») alors que l'utilisateur ne connaît que l'hôte.
 - Règle : une adresse réduite à l'hôte liste les dossiers partagés (`smbutil view`, mot de passe sur l'entrée
   standard) ; le partage choisi reçoit un dossier `cairn` pour les sauvegardes.
+
+## 2026-11-09 — Pousser sans rebaser
+- Erreur : branche poussée alors que `main` avait avancé (release 0.6.1), sans rebase préalable.
+- Règle : avant chaque push, `git fetch origin` puis `git rebase origin/main`, tests relancés, puis
+  `rtk proxy git push --force-with-lease`. Jamais de push d'une branche en retard sur `main`.
