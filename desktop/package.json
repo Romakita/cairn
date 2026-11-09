@@ -20,7 +20,8 @@
     "shots": "bun scripts/shots.ts",
     "dist": "bun run build && electron-builder --mac --publish never && bun scripts/zip.ts",
     "postinstall": "node node_modules/electron/install.js",
-    "build:native": "bun scripts/build-native.ts"
+    "build:native": "bun scripts/build-native.ts",
+    "shots:screens": "bun scripts/screen-shots.ts"
   },
   "dependencies": {
     "lucide-react": "1.70.0",
