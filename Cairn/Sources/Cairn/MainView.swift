@@ -44,22 +44,20 @@ struct RootView: View {
 /// Disposition principale : rail, barre latérale et contenu.
 struct MainShell: View {
     @EnvironmentObject var model: AppModel
-    @ViewState private var sidebarVisible = true
 
     var body: some View {
         // Comme Codex : cadre gris (barre du haut et rail), corps blanc arrondi et ombré qui flotte dedans.
         VStack(spacing: 0) {
-            TopBar(sidebarVisible: $sidebarVisible, hasSidebar: model.hasSidebar)
+            TopBar()
             HStack(alignment: .top, spacing: 0) {
                 Rail().zIndex(1) // les infobulles débordent sur le corps
                 HStack(spacing: 0) {
-                    if sidebarVisible && model.hasSidebar {
+                    if model.hasSidebar {
                         SidebarView()
                             .frame(width: 248)
                             .frame(maxHeight: .infinity)
                             .background(Palette.sidebar) // gris propre, distinct du cadre et du contenu
                             .overlay(alignment: .trailing) { Rectangle().fill(Palette.border).frame(width: 1) }
-                            .transition(.move(edge: .leading).combined(with: .opacity))
                     }
                     VStack(spacing: 0) {
                         content
@@ -95,32 +93,19 @@ struct MainShell: View {
     }
 }
 
-/// Barre du haut : place des boutons de fenêtre, bascule de la barre latérale, logo de Cairn au centre.
+/// Barre du haut, compacte (hauteur d'une barre d'outils macOS compacte) : logo de Cairn au centre, boutons de
+/// fenêtre à gauche. La barre latérale reste toujours affichée.
 struct TopBar: View {
-    @Binding var sidebarVisible: Bool
-    /// Section sans sous-menu : rien à afficher ni masquer.
-    var hasSidebar = true
-
     var body: some View {
-        ZStack {
-            HStack(spacing: 10) {
-                Color.clear.frame(width: 70) // boutons de fenêtre
-                IconButton(systemName: "sidebar.left", label: T("shell.toggle_sidebar")) {
-                    withAnimation(.snappy(duration: 0.25)) { sidebarVisible.toggle() }
-                }
-                .disabled(!hasSidebar)
-                .opacity(hasSidebar ? 1 : 0.4)
-                Spacer()
-            }
-            HStack(spacing: 8) {
-                CairnLogo(size: 15, color: Palette.primaryButtonText)
-                    .frame(width: 24, height: 24)
-                    .background(Palette.primaryButton, in: Circle())
-                Text(verbatim: "Cairn").font(.system(size: 14.5, weight: .semibold)).foregroundStyle(Palette.text)
-            }
-            .accessibilityElement(children: .combine)
+        HStack(spacing: 7) {
+            CairnLogo(size: 12, color: Palette.primaryButtonText)
+                .frame(width: 20, height: 20)
+                .background(Palette.primaryButton, in: Circle())
+            Text(verbatim: "Cairn").font(.system(size: 13.5, weight: .semibold)).foregroundStyle(Palette.text)
         }
-        .frame(height: 44)
+        .accessibilityElement(children: .combine)
+        .frame(maxWidth: .infinity)
+        .frame(height: 38)
     }
 }
 
@@ -372,9 +357,13 @@ struct SidebarView: View {
         SidebarHeader(title: T("sidebar.destinations"))
         ForEach(model.config?.destinations ?? [], id: \.id) { d in
             let probed = model.destinationWaiting[d.id]
+            // La pastille dit l'état (vert : joignable) ; à droite, seulement ce qui demande l'attention ou la
+            // progression d'une sauvegarde en cours.
             SidebarRow(dot: probed == nil ? Palette.secondary : (probed! ? .orange : Palette.foreground(.success)), title: model.destinationLabel(d),
-                       meta: probed == nil ? T("destination.not_checked") : (probed! ? T("backup.badge.waiting") : T("backup.badge.reachable")),
-                       selected: (model.selectedDestination ?? model.config?.destinations.first?.id) == d.id) {
+                       meta: probed == nil ? T("destination.not_checked") : (probed! ? T("backup.badge.waiting") : nil),
+                       selected: (model.selectedDestination ?? model.config?.destinations.first?.id) == d.id,
+                       busy: model.backupTargets.contains(d.id),
+                       fraction: model.backupProgress.flatMap { $0.0 == d.id ? $0.1.fraction : nil }) {
                 model.selectedDestination = d.id
             }
         }
