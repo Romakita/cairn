@@ -49,6 +49,9 @@ public final class BackupService: @unchecked Sendable {
     /// Parties supplémentaires fournies par d'autres capacités (outils IA) ; le 3e argument reçoit les avertissements.
     public var extraParts: ((CairnConfig, URL, (String) -> Void) throws -> [BackupPart])?
 
+    /// Inventaire des outils de la machine (lance brew, mise, npm…). Les tests le remplacent par un inventaire vide.
+    nonisolated(unsafe) public static var collectInventory: (CairnConfig) -> Inventory = { InventoryCollector.collect(config: $0) }
+
     private let stateLock = NSLock()
     private var running = false
     private var currentLog: URL?
@@ -99,7 +102,7 @@ public final class BackupService: @unchecked Sendable {
         if want(.tools) {
             let dir = staging.appendingPathComponent("tools")
             step(L10n.tr("backup.prepare.tools"))
-            let inv = InventoryCollector.collect(config: config)
+            let inv = Self.collectInventory(config)
             try InventoryExport.write(inv, to: dir)
             parts.append(BackupPart(kind: .tools, target: "tools", source: dir.path))
         }
