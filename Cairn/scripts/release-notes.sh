@@ -36,7 +36,11 @@ if (( FOOTER )); then
 ---
 **Installation:** unzip the archive and drag `Cairn.app` into `~/Applications`. The app is not notarized: on
 first launch, right-click → Open, or run `xattr -dr com.apple.quarantine ~/Applications/Cairn.app`.
-`cairn` command: `ln -sf ~/Applications/Cairn.app/Contents/MacOS/Cairn ~/.local/bin/cairn`.
+`cairn` command: `ln -sf ~/Applications/Cairn.app/Contents/MacOS/Cairn ~/.local/bin/cairn` (an existing link keeps
+working after an update).
 Later updates install from the app (**Update available** button, or **Cairn → Check for Updates…**).
+The app is signed ad hoc, so each new version is a new app for macOS: after an update, it may ask again for access
+to the Keychain (choose **Always Allow**), and Full Disk Access may need to be granted again in **System Settings →
+Privacy & Security**.
 NOTES
 fi

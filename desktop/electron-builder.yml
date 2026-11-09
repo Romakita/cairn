@@ -1,0 +1,73 @@
+# Empaquetage de Cairn.app (design.md décision 11, parity/platform.md §3 à §5).
+# `bun run dist` : build de production → electron-builder (dossier release/mac-<arch>/Cairn.app, fuses écrites)
+# → scripts/zip.ts (signature ad hoc finale, release/Cairn-<v>-<arch>.zip avec Cairn.app à la racine, .zip.sha256).
+# Le zip n'est PAS fait par electron-builder : l'updater de la 0.8.x exige `ditto -c -k --keepParent` et le nom
+# `Cairn-<v>-arm64.zip` / `Cairn-<v>-x86_64.zip` (pas `x64`).
+appId: fr.lenzotti.cairn
+productName: Cairn
+copyright: Copyright © Romain Lenzotti
+
+directories:
+  output: release
+  buildResources: build-resources
+
+# Tout le code (React, zod, lucide…) est déjà dans dist/ (bun build) : aucun node_modules dans l'app.
+files:
+  - package.json
+  - dist/**
+  - "!dist/**/*.map"
+  - native/build/Release/*.node
+  - resources/**
+  - "!resources/icon.icns"
+  - "!resources/tray/*.svg"
+  - "!resources/tray/*.mjs"
+  - "!resources/tray/*.txt"
+  - "!node_modules/**"
+
+asar: true
+# Le module natif ne se charge pas depuis l'asar (dlopen) : main/native-loader.ts le cherche dans app.asar.unpacked.
+asarUnpack:
+  - native/build/Release/*.node
+
+# Pas de dépendance native dans node_modules ; le module natif est construit par `bun run build:native`.
+npmRebuild: false
+# Seules les langues de l'app (en, fr) : menus système et CFBundleLocalizations cohérents, ~40 dossiers .lproj en moins.
+electronLanguages:
+  - en
+  - fr
+nodeGypRebuild: false
+buildDependenciesFromSource: false
+
+mac:
+  target:
+    - target: dir
+  category: public.app-category.utilities
+  icon: resources/icon.icns
+  minimumSystemVersion: "14.0"
+  # Pas de Developer ID ni de notarisation : signature ad hoc (scripts/zip.ts, après les fuses).
+  identity: null
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  notarize: false
+  extendInfo:
+    # La commande `cairn` (même exécutable) ne montre ni Dock ni menu ; l'interface appelle setActivationPolicy("regular").
+    LSUIElement: true
+    CFBundleDevelopmentRegion: en
+    CFBundleLocalizations:
+      - en
+      - fr
+    NSHighResolutionCapable: true
+
+# Options d'exécution fermées (scénario « Exécutable détourné ») : l'app n'est pas un interpréteur Node.
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
+  enableCookieEncryption: true
+  # Re-signe ad hoc juste après l'écriture des fuses (la signature de l'exécutable devient sinon invalide) ;
+  # scripts/zip.ts refait la signature ad hoc complète et la vérifie avant de zipper.
+  resetAdHocDarwinSignature: true
+
+publish: null

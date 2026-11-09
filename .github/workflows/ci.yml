@@ -44,6 +44,71 @@ jobs:
       - name: App runs outside the build folder
         run: Cairn/scripts/smoke-test-app.sh Cairn/build/Cairn.app
 
+  # App Electron (desktop/, changement migrate-to-electron) : à côté du job Swift jusqu'à la bascule (tâche 15).
+  desktop:
+    name: Desktop (Electron)
+    runs-on: macos-15
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # numéro de build (CFBundleVersion) = nombre de commits
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - name: Cache Bun, Electron and electron-builder
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+          key: desktop-${{ runner.os }}-${{ hashFiles('desktop/bun.lock') }}
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Native module
+        run: bun run build:native
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Tests
+        run: bun run test
+
+      - name: Build
+        run: bun run build
+
+      # Le runner macOS a une session graphique : la vraie app Electron s'y lance. Chromium pour l'interface seule (dev:web).
+      - name: End-to-end tests (Electron)
+        run: |
+          bunx playwright install chromium
+          bunx playwright test
+
+      - name: App archive
+        run: bun run dist
+
+      - name: Packaged app runs outside the repository
+        run: scripts/smoke-test-app.sh
+
+      - name: Keep the archive with the run
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cairn-desktop
+          path: |
+            desktop/release/Cairn-*.zip
+            desktop/release/Cairn-*.zip.sha256
+          retention-days: 7
+
   # Après un build réussi sur main : semantic-release calcule la version depuis les commits et publie la release.
   release:
     name: Release
