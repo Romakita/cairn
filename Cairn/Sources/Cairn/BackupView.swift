@@ -110,7 +110,7 @@ struct BackupView: View {
                 // Cartes d'une même rangée à la même hauteur : la rangée prend la hauteur de la plus haute.
                 HStack(alignment: .top, spacing: 14) {
                     statCard(T("home.last_backup"), ds.lastSuccess.map(Fmt.date) ?? T("backup.never"),
-                             ds.lastSuccess == nil ? (model.isBackingUp ? T("backup.progress.title") : ds.lastError ?? "") : T("backup.transferred", Fmt.bytes(ds.lastBytesTransferred), Fmt.duration(ds.lastDuration)))
+                             ds.lastSuccess == nil ? (model.backupTargets.contains(d.id) ? T("backup.progress.title") : ds.lastError ?? "") : T("backup.transferred", Fmt.bytes(ds.lastBytesTransferred), Fmt.duration(ds.lastDuration)))
                     statCard(T("backup.next"), nextText(), waiting ? T("backup.waiting_since", ds.waitingSince.map(Fmt.date) ?? "—") : T("frequency.\(model.config?.schedule.frequency.rawValue ?? "daily")"))
                     statCard(T("backup.integrity"), ds.damagedVersions.isEmpty ? T("backup.integrity.ok") : T("backup.integrity.damaged", ds.damagedVersions.count),
                              ds.lastVerification.map { T("backup.integrity.checked", Fmt.date($0)) } ?? T("backup.integrity.never")) {
@@ -522,15 +522,19 @@ struct BackupProgressCard: View {
                 HStack(alignment: .center, spacing: 22) {
                     ring
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(T(progress.preparing != nil ? "backup.progress.preparing_title" : "backup.progress.title"))
+                        Text(T(progress.preparing != nil ? "backup.progress.preparing_title"
+                               : progress.finishing != nil ? "backup.progress.finishing_title" : "backup.progress.title"))
                             .font(.system(size: 16, weight: .semibold)).foregroundStyle(Palette.text)
                         bar
                         Text(summary).font(.system(size: 13)).foregroundStyle(Palette.secondary).monospacedDigit()
-                        Text(progress.part.isEmpty ? " " : T("backup.progress.part", progress.part))
-                            .font(.system(size: 12.5)).foregroundStyle(Palette.secondary).lineLimit(1)
+                        Text(progress.finishing != nil ? (progress.current.isEmpty ? " " : progress.current)
+                             : progress.part.isEmpty ? " " : T("backup.progress.part", progress.part))
+                            .font(.system(size: progress.finishing != nil ? 12 : 12.5,
+                                          design: progress.finishing != nil ? .monospaced : .default))
+                            .foregroundStyle(Palette.secondary).lineLimit(1).truncationMode(.middle)
                     }
                 }
-                if progress.preparing == nil {
+                if progress.preparing == nil && progress.finishing == nil {
                     VStack(alignment: .leading, spacing: 0) {
                         copyRow
                         ForEach(progress.workers.indices, id: \.self) { i in
@@ -547,7 +551,7 @@ struct BackupProgressCard: View {
     }
 
     var summary: String {
-        if let step = progress.preparing { return step }
+        if let step = progress.preparing ?? progress.finishing { return step }
         if progress.counting { return T("backup.progress.counting", Fmt.count(progress.processed), Fmt.count(progress.found)) }
         return T("backup.progress.files", Fmt.count(progress.processed), Fmt.count(progress.expected ?? 0), Fmt.count(progress.files))
     }
@@ -561,15 +565,18 @@ struct BackupProgressCard: View {
 
     var copyTitle: String {
         if let n = progress.chunk, let total = progress.chunks {
-            return T("backup.worker.copy_chunk", n, total, progress.listing ?? progress.current.split(separator: "/").first.map(String.init) ?? "")
+            // Morceau sans nom : les fichiers posés à la racine du dossier sauvegardé.
+            let name = progress.listing ?? progress.current.split(separator: "/").first.map(String.init) ?? ""
+            return T("backup.worker.copy_chunk", n, total, name.isEmpty || !progress.current.isEmpty && !progress.current.contains("/")
+                     ? T("backup.worker.root_files") : name)
         }
         return T("backup.worker.copy")
     }
 
     func copyDetail(now: Date) -> String {
         if !progress.current.isEmpty { return progress.current }
-        let since = progress.listingSince.map { Fmt.duration(max(0, now.timeIntervalSince($0))) } ?? ""
-        return T("backup.worker.listing", since)
+        guard let start = progress.listingSince else { return T("backup.worker.listing_short") }
+        return T("backup.worker.listing", Fmt.duration(max(0, now.timeIntervalSince(start))))
     }
 
     func workerRow(_ i: Int, _ w: CountWorker) -> some View {
@@ -584,7 +591,7 @@ struct BackupProgressCard: View {
         GeometryReader { g in
             ZStack(alignment: .leading) {
                 Capsule().fill(Palette.field)
-                Capsule().fill(Palette.accent).frame(width: g.size.width * (progress.fraction ?? 0))
+                Capsule().fill(Palette.accent).frame(width: g.size.width * (progress.fraction ?? progress.stepFraction ?? 0))
             }
         }
         .frame(height: 6)
@@ -593,7 +600,7 @@ struct BackupProgressCard: View {
     var ring: some View {
         ZStack {
             Circle().stroke(Palette.field, lineWidth: 8)
-            if let f = progress.fraction {
+            if let f = progress.fraction ?? progress.stepFraction {
                 Circle().trim(from: 0, to: f)
                     .stroke(Palette.accent, style: StrokeStyle(lineWidth: 8, lineCap: .round)).rotationEffect(.degrees(-90))
                 Text(verbatim: "\(Int(f * 100)) %").font(.system(size: 20, weight: .bold)).monospacedDigit().foregroundStyle(Palette.text)

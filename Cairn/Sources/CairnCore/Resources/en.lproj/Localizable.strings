@@ -228,7 +228,6 @@
 "hub.activity.disk_critical" = "Alert: %@ nearly full";
 "hub.activity.check_ok" = "Full check: everything is in order";
 "hub.activity.check_issues" = "Full check: %lld things to look at";
-"shell.toggle_sidebar" = "Show or hide the sidebar";
 "menu.open" = "Open Cairn";
 "menu.quit" = "Quit Cairn";
 "placeholder.soon" = "This section arrives in an upcoming version.";
@@ -468,8 +467,17 @@
 "cli.backup.counting" = "%@ · counting files…";
 "cli.backup.progress_percent" = "%1$@ · %2$@ · %3$lld %% (%4$@ / %5$@ files)";
 "backup.progress.title" = "Backup in progress";
+"backup.progress.finishing_title" = "Finishing the backup…";
+"backup.finish.listing" = "Listing the copied files…";
+"backup.finish.checksums" = "Fingerprinting new files: %1$@ of %2$@ (reread from the destination)";
+"backup.finish.version" = "Saving the version and applying retention…";
+"backup.finish.verify" = "Checking a sample of the copied files…";
+"backup.finish.image" = "Verifying the disk image (hdiutil verify)…";
+"backup.finish.compact" = "Closing and compacting the disk image (may take several minutes on a NAS)…";
+"backup.finish.close" = "Closing the disk image…";
 "backup.worker.copy" = "Copy";
 "backup.worker.copy_chunk" = "Copy · folder %1$lld of %2$lld: %3$@";
+"backup.worker.root_files" = "files at the root";
 "backup.worker.listing" = "rsync is building the file list (%@) — long for a large folder, nothing is wrong";
 "backup.worker.count" = "Worker %1$lld · %2$@ files";
 "backup.worker.count_folder" = "Worker %1$lld · %2$@ · %3$@ files";

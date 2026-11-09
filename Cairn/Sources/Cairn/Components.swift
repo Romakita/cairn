@@ -48,6 +48,9 @@ struct SidebarRow: View {
     let title: String
     var meta: String?
     var selected = false
+    /// Sauvegarde en cours sur cet élément : anneau avec pourcentage, ou roue tant qu'il n'est pas connu.
+    var busy = false
+    var fraction: Double?
     var action: (() -> Void)?
 
     var body: some View {
@@ -56,7 +59,23 @@ struct SidebarRow: View {
             if let icon { Icon(icon, size: 16) }
             Text(title).lineLimit(1).truncationMode(.middle)
             Spacer(minLength: 4)
-            if let meta { Text(meta).font(.system(size: 12)).foregroundStyle(Palette.secondary).monospacedDigit() }
+            if busy {
+                if let fraction {
+                    HStack(spacing: 5) {
+                        Text(verbatim: "\(Int(fraction * 100)) %").font(.system(size: 12)).foregroundStyle(Palette.secondary).monospacedDigit()
+                        ZStack {
+                            Circle().stroke(Palette.field, lineWidth: 2.5)
+                            Circle().trim(from: 0, to: fraction)
+                                .stroke(Palette.accent, style: StrokeStyle(lineWidth: 2.5, lineCap: .round)).rotationEffect(.degrees(-90))
+                        }
+                        .frame(width: 13, height: 13)
+                    }
+                } else {
+                    ProgressView().controlSize(.mini)
+                }
+            } else if let meta {
+                Text(meta).font(.system(size: 12)).foregroundStyle(Palette.secondary).monospacedDigit()
+            }
         }
         .font(.system(size: 13.5))
         .foregroundStyle(Palette.text)

@@ -60,6 +60,8 @@ enum Snapshot {
                        dark: dark, to: "\(outDir)/menubar-\(suffix).png")
                 render(VStack(spacing: 16) {
                     BackupProgressCard(progress: .preparing(T("backup.prepare.open")))
+                    BackupProgressCard(progress: .finishing(T("backup.finish.checksums", Fmt.count(41_200), Fmt.count(601_756)),
+                                                            done: 41_200, total: 601_756, current: "folders/workspaces/Archive/clubmed/api/src/index.ts"))
                     BackupProgressCard(progress: BackupProgress(part: "folders/workspaces", files: 1_234, bytes: 0,
                                                                 current: "exports/Cairn/Sources/CairnCore/BackupEngine.swift",
                                                                 processed: 12_345, expected: 29_870))
@@ -71,7 +73,7 @@ enum Snapshot {
                                       CountWorker(found: 1_010, done: true), CountWorker(found: 0, folder: "tsed")]
                     })
                 }.padding(24).frame(width: 900).background(Palette.content),
-                       size: CGSize(width: 900, height: 760), dark: dark, to: "\(outDir)/backup-progress-\(suffix).png")
+                       size: CGSize(width: 900, height: 960), dark: dark, to: "\(outDir)/backup-progress-\(suffix).png")
                 render(PopupMenuContent(entries: [.item(icon: "play.circle", title: T("backup.simulate")) {},
                                                   .item(icon: "link", title: T("destination.copy_address")) {},
                                                   .divider,
