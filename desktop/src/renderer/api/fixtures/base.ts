@@ -2,6 +2,7 @@
 // disque. Les scénarios (scenarios.ts) partent de là. Seuls des TYPES viennent du core : rien de Node n'est importé.
 import type { DestinationConfig } from "../../../core/config.ts";
 import type { HubState, ModuleState } from "../../../core/hub-state.ts";
+import type { Inventory, InventoryEntry, ToolSource } from "../../../core/inventory/types.ts";
 import type {
   AppSnapshot,
   CairnConfig,
@@ -189,6 +190,184 @@ export function repoReport(name: string, values: Partial<RepoReport> = {}): Repo
   };
 }
 
+/** Projets de l'état normal (écran Analyse), du plus gros au plus petit. */
+export function sampleProjects(): AppSnapshot["analysis"]["projects"] {
+  const project = (name: string, size: number, source: number, git: number, isGitRepo = true) => ({
+    path: `/Volumes/workspaces/${name}`,
+    name,
+    isGitRepo,
+    size: size * GB,
+    source: source * GB,
+    git: git * GB,
+    regenerable: (size - source - git) * GB,
+    worktrees: [] as { path: string; size: number; repoPath: string }[],
+  });
+  const cairn = project("cairn", 6.1, 0.4, 0.41);
+  cairn.worktrees = [
+    { path: "/Volumes/workspaces/cairn-worktrees/menu-bar", size: 1.24 * GB, repoPath: "/Volumes/workspaces/cairn" },
+  ];
+  return [
+    cairn,
+    project("ios-app", 5.4, 1.1, 0.62),
+    project("website", 3.3, 0.6, 0.27),
+    project("ml-notebooks", 2.1, 0.9, 0.08),
+    project("api", 1.4, 0.3, 0.09),
+    project("design-assets", 0.9, 0.9, 0, false),
+  ];
+}
+
+/** Gros fichiers et dossiers en plus des deux de base (`nodeId` nul : nœud hors de l'arbre d'exemple). */
+function sampleBigObjects(): AppSnapshot["analysis"]["bigObjects"] {
+  const docs = "/Users/demo/Documents";
+  const ws = "/Volumes/workspaces";
+  return [
+    { kind: "file", path: `${docs}/Videos/talk-2026.mov`, size: 2.8 * GB, category: "source", nodeId: null },
+    { kind: "folder", path: `${ws}/cairn/Cairn/.build`, size: 2.4 * GB, category: "build", nodeId: 103 },
+    { kind: "file", path: `${ws}/ml-notebooks/data/train.parquet`, size: 1.6 * GB, category: "source", nodeId: null },
+    { kind: "folder", path: `${ws}/cairn/desktop/node_modules`, size: 1.84 * GB, category: "deps", nodeId: 100 },
+    { kind: "file", path: `${docs}/Archives/photos-2019.zip`, size: 0.74 * GB, category: "source", nodeId: null },
+  ];
+}
+
+/**
+ * Dépôts de l'état normal (écran Git) : branches fusionnées, une branche non fusionnée, une branche extraite dans un
+ * worktree à risque, un worktree orphelin, un dépôt avec des commits non poussés, un vieux dépôt.
+ */
+export function sampleRepos(): RepoReport[] {
+  const root = "/Volumes/workspaces";
+  const cairn = repoReport("cairn", {
+    gitBytes: 412_000_000,
+    looseBytes: 96_000_000,
+    reclaimableBytes: 61_000_000,
+    branches: [
+      ...repoReport("cairn").branches,
+      {
+        repo: `${root}/cairn`,
+        name: "spike/sqlite-snapshots",
+        status: "unmerged",
+        sha: "9f8e7d6",
+        date: "2026-06-21",
+        subject: "wip: snapshot every database",
+        checkedOutInWorktree: null,
+      },
+      {
+        repo: `${root}/cairn`,
+        name: "feat/menu-bar",
+        status: "merged",
+        sha: "5c4b3a2",
+        date: "2026-10-02",
+        subject: "feat: menu bar panel",
+        checkedOutInWorktree: `${root}/cairn-worktrees/menu-bar`,
+      },
+    ],
+    worktrees: [
+      {
+        repo: `${root}/cairn`,
+        path: `${root}/cairn-worktrees/menu-bar`,
+        branch: "feat/menu-bar",
+        head: "5c4b3a2e1f00",
+        exists: true,
+        size: 1_240_000_000,
+        regenerable: 1_100_000_000,
+        lastModified: daysAgo(38),
+        modifiedFiles: 3,
+        untrackedFiles: 1,
+        unpushedCommits: 0,
+        status: "risk",
+        staleReason: "merged",
+        branchStatus: "merged",
+      },
+      {
+        repo: `${root}/cairn`,
+        path: `${root}/cairn-worktrees/old-release`,
+        branch: null,
+        head: "77aa88bb99cc",
+        exists: false,
+        size: 0,
+        regenerable: 0,
+        lastModified: null,
+        modifiedFiles: 0,
+        untrackedFiles: 0,
+        unpushedCommits: 0,
+        status: "orphan",
+        staleReason: null,
+        branchStatus: null,
+      },
+      {
+        repo: `${root}/cairn`,
+        path: `${root}/cairn-worktrees/docs`,
+        branch: "docs/readme",
+        head: "1234abcd5678",
+        exists: true,
+        size: 86_000_000,
+        regenerable: 0,
+        lastModified: daysAgo(1),
+        modifiedFiles: 0,
+        untrackedFiles: 0,
+        unpushedCommits: 2,
+        status: "active",
+        staleReason: null,
+        branchStatus: "unmerged",
+      },
+    ],
+    lastModified: daysAgo(0, 2),
+  });
+  const website = repoReport("website", { gitBytes: 268_000_000, lastModified: daysAgo(12) });
+  const api = repoReport("api", {
+    gitBytes: 94_000_000,
+    looseBytes: 2_000_000,
+    branches: [],
+    reclaimableBytes: 0,
+    modifiedFiles: 4,
+    unpushedCommits: 3,
+    lastModified: daysAgo(6),
+  });
+  const prototype = repoReport("old-prototype", {
+    gitBytes: 38_000_000,
+    looseBytes: 31_000_000,
+    branches: [],
+    reclaimableBytes: 0,
+    lastModified: daysAgo(540),
+  });
+  return [cairn, website, api, prototype];
+}
+
+/** Inventaire des outils de ligne de commande (écran Outils CLI) ; `excluded` : `config.excludedTools`. */
+export function sampleInventory(excluded: readonly string[] = []): Inventory {
+  const entry = (
+    name: string,
+    source: ToolSource | null,
+    version: string,
+    status: InventoryEntry["status"],
+    reasons: InventoryEntry["reasons"],
+  ): InventoryEntry => ({
+    name,
+    tool: source ? { name, source, version, commands: [name], details: {} } : null,
+    status,
+    reasons,
+    excluded: excluded.includes(name),
+  });
+  return {
+    taps: ["oven-sh/bun"],
+    entries: [
+      entry("ripgrep", "brew", "14.1.1", "used", [{ code: "history", uses: 212 }]),
+      entry("node", "mise", "22.12.0", "used", [{ code: "project", file: "package.json" }]),
+      entry("just", "brew", "1.40.0", "used", [
+        { code: "project", file: "justfile" },
+        { code: "history", uses: 96 },
+      ]),
+      entry("gh", "brew", "2.62.0", "used", [{ code: "home", file: ".config/gh" }]),
+      entry("bun", "brew", "1.3.2", "used", [{ code: "history", uses: 431 }]),
+      entry("@biomejs/biome", "npm", "2.6.6", "used", [{ code: "project", file: "biome.json" }]),
+      entry("ruff", "uv", "0.8.4", "unused", []),
+      entry("cowsay", "brew", "3.04", "unused", []),
+      entry("httpie", "pipx", "3.2.4", "unused", []),
+      entry("kubectl", null, "", "missing", [{ code: "home", file: ".kube" }]),
+      entry("terraform", null, "", "missing", [{ code: "project", file: "main.tf" }]),
+    ],
+  };
+}
+
 function module(m: ModuleState["module"], values: Omit<ModuleState, "module">): ModuleState {
   return { module: m, ...values };
 }
@@ -279,14 +458,21 @@ export function normalSnapshot(): AppSnapshot {
         {
           folder: "/Volumes/workspaces",
           available: true,
-          root: node(1, "workspaces", "/Volumes/workspaces", 212 * GB, { childCount: 42 }),
+          root: node(1, "workspaces", "/Volumes/workspaces", 212 * GB, {
+            childCount: 42,
+            // Octets par catégorie (ordre de `CATEGORIES`) : sources, .git, dépendances, builds, iOS, Python, caches.
+            breakdown: [184.6, 6.2, 3.05, 3.7, 3.2, 0.96, 10.29, 0].map((g) => Math.round(g * GB)),
+          }),
           errors: 0,
           duration: 41.2,
         },
         {
           folder: "/Users/demo/Documents",
           available: true,
-          root: node(2, "Documents", "/Users/demo/Documents", 38 * GB, { childCount: 18 }),
+          root: node(2, "Documents", "/Users/demo/Documents", 38 * GB, {
+            childCount: 18,
+            breakdown: [37.2, 0, 0, 0, 0, 0, 0, 0.8].map((g) => Math.round(g * GB)),
+          }),
           errors: 2,
           duration: 6.8,
         },
@@ -300,19 +486,9 @@ export function normalSnapshot(): AppSnapshot {
           category: "ios",
           nodeId: 102,
         },
+        ...sampleBigObjects(),
       ],
-      projects: [
-        {
-          path: "/Volumes/workspaces/cairn",
-          name: "cairn",
-          isGitRepo: true,
-          size: 6.1 * GB,
-          source: 0.4 * GB,
-          git: 0.18 * GB,
-          regenerable: 4.24 * GB,
-          worktrees: [],
-        },
-      ],
+      projects: sampleProjects(),
       regenerable,
       preselection: regenerable.slice(0, 4).map((n) => n.id),
       summary: {
@@ -329,7 +505,7 @@ export function normalSnapshot(): AppSnapshot {
     git: {
       running: false,
       progress: null,
-      reports: ["cairn", "website", "api"].map((n) => repoReport(n)),
+      reports: sampleRepos(),
       failed: {},
       options: {
         fetch: false,
@@ -373,6 +549,17 @@ export function normalSnapshot(): AppSnapshot {
           lastBackup: daysAgo(0, 21).getTime(),
           categories: ["conversations", "config"],
         },
+        {
+          id: "claude-desktop",
+          name: "Claude Desktop",
+          detected: false,
+          bytesByCategory: { conversations: 0, config: 0, memories: 0, credentials: 0 },
+          totalBytes: 0,
+          conversations: 0,
+          latestConversation: null,
+          lastBackup: null,
+          categories: [],
+        },
       ],
       credentialsBlock: null,
       error: null,
@@ -396,7 +583,7 @@ export function normalSnapshot(): AppSnapshot {
       message: null,
     },
     lock: { held: false, byOther: false, holder: null },
-    restore: { available: false, running: false, plan: null, error: null },
+    restore: { available: true, running: false, plan: null, progress: null, ok: null, error: null },
     background: { enabled: true, status: "enabled" },
     notificationsSupported: true,
     messages: [],

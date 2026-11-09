@@ -105,7 +105,8 @@ test("premier lancement : un CAIRN_HOME vide donne l'état « premier lancement 
   expect(snapshot.destinations).toEqual([]);
   expect(snapshot.backup.running).toBe(false);
   expect(snapshot.hub.modules.length).toBe(5);
-  expect(snapshot.restore.available).toBe(false);
+  expect(snapshot.restore.available).toBe(true);
+  expect(snapshot.restore.running).toBe(false);
   // Le premier état arrive aussi par l'abonnement.
   const pushed = await window.evaluate(
     () =>

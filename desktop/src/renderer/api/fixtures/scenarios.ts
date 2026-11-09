@@ -1,4 +1,5 @@
 // États scénarisés de l'API d'exemple, choisis par l'URL (`?scenario=<id>`). Chaque scénario part de l'état normal.
+import { t } from "../../../core/l10n.ts";
 import type { AppSnapshot } from "../../../shared/contract.ts";
 import { simulatedProgress } from "./backup-simulation.ts";
 import {
@@ -11,6 +12,7 @@ import {
   normalSnapshot,
   repoReport,
   runState,
+  sampleInventory,
 } from "./base.ts";
 
 export const SCENARIO_IDS = [
@@ -23,6 +25,9 @@ export const SCENARIO_IDS = [
   "git-many-repos",
   "update-available",
   "config-invalid",
+  "unencrypted-destination",
+  "restore",
+  "backup-new-image",
 ] as const;
 export type ScenarioId = (typeof SCENARIO_IDS)[number];
 
@@ -35,6 +40,8 @@ export interface Scenario {
   backupRunning?: boolean;
   /** Une analyse simulée tourne dès l'ouverture. */
   analysisRunning?: boolean;
+  /** Mac neuf : la restauration demande le mot de passe de l'image et trouve les versions de l'ancien Mac. */
+  newMac?: boolean;
 }
 
 function empty(): AppSnapshot {
@@ -359,6 +366,68 @@ function configInvalid(): AppSnapshot {
   };
 }
 
+/** Destination « disk » non chiffrée : identifiants IA ignorés même cochés ; inventaire des outils déjà chargé. */
+function unencryptedDestination(): AppSnapshot {
+  const s = normalSnapshot();
+  const base = fixtureConfig();
+  const destinations = base.destinations.map((d) => (d.id === "disk" ? { ...d, encrypted: false } : d));
+  const ai = base.ai.map((a) => (a.id === "codex" ? { ...a, categories: [...a.categories, "credentials"] } : a));
+  const config = { ...base, destinations, ai, excludedTools: ["cowsay"] };
+  return {
+    ...s,
+    config: { ...s.config, config },
+    destinations: destinations.map((d) => destinationView(d)),
+    ai: {
+      ...s.ai,
+      tools: s.ai.tools.map((tool) => ({
+        ...tool,
+        categories: ai.find((a) => a.id === tool.id)?.categories ?? [],
+      })),
+      credentialsBlock: t("ai.credentials.ignored"),
+    },
+    inventory: { status: "loaded", inventory: sampleInventory(config.excludedTools), error: null },
+  };
+}
+
+/** Mac neuf configuré avec le NAS de l'ancien Mac : rien encore sauvegardé d'ici, restauration à faire. */
+function restoreScenario(): AppSnapshot {
+  const s = normalSnapshot();
+  const base = fixtureConfig();
+  const config = { ...base, destinations: base.destinations.slice(0, 1) };
+  return {
+    ...s,
+    config: { ...s.config, config },
+    destinations: config.destinations.map((d) =>
+      destinationView(d, {
+        run: runState(),
+        nextBackup: null,
+        history: { status: "loaded", versions: [], error: null, loadedAt: FIXTURE_NOW.getTime() },
+        unavailable: {
+          simulate: null,
+          verify: "backup.unavailable.nothing_to_verify",
+          verifyFull: "backup.unavailable.nothing_to_verify",
+          backup: null,
+        },
+      }),
+    ),
+    backup: { ...s.backup, startedAt: null, finishedAt: null, log: null },
+    activity: [],
+    backupDays: [null, null, null, null, null, null, null],
+  };
+}
+
+/** Première sauvegarde vers une destination chiffrée neuve : le mot de passe de l'image est à noter, montré une fois. */
+function backupNewImage(): AppSnapshot {
+  const s = normalSnapshot();
+  return {
+    ...s,
+    backup: {
+      ...s.backup,
+      newImagePasswords: [{ destination: "disk", password: "kV7q-3mXa-PL9w-Z2rT-8hNc" }],
+    },
+  };
+}
+
 export const SCENARIOS: Readonly<Record<ScenarioId, Scenario>> = {
   empty: { id: "empty", description: "First launch: no config.toml, onboarding", build: empty },
   normal: { id: "normal", description: "Two destinations backed up yesterday, recent analysis", build: normalSnapshot },
@@ -394,6 +463,22 @@ export const SCENARIOS: Readonly<Record<ScenarioId, Scenario>> = {
     id: "config-invalid",
     description: "config.toml has an error: last valid configuration kept, schedule blocked",
     build: configInvalid,
+  },
+  "unencrypted-destination": {
+    id: "unencrypted-destination",
+    description: "One destination is not encrypted: AI credentials are left out; CLI inventory already listed",
+    build: unencryptedDestination,
+  },
+  restore: {
+    id: "restore",
+    description: "New Mac: restore from the NAS of the old Mac (image password asked, other architecture)",
+    build: restoreScenario,
+    newMac: true,
+  },
+  "backup-new-image": {
+    id: "backup-new-image",
+    description: "First backup to a new encrypted image: its password is shown once",
+    build: backupNewImage,
   },
 };
 

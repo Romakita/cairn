@@ -1,0 +1,154 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding-top: var(--space-3);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.lead {
+  margin: 0;
+  font: var(--text-body);
+  color: var(--color-text-secondary);
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-8);
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.label {
+  font: var(--text-caption);
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.hint {
+  font: var(--text-meta);
+  color: var(--color-text-secondary);
+}
+
+.inline {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.inline > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.trayLine {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+.mono {
+  font: var(--text-mono);
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.soft {
+  opacity: 0.85;
+}
+
+.cardTitle {
+  padding: var(--space-6) var(--space-7) 0;
+  font: var(--text-card-title);
+  color: var(--color-text);
+}
+
+.cardText {
+  margin: var(--space-1) 0 var(--space-3);
+  padding: 0 var(--space-7);
+  font: var(--text-caption);
+  color: var(--color-text-secondary);
+}
+
+.shares {
+  display: flex;
+  flex-direction: column;
+  padding: 0 var(--space-2) var(--space-2);
+}
+
+.target {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-6);
+  border-radius: var(--radius-panel);
+  background: var(--color-field);
+  color: var(--color-text-secondary);
+  min-width: 0;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+  font: var(--text-body);
+  color: var(--color-text-secondary);
+}
+
+.retention {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-7);
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex: 1;
+  min-width: 0;
+}
+
+.problem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+  font: var(--text-caption);
+  color: var(--tone-warning-fg);
+}

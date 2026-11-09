@@ -12,9 +12,12 @@ import {
   type MethodName,
   type NavigationRequest,
   type NodeView,
+  type RestorePlanView,
+  type Retention,
 } from "../../../shared/contract.ts";
 import { simulatedProgress, simulationFinished } from "./backup-simulation.ts";
-import { destinationView, FIXTURE_NOW, GB, node } from "./base.ts";
+import { destinationView, FIXTURE_NOW, GB, node, sampleInventory } from "./base.ts";
+import { fixturePlan, RESTORE_SECONDS, restoreProgressAt } from "./restore.ts";
 import { SCENARIOS, type ScenarioId } from "./scenarios.ts";
 
 export interface FixtureOptions {
@@ -51,6 +54,10 @@ export function createFixtureApi(options: FixtureOptions): FixtureApi {
   let backupTargets: string[] | null = null;
   let analysisStart: number | null = scenario.analysisRunning ? 0 : null;
   let gitStart: number | null = null;
+  let restoreStart: number | null = null;
+  let restorePlan: RestorePlanView | null = null;
+  const restorePlans = new Map<string, RestorePlanView>();
+  const retentionPlans = new Map<string, { destination: string; retention: Retention }>();
   const stopped = new Set<string>();
   const listeners = new Set<(s: AppSnapshot) => void>();
   const navigators = new Set<(n: NavigationRequest) => void>();
@@ -182,7 +189,28 @@ export function createFixtureApi(options: FixtureOptions): FixtureApi {
     };
   }
 
+  function stepRestore(): void {
+    if (restoreStart === null || !restorePlan) return;
+    const elapsed = clock - restoreStart;
+    const progress = restoreProgressAt(restorePlan, elapsed, t);
+    const finished = elapsed >= RESTORE_SECONDS;
+    if (finished) restoreStart = null;
+    state = {
+      ...state,
+      restore: {
+        ...state.restore,
+        running: !finished,
+        progress,
+        ok: finished ? progress.steps.every((x) => x.ok || x.manual !== undefined) : null,
+      },
+      lock: finished
+        ? { held: false, byOther: false, holder: null }
+        : { held: true, byOther: false, holder: "4242 restore" },
+    };
+  }
+
   function step(): void {
+    stepRestore();
     stepBackup();
     stepAnalysis();
     stepGit();
@@ -193,7 +221,7 @@ export function createFixtureApi(options: FixtureOptions): FixtureApi {
   const timer = options.frozen
     ? null
     : setInterval(() => {
-        if (backupStart === null && analysisStart === null && gitStart === null) return;
+        if (backupStart === null && analysisStart === null && gitStart === null && restoreStart === null) return;
         clock += tickMs / 1000;
         step();
         publish();
@@ -422,39 +450,15 @@ export function createFixtureApi(options: FixtureOptions): FixtureApi {
 
     async toolsRefresh() {
       record("toolsRefresh");
-      update((s) => ({
-        ...s,
-        inventory: {
-          status: "loaded",
-          error: null,
-          inventory: {
-            taps: [],
-            entries: [
-              {
-                name: "ripgrep",
-                tool: { name: "ripgrep", source: "brew", version: "14.1.1", commands: ["rg"], details: {} },
-                status: "used",
-                reasons: [{ code: "history", uses: 212 }],
-                excluded: false,
-              },
-              {
-                name: "node",
-                tool: { name: "node", source: "mise", version: "22.12.0", commands: ["node", "npm"], details: {} },
-                status: "used",
-                reasons: [{ code: "project", file: "package.json" }],
-                excluded: false,
-              },
-              {
-                name: "cowsay",
-                tool: { name: "cowsay", source: "brew", version: "3.04", commands: ["cowsay"], details: {} },
-                status: "unused",
-                reasons: [],
-                excluded: true,
-              },
-            ],
-          },
-        },
-      }));
+      // Recensement simulé : « en cours » un instant (figé avec `frozen`, pour les captures), puis chargé.
+      update((s) => ({ ...s, inventory: { ...s.inventory, status: "loading", error: null } }));
+      if (options.frozen) return;
+      setTimeout(() => {
+        update((s) => ({
+          ...s,
+          inventory: { status: "loaded", error: null, inventory: sampleInventory(s.config.config.excludedTools) },
+        }));
+      }, 300);
     },
     async toolsExport() {
       record("toolsExport");
@@ -471,7 +475,30 @@ export function createFixtureApi(options: FixtureOptions): FixtureApi {
     async saveConfig(args) {
       record("saveConfig", args);
       if (state.config.hasErrors) throw new CairnApiError("invalidConfig", state.config.issues[0]?.description ?? "");
-      update((s) => ({ ...s, config: { ...s.config, config: applyPatches(s.config.config, args.patches) } }));
+      update((s) => {
+        const config = applyPatches(s.config.config, args.patches);
+        // Vues dérivées de la configuration, comme dans le main : catégories IA cochées, outils exclus.
+        const ai = {
+          ...s.ai,
+          tools: s.ai.tools.map((tool) => ({
+            ...tool,
+            categories: config.ai.find((a) => a.id === tool.id)?.categories ?? [],
+          })),
+        };
+        const inventory = s.inventory.inventory
+          ? {
+              ...s.inventory,
+              inventory: {
+                ...s.inventory.inventory,
+                entries: s.inventory.inventory.entries.map((e) => ({
+                  ...e,
+                  excluded: config.excludedTools.includes(e.name),
+                })),
+              },
+            }
+          : s.inventory;
+        return { ...s, config: { ...s.config, config }, ai, inventory };
+      });
     },
     async homeChoices() {
       record("homeChoices");
@@ -637,25 +664,71 @@ export function createFixtureApi(options: FixtureOptions): FixtureApi {
     },
     async planRetention(args) {
       record("planRetention", args);
+      const planId = `retention-${args.destination}-${calls.length}`;
+      retentionPlans.set(planId, { destination: args.destination, retention: args.retention });
+      // Rétention plus courte (nombre de versions inférieur à celles de l'historique) : versions à supprimer.
+      const d = state.destinations.find((x) => x.id === args.destination);
+      const kept = args.retention.mode === "count" ? args.retention.count : args.retention.days + args.retention.weeks;
+      const names = (d?.history.versions ?? []).slice(kept).map((v) => v.name);
+      const shorter =
+        args.retention.mode === "count" && d?.config.retention.mode === "count"
+          ? args.retention.count < d.config.retention.count
+          : names.length > 0;
       return {
-        planId: `retention-${args.destination}`,
+        planId,
         destination: args.destination,
-        decision: "confirm",
-        excess: { names: ["2026-09-01T123000", "2026-09-08T123000"], bytes: 3.4 * GB },
+        decision: shorter ? "confirm" : "apply",
+        excess: shorter
+          ? { names: names.length > 0 ? names : ["2026-09-01T123000", "2026-09-08T123000"], bytes: 3.4 * GB }
+          : { names: [], bytes: 0 },
       };
     },
     async applyRetention(args) {
       record("applyRetention", args);
+      const plan = retentionPlans.get(args.planId);
+      if (!plan) throw new CairnApiError("notFound", "unknown or expired retention plan");
+      retentionPlans.delete(args.planId);
+      const setRetention = <T extends { id: string; retention: unknown }>(d: T): T =>
+        d.id === plan.destination ? { ...d, retention: plan.retention } : d;
+      update((s) => ({
+        ...s,
+        config: {
+          ...s.config,
+          config: { ...s.config.config, destinations: s.config.config.destinations.map(setRetention) },
+        },
+        destinations: s.destinations.map((d) =>
+          d.id === plan.destination ? { ...d, config: setRetention(d.config) } : d,
+        ),
+      }));
       return { cancelled: false, value: { deleted: ["2026-09-01T123000", "2026-09-08T123000"], failed: [] } };
     },
 
     async planRestore(args) {
-      record("planRestore", args);
-      throw new CairnApiError("notImplemented", "restore is not available yet");
+      record("planRestore", {
+        ...args,
+        imagePassword: args.imagePassword ? "•••" : undefined,
+        sharePassword: args.sharePassword ? "•••" : undefined,
+      });
+      const source = args.source;
+      if (source.kind === "destination" && !state.destinations.some((d) => d.id === source.destination))
+        throw new CairnApiError("notFound", t("cli.backup.no_destination"));
+      const plan = fixturePlan(state, args, scenario.newMac === true, t, `restore-${calls.length}`);
+      if (plan.simulated) restorePlans.set(plan.planId, plan);
+      update((s) => ({ ...s, restore: { ...s.restore, plan } }));
+      return plan;
     },
     async applyRestore(args) {
       record("applyRestore", args);
-      throw new CairnApiError("notImplemented", "restore is not available yet");
+      const plan = restorePlans.get(args.planId);
+      if (!plan) throw new CairnApiError("notFound", "unknown restore plan");
+      if (state.restore.running || state.backup.running) throw new CairnApiError("busy", t("cli.busy"));
+      restorePlan = plan;
+      restoreStart = clock;
+      restorePlans.clear();
+      state = { ...state, restore: { ...state.restore, running: true, ok: null, error: null, progress: null } };
+      step();
+      publish();
+      return { cancelled: false };
     },
 
     async checkUpdates() {

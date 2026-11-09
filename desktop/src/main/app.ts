@@ -43,6 +43,7 @@ import { allowedExternalURL, createMainWindow, distDir, preloadPath } from "./in
 import { type Handlers, registerHandlers } from "./ipc.ts";
 import { type NotificationAction, Notifier } from "./notifications.ts";
 import { SnapshotPublisher } from "./publisher.ts";
+import { RestoreController } from "./restore.ts";
 import { Scheduler } from "./scheduler.ts";
 import { ToolsService } from "./tools.ts";
 import { MenuBar, trayState } from "./tray.ts";
@@ -74,6 +75,7 @@ export class CairnApp implements Host {
   readonly git = new GitService(this);
   readonly tools = new ToolsService(this);
   readonly destinations = new DestinationsService(this);
+  readonly restore = new RestoreController(this);
   readonly updates = new UpdateController(this, () => app.quit());
   private menuBar: MenuBar | null = null;
   private mainWindow: BrowserWindow | null = null;
@@ -217,7 +219,7 @@ export class CairnApp implements Host {
     this.configs.stop();
     this.analysis.cancel();
     this.git.cancel();
-    await Promise.allSettled([this.backup.shutdown(), this.destinations.closeProbe()]);
+    await Promise.allSettled([this.backup.shutdown(), this.destinations.closeProbe(), this.restore.close()]);
     this.publisher.stop();
     this.unregister?.();
     this.menuBar?.destroy();
@@ -376,7 +378,7 @@ export class CairnApp implements Host {
   }
 
   private restoreView(): RestoreView {
-    return { available: false, running: false, plan: null, error: null };
+    return this.restore.view();
   }
 
   snapshot(): AppSnapshot {
@@ -610,12 +612,8 @@ export class CairnApp implements Host {
       planRetention: (args) => this.destinations.planRetention(args.destination, args.retention),
       applyRetention: (args) => this.destinations.applyRetention(args.planId),
 
-      planRestore: () => {
-        throw new ApiError("notImplemented", "restore is not available yet");
-      },
-      applyRestore: () => {
-        throw new ApiError("notImplemented", "restore is not available yet");
-      },
+      planRestore: (args) => this.restore.plan(args),
+      applyRestore: (args) => this.restore.apply(args.planId),
 
       checkUpdates: () => this.updates.check(true),
       installUpdate: () => this.updates.install(),
