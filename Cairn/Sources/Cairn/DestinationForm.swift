@@ -31,6 +31,11 @@ final class DestinationFormModel: ObservableObject {
     @Published private(set) var listing: Result<[FolderEntry], ProbeFailure> = .success([])
     @Published private(set) var browserImages: [ExistingImage] = []
     @Published private(set) var connected = false
+    /// Dossiers partagés du serveur, quand l'adresse ne nomme que l'hôte (`smb://syno`) : à choisir avant le montage.
+    @Published private(set) var shares: [String]?
+
+    /// Dossier créé dans le dossier partagé choisi pour y ranger les sauvegardes.
+    static let shareFolder = "cairn"
 
     /// Destination modifiée (`nil` à l'ajout) : type et chiffrement figés, mot de passe vide = celui du Trousseau.
     private(set) var editing: CairnConfig.Destination?
@@ -184,8 +189,52 @@ final class DestinationFormModel: ObservableObject {
         }
     }
 
-    /// Connexion au partage (sonde TCP, montage), ouverture du navigateur puis vérification du dossier.
+    /// Connexion : liste des dossiers partagés si l'adresse ne nomme que l'hôte, sinon montage du partage.
     func connect() {
+        if DestinationProbe.smbParts(smbAddress) == nil, let host = DestinationProbe.smbHost(smbAddress) {
+            listShares(host: host)
+        } else {
+            mount(createFolder: nil)
+        }
+    }
+
+    /// Dossier partagé choisi : montage, puis création (ou reprise) du dossier `cairn` où seront les sauvegardes.
+    func chooseShare(_ share: String) {
+        guard let host = DestinationProbe.smbHost(smbAddress) else { return }
+        smbAddress = DestinationProbe.smbAddress(host: host, share: share, subpath: [])
+        mount(createFolder: Self.shareFolder)
+    }
+
+    /// Dossier des sauvegardes à la racine du partage : repris s'il existe, créé sinon (`nil` si impossible).
+    nonisolated private static func shareFolder(named name: String, in root: URL) -> URL? {
+        let folder = root.appendingPathComponent(name)
+        if FileManager.default.fileExists(atPath: folder.path) { return folder }
+        if case let .success(created) = DestinationProbe.createFolder(named: name, in: root) { return created }
+        return nil
+    }
+
+    /// Liste les dossiers partagés du serveur (sans fenêtre du système).
+    private func listShares(host: String) {
+        disconnect()
+        generation += 1
+        let gen = generation
+        status = .checking
+        let (user, pw) = (smbUser, password)
+        Task.detached(priority: .userInitiated) {
+            let result = DestinationProbe.listShares(host: host, username: user, password: pw)
+            await MainActor.run {
+                guard gen == self.generation else { return }
+                switch result {
+                case let .failure(f): self.status = .failed(f)
+                case let .success(list): self.shares = list; self.status = .unverified
+                }
+            }
+        }
+    }
+
+    /// Montage du partage (sonde TCP, montage), ouverture du navigateur puis vérification du dossier.
+    /// `createFolder` : dossier à créer à la racine du partage s'il n'existe pas, puis à ouvrir.
+    private func mount(createFolder: String?) {
         disconnect()
         generation += 1
         let gen = generation
@@ -195,7 +244,8 @@ final class DestinationFormModel: ObservableObject {
         Task.detached(priority: .userInitiated) {
             let result = s.connect(address: address, username: user, password: pw)
             let sub = DestinationProbe.smbParts(address)?.subpath ?? []
-            let start = s.folder(sub).flatMap { FileManager.default.fileExists(atPath: $0.path) ? $0 : nil } ?? s.mountRoot
+            let existing = s.folder(sub).flatMap { FileManager.default.fileExists(atPath: $0.path) ? $0 : nil } ?? s.mountRoot
+            let start = createFolder.flatMap { name in s.mountRoot.flatMap { Self.shareFolder(named: name, in: $0) } } ?? existing
             await MainActor.run {
                 guard gen == self.generation else { s.close(); return } // annulée ou remplacée
                 switch result {
@@ -255,6 +305,7 @@ final class DestinationFormModel: ObservableObject {
 
     private func disconnect() {
         invalidate()
+        shares = nil
         guard connected else { return }
         session.close()
         connected = false
@@ -343,6 +394,8 @@ struct DestinationForm: View {
             }
             if form.kind == .local || form.connected {
                 FolderBrowser(form: form).transition(.opacity)
+            } else if form.kind == .smb, let shares = form.shares {
+                SharePicker(shares: shares) { form.chooseShare($0) }.transition(.opacity)
             }
             if form.kind != .later {
                 VerificationStatus(form: form, onRestore: onRestore)
@@ -351,6 +404,7 @@ struct DestinationForm: View {
         }
         .animation(.easeOut(duration: 0.15), value: form.status)
         .animation(.easeOut(duration: 0.15), value: form.connected)
+        .animation(.easeOut(duration: 0.15), value: form.shares)
         .confirmationDialog(T("onboarding.destination.disable_encryption.title"), isPresented: $confirmUnencrypted,
                             titleVisibility: .visible) {
             Button(T("onboarding.destination.disable_encryption.confirm"), role: .destructive) { form.encrypted = false }
@@ -392,7 +446,7 @@ struct DestinationForm: View {
         Card(padding: 0) {
             VStack(spacing: 0) {
                 SettingsRow(title: T("onboarding.destination.url_label"), subtitle: T("probe.smb.url_hint")) {
-                    TextField("", text: $form.smbAddress, prompt: Text(verbatim: "smb://nas.local/backups"))
+                    TextField("", text: $form.smbAddress, prompt: Text(verbatim: "smb://nas.local"))
                         .cairnField().frame(width: 300).onSubmit { form.connect() }
                 }
                 RowDivider()
@@ -410,7 +464,7 @@ struct DestinationForm: View {
                         Label(form.connected ? T("probe.smb.reconnect") : T("probe.smb.connect"), systemImage: "network")
                     }
                     .buttonStyle(.pillPrimary)
-                    .disabled(DestinationProbe.smbParts(form.smbAddress) == nil || form.status == .checking)
+                    .disabled(DestinationProbe.smbHost(form.smbAddress) == nil || form.status == .checking)
                     if form.connected {
                         Text(verbatim: form.finalSMBAddress).font(.system(size: 12.5, design: .monospaced))
                             .foregroundStyle(Palette.secondary).lineLimit(1).truncationMode(.middle)
@@ -565,21 +619,51 @@ private struct Crumb: View {
     }
 }
 
+/// Dossiers partagés du serveur (adresse `smb://hôte`) : un clic monte le partage et y crée le dossier `cairn`.
+private struct SharePicker: View {
+    let shares: [String]
+    let choose: (String) -> Void
+
+    var body: some View {
+        Card(padding: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(T("probe.smb.shares_title")).font(.system(size: 13, weight: .medium)).foregroundStyle(Palette.text)
+                    .padding(.horizontal, 16).padding(.vertical, 10)
+                RowDivider()
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(shares, id: \.self) { name in
+                            FolderRow(name: name, icon: "externaldrive.connected.to.line.below") { choose(name) }
+                        }
+                    }
+                }
+                .frame(height: CGFloat(min(shares.count, 5)) * FolderBrowser.rowHeight)
+            }
+        }
+    }
+}
+
 private struct FolderRow: View {
-    let entry: FolderEntry
-    let isRoot: Bool
+    let name: String
+    let icon: String
     let action: () -> Void
     @ViewState private var hover = false
 
-    var icon: String {
-        guard isRoot else { return "folder" }
-        return entry.url.path.hasPrefix("/Volumes/") ? "externaldrive" : "house"
+    init(name: String, icon: String, action: @escaping () -> Void) {
+        self.name = name
+        self.icon = icon
+        self.action = action
+    }
+
+    init(entry: FolderEntry, isRoot: Bool, action: @escaping () -> Void) {
+        let icon = !isRoot ? "folder" : entry.url.path.hasPrefix("/Volumes/") ? "externaldrive" : "house"
+        self.init(name: entry.name, icon: icon, action: action)
     }
 
     var body: some View {
         HStack(spacing: 12) {
             IconTile(systemName: icon, size: 28)
-            Text(entry.name).font(.system(size: 13.5)).foregroundStyle(Palette.text).lineLimit(1).truncationMode(.middle)
+            Text(name).font(.system(size: 13.5)).foregroundStyle(Palette.text).lineLimit(1).truncationMode(.middle)
             Spacer(minLength: 8)
             Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold)).foregroundStyle(Palette.secondary)
         }
@@ -647,7 +731,7 @@ struct VerificationStatus: View {
 
     var unverifiedHint: String {
         switch form.kind {
-        case .smb: T(form.connected ? "probe.status.pick_folder" : "probe.status.connect_first")
+        case .smb: T(form.connected ? "probe.status.pick_folder" : form.shares != nil ? "probe.status.pick_share" : "probe.status.connect_first")
         default: T("probe.status.pick_folder")
         }
     }

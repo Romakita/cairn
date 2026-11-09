@@ -45,6 +45,16 @@ let backupTests: [TestCase] = [
             try expect(growth < 64 << 20, "mémoire +\(growth >> 20) Mo pour hacher 512 Mo")
         }
     },
+    TestCase("image_locked_by_stuck_helper_is_explained") {
+        let path = "/Volumes/home/cairn/cairn-mac.sparsebundle"
+        let busy = SparseImage.attachFailure(output: "hdiutil: attach failed - Resource temporarily unavailable", path: path)
+        if case .imageBusy(path) = busy {} else { try expect(false, "EAGAIN attendu : \(busy)") }
+        try expect(busy.description.contains("cairn-mac.sparsebundle"), "nom de l'image dans le message")
+        let busyFR = SparseImage.attachFailure(output: "hdiutil: attach failed - Ressources temporairement indisponibles", path: path)
+        if case .imageBusy = busyFR {} else { try expect(false, "message français : \(busyFR)") }
+        let other = SparseImage.attachFailure(output: "hdiutil: attach failed - Authentication error\n", path: path)
+        if case .image("hdiutil: attach failed - Authentication error") = other {} else { try expect(false, "\(other)") }
+    },
     TestCase("exclusions_follow_gitignore_and_markers") {
         try withTempDir { dir in
             let repo = dir.appendingPathComponent("repo")
@@ -105,6 +115,112 @@ let backupTests: [TestCase] = [
             try expect(used < 2_600_000, "la 2e version doit être liée : \(used) octets")
             let manifest = try JSONSerialization.jsonObject(with: Data(contentsOf: versions.appendingPathComponent("latest/manifest.json"))) as? [String: Any]
             try expectEqual(manifest?["machine"] as? String, "m")
+        }
+    },
+    TestCase("progress_reaches_the_expected_total") {
+        try withTempDir { dir in
+            let src = dir.appendingPathComponent("src"), dest = dir.appendingPathComponent("dest")
+            for i in 0..<30 { try writeFile(src.appendingPathComponent("d\(i % 3)/f\(i).bin"), size: 1_000) }
+            let part = BackupPart(kind: .folder, target: "folders/src", source: src.path)
+            final class Seen: @unchecked Sendable { var all: [BackupProgress] = [] }
+            let first = Seen()
+            let v1 = try BackupEngine().run(parts: [part], root: dest, retention: .recommended, dryRun: false, machine: "m",
+                                            now: date("2026-11-01T120000")) { first.all.append($0) }
+            // Première sauvegarde : comptage pendant la copie ; 30 fichiers examinés, retenus pour la suivante.
+            try expectEqual(first.all.last?.processed, 30)
+            try expectEqual(v1.filesByPart["folders/src"], 30)
+            try expect(first.all.compactMap(\.fraction).allSatisfy { $0 <= 0.99 }, "plafonné à 99 %")
+            // Suivante : le décompte précédent sert d'estimation, sans comptage ; les fichiers liés comptent aussi.
+            let next = Seen()
+            let v2 = try BackupEngine().run(parts: [part], root: dest, retention: .recommended, dryRun: false, machine: "m",
+                                            now: date("2026-11-02T120000"), expectedFiles: v1.filesByPart) { next.all.append($0) }
+            try expect(!next.all.contains { $0.counting }, "pas de comptage")
+            try expect(next.all.allSatisfy { $0.expected == 30 }, "total connu d'emblée")
+            try expectEqual(next.all.last?.processed, 30)
+            try expectEqual(v2.filesTransferred, 0)
+        }
+    },
+    TestCase("parallel_count_matches_a_single_rsync") {
+        try withTempDir { dir in
+            let src = dir.appendingPathComponent("src")
+            for i in 0..<40 { try writeFile(src.appendingPathComponent("p\(i % 7)/sub/f\(i).txt"), size: 10) }
+            for i in 0..<5 { try writeFile(src.appendingPathComponent("p\(i)/node_modules/x\(i).js"), size: 10) }
+            try writeFile(src.appendingPathComponent("top.txt"), size: 10)
+            try writeFile(src.appendingPathComponent(".hidden"), size: 10)
+            let part = BackupPart(kind: .folder, target: "folders/src", source: src.path, excludes: ["node_modules/"])
+            let e = BackupEngine()
+            // Pile : p0…p6 puis les fichiers du premier niveau, partagés entre 4 workers.
+            try expectEqual(BackupEngine.copyChunks(part).count, 8)
+            final class Workers: @unchecked Sendable { var seen = Set<String>(); var finished = Set<Int>(); let lock = NSLock() }
+            let workers = Workers()
+            final class Sum: @unchecked Sendable { var n = 0; let lock = NSLock() }
+            let streamed = Sum()
+            let parallel = try e.countFiles(part, workers: 4, worker: { i, w in
+                workers.lock.withLock {
+                    if !w.folder.isEmpty { workers.seen.insert(w.folder) }
+                    if w.done { workers.finished.insert(i) }
+                }
+            }) { d in streamed.lock.withLock { streamed.n += d } }
+            // Chaque dossier pris une fois dans la pile, les 4 workers terminent.
+            try expectEqual(workers.seen, Set((0..<7).map { "p\($0)" }))
+            try expectEqual(workers.finished, [0, 1, 2, 3])
+            let single = try e.countFiles(part, workers: 1)
+            // 40 fichiers + top.txt + .hidden ; node_modules exclu dans chaque compteur.
+            try expectEqual(single, 42)
+            try expectEqual(parallel, 42)
+            try expectEqual(streamed.n, 42)
+        }
+    },
+    TestCase("operation_lock_is_seen_from_outside") {
+        try withTempDir { dir in
+            let url = dir.appendingPathComponent("op.lock")
+            try expect(!OperationLock.isHeld(at: url), "pas de fichier, pas de verrou")
+            let lock = OperationLock(url: url)
+            try lock.acquire(operation: "backup")
+            try expect(OperationLock.isHeld(at: url), "sauvegarde en cours")
+            lock.release()
+            try expect(!OperationLock.isHeld(at: url), "verrou rendu")
+        }
+    },
+    TestCase("rsync_errors_are_kept_in_the_warning") {
+        try withTempDir { dir in
+            let src = dir.appendingPathComponent("src"), dest = dir.appendingPathComponent("dest")
+            try writeFile(src.appendingPathComponent("ok.bin"), size: 10)
+            let locked = src.appendingPathComponent("locked.bin")
+            try writeFile(locked, size: 10)
+            try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: locked.path)
+            defer { try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: locked.path) }
+            let r = try BackupEngine().run(parts: [BackupPart(kind: .folder, target: "folders/src", source: src.path)],
+                                           root: dest, retention: .recommended, dryRun: false, machine: "m")
+            // Fichier illisible : code 23 (avertissement), avec la ligne d'erreur de rsync qui nomme le fichier.
+            try expect(r.warnings.contains { $0.contains("locked.bin") && $0.contains("Permission denied") }, "\(r.warnings)")
+        }
+    },
+    TestCase("folder_is_copied_one_top_level_entry_at_a_time") {
+        try withTempDir { dir in
+            let src = dir.appendingPathComponent("src"), dest = dir.appendingPathComponent("dest")
+            for name in ["alpha", "beta", "gamma"] {
+                try writeFile(src.appendingPathComponent("\(name)/a.txt"), size: 10)
+                try writeFile(src.appendingPathComponent("\(name)/node_modules/x.js"), size: 10)
+            }
+            try writeFile(src.appendingPathComponent("top.txt"), size: 10)
+            let part = BackupPart(kind: .folder, target: "folders/src", source: src.path, excludes: ["node_modules/"])
+            // Trois dossiers puis les fichiers du premier niveau.
+            try expectEqual(BackupEngine.copyChunks(part).map(\.label), ["alpha", "beta", "gamma", nil])
+            final class Seen: @unchecked Sendable { var listing: [String] = [] }
+            let seen = Seen()
+            let v1 = try BackupEngine().run(parts: [part], root: dest, retention: .recommended, dryRun: false, machine: "m",
+                                            now: date("2026-11-01T120000")) { if let l = $0.listing { seen.listing.append(l) } }
+            try expectEqual(v1.filesTransferred, 4)
+            try expect(Set(seen.listing).isSuperset(of: ["alpha", "beta", "gamma"]), "dossier en cours annoncé")
+            let latest = BackupEngine.versionsDir(root: dest, machine: "m").appendingPathComponent("latest/folders/src")
+            let fm = FileManager.default
+            // Chaque morceau garde les autres (pas de --delete-excluded) et les exclusions s'appliquent partout.
+            for name in ["alpha", "beta", "gamma"] {
+                try expect(fm.fileExists(atPath: latest.appendingPathComponent("\(name)/a.txt").path), name)
+                try expect(!fm.fileExists(atPath: latest.appendingPathComponent("\(name)/node_modules").path), "exclu : \(name)")
+            }
+            try expect(fm.fileExists(atPath: latest.appendingPathComponent("top.txt").path), "fichier du premier niveau")
         }
     },
     TestCase("dry_run_writes_nothing") {

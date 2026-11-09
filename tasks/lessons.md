@@ -64,3 +64,16 @@ Une entrée après chaque correction de l'utilisateur. À relire au début de ch
 - Règle : pousser avec `rtk proxy git push --set-upstream origin <branche>` (jamais `-u`), et créer une branche de
   correctif avec `--no-track` (`git worktree add --no-track -b <branche> <dossier> origin/main`) pour qu'un push nu
   ne vise jamais `main`. Vérifier `git ls-remote origin main <branche>` juste après.
+
+## 2026-11-08 — Deux rendus de groupe de boutons, menus déroulants
+- Erreur : onglets de page (Explorateur / Nettoyable…) rendus avec `TabBar` (texte gris, pilule grise), alors que
+  Codex a deux rendus : la bascule « Chat / Work » pour les onglets d'une page, le groupe sans conteneur dans une
+  carte ou un tableau (fréquence, rétention). Menus « … » et listes déroulantes laissés au menu natif de macOS.
+- Règle : onglets d'une page → `PillPicker` ; choix dans une carte ou un tableau → `TabBar`. Tout menu passe par
+  `PopupMenuButton` (panneau blanc arrondi, icône + texte, séparateurs, destructif en rouge) ; aucun `Menu` natif,
+  aucun `.bordered` / `.borderedProminent` (boutons `.pill*`).
+
+## 2026-11-08 — Adresse SMB sans partage
+- Erreur : `smb://syno` refusé (« n'est pas une adresse de partage ») alors que l'utilisateur ne connaît que l'hôte.
+- Règle : une adresse réduite à l'hôte liste les dossiers partagés (`smbutil view`, mot de passe sur l'entrée
+  standard) ; le partage choisi reçoit un dossier `cairn` pour les sauvegardes.

@@ -208,6 +208,64 @@ public enum DestinationProbe {
         return "smb://\(host)/" + ([share] + subpath).map(enc).joined(separator: "/")
     }
 
+    /// Hôte d'une adresse `smb://hôte` ou `smb://hôte/partage/…` (le partage est facultatif).
+    public static func smbHost(_ address: String) -> String? {
+        guard address.lowercased().hasPrefix("smb://"), let host = URL(string: address)?.host, !host.isEmpty else { return nil }
+        return host
+    }
+
+    /// Partages disque d'une sortie de `smbutil view` : colonne « Share » (noms avec espaces compris), type `Disk`,
+    /// sans les partages administratifs (`…$`). Triés par nom.
+    public static func parseShares(_ output: String) -> [String] {
+        let lines = output.components(separatedBy: .newlines)
+        guard let header = lines.firstIndex(where: { $0.hasPrefix("Share") && $0.contains("Type") }),
+              let typeColumn = lines[header].range(of: "Type")?.lowerBound.utf16Offset(in: lines[header]) else { return [] }
+        return lines.dropFirst(header + 1).compactMap { line -> String? in
+            let u = Array(line.utf16)
+            guard u.count > typeColumn else { return nil }
+            let name = String(decoding: u[..<typeColumn], as: UTF16.self).trimmingCharacters(in: .whitespaces)
+            let type = String(decoding: u[typeColumn...], as: UTF16.self).split(separator: " ").first.map(String.init)
+            guard type == "Disk", !name.isEmpty, !name.hasSuffix("$") else { return nil }
+            return name
+        }
+        .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+    }
+
+    /// Partages d'un serveur SMB (`smbutil view`), sans aucune fenêtre du système. Le mot de passe (saisi, sinon
+    /// celui du Trousseau) passe par l'entrée standard, jamais par la ligne de commande.
+    public static func listShares(host: String, username: String, password: String?) -> Result<[String], ProbeFailure> {
+        guard Reachability.tcp(host: host, port: 445, timeout: 3) else { return .failure(.unreachable(host)) }
+        let user = username.isEmpty ? NSUserName() : username
+        let pw = password.flatMap { $0.isEmpty ? nil : $0 } ?? Keychain.internetPassword(server: host, account: user)
+        let enc: (String) -> String = { $0.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-._~"))) ?? $0 }
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/smbutil")
+        // -f : session à part, pour que le mot de passe soit vraiment contrôlé ; -N : ne rien demander sans mot de passe.
+        p.arguments = ["view", "-f"] + (pw == nil ? ["-N"] : []) + ["//\(enc(user))@\(host)"]
+        let out = Pipe(), err = Pipe(), input = Pipe()
+        p.standardOutput = out
+        p.standardError = err
+        p.standardInput = input
+        do { try p.run() } catch { return .failure(.unreachable(host)) }
+        let writer = input.fileHandleForWriting
+        DispatchQueue.global(qos: .userInitiated).async {
+            if let pw { writer.write(Data((pw + "\n").utf8)) }
+            try? writer.close()
+        }
+        let data = out.fileHandleForReading.readDataToEndOfFile()
+        let errData = err.fileHandleForReading.readDataToEndOfFile()
+        p.waitUntilExit()
+        guard p.terminationStatus == 0 else {
+            let message = String(decoding: errData, as: UTF8.self).lowercased()
+            if message.contains("authentication") || message.contains("password") {
+                return .failure(pw == nil ? .passwordRequired : .authenticationFailed)
+            }
+            return .failure(.unreachable(host))
+        }
+        let shares = parseShares(String(decoding: data, as: UTF8.self))
+        return shares.isEmpty ? .failure(.notFound("smb://\(host)")) : .success(shares)
+    }
+
     /// Cause lisible d'un code renvoyé par `NetFSMountURLSync`.
     public static func failure(forMountStatus status: Int32, share: String) -> ProbeFailure {
         switch status {

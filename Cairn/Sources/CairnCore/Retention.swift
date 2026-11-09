@@ -72,6 +72,8 @@ public struct RunState: Codable, Equatable, Sendable {
         public var lastImageCheckOK: Bool?
         public var lastBytesTransferred: Int64 = 0
         public var lastDuration: Double = 0
+        /// Fichiers par partie lors de la dernière sauvegarde : total attendu de la barre de progression.
+        public var fileCounts: [String: Int]?
         /// Journaux des versions encore présentes sur la destination (épargnés par la purge des journaux).
         public var keptLogs: [String]?
         public init() {}

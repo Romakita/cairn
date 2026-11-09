@@ -36,10 +36,12 @@ public enum BackupExclusions {
     }
 
     /// Dossiers génériques générés trouvés dans `root`, en chemins ancrés pour rsync (`/a/b/build/`).
-    public static func detectGenerated(in root: String) -> [String] {
+    /// `visiting` reçoit chaque dossier parcouru (relatif à `root`), pour afficher l'avancement.
+    public static func detectGenerated(in root: String, visiting: (String) -> Void = { _ in }) -> [String] {
         var found: [String] = []
         let fm = FileManager.default
         func walk(_ dir: String, inRepo: Bool) {
+            visiting(dir == root ? "" : String(dir.dropFirst(root.count + 1)))
             guard let items = try? fm.contentsOfDirectory(atPath: dir) else { return }
             let repoHere = inRepo || items.contains(".git")
             for item in items.sorted() {
@@ -62,8 +64,9 @@ public enum BackupExclusions {
     }
 
     /// Liste complète pour un dossier suivi : statique, générée, motifs de l'utilisateur, destination incluse dans la source.
-    public static func forFolder(_ root: String, userPatterns: [String], destinations: [String]) -> [String] {
-        var list = staticPatterns + detectGenerated(in: root) + userPatterns
+    public static func forFolder(_ root: String, userPatterns: [String], destinations: [String],
+                                 visiting: (String) -> Void = { _ in }) -> [String] {
+        var list = staticPatterns + detectGenerated(in: root, visiting: visiting) + userPatterns
         for d in destinations where d.hasPrefix(root + "/") { list.append("/" + String(d.dropFirst(root.count + 1)) + "/") }
         return list
     }

@@ -26,17 +26,68 @@ public struct BackupPart: Sendable {
     }
 }
 
+/// Un compteur parallèle : fichiers trouvés, dernier chemin vu, terminé ou non.
+public struct CountWorker: Sendable, Equatable {
+    public var found = 0
+    public var current = ""
+    /// Dossier du premier niveau pris dans la pile.
+    public var folder = ""
+    public var done = false
+    public init(found: Int = 0, current: String = "", folder: String = "", done: Bool = false) {
+        self.found = found; self.current = current; self.folder = folder; self.done = done
+    }
+}
+
 public struct BackupProgress: Sendable {
+    /// Compteurs parallèles (vide une fois le total connu ou sans comptage).
+    public var workers: [CountWorker] = []
     public var part: String
+    /// Fichiers copiés (nouveaux ou modifiés).
     public var files: Int
     public var bytes: Int64
+    /// Dernier fichier traité (chemin relatif à la partie).
     public var current: String
+    /// Fichiers examinés (copiés ou repris de la version précédente), toutes parties confondues.
+    public var processed: Int = 0
+    /// Fichiers attendus : décompte de la sauvegarde précédente, sinon comptés avant de commencer.
+    public var expected: Int?
+    /// Comptage des fichiers encore en cours (il tourne en même temps que la copie) ; `found` : trouvés jusqu'ici.
+    public var counting = false
+    public var found = 0
+    /// Étape de préparation en cours (inventaire, connexion, ouverture de l'image), avant le comptage.
+    public var preparing: String?
+    /// Dossier dont rsync dresse la liste (aucun fichier encore traité pour lui), et depuis quand.
+    public var listing: String?
+    public var listingSince: Date?
+    /// Dossier du premier niveau en cours de copie : rang (à partir de 1) et nombre de dossiers de la partie.
+    public var chunk: Int?
+    public var chunks: Int?
+
+    public init(part: String, files: Int, bytes: Int64, current: String, processed: Int = 0, expected: Int? = nil,
+                counting: Bool = false, found: Int = 0, preparing: String? = nil) {
+        self.part = part; self.files = files; self.bytes = bytes; self.current = current
+        self.processed = processed; self.expected = expected; self.counting = counting; self.found = found
+        self.preparing = preparing
+    }
+
+    /// Étape de préparation (rien de compté ni copié).
+    public static func preparing(_ step: String) -> BackupProgress {
+        BackupProgress(part: "", files: 0, bytes: 0, current: "", preparing: step)
+    }
+
+    /// Avancement de 0 à 1 ; plafonné à 99 % tant que la sauvegarde n'est pas finie (l'estimation peut être courte).
+    public var fraction: Double? {
+        guard !counting, preparing == nil, let expected, expected > 0 else { return nil }
+        return min(Double(processed) / Double(expected), 0.99)
+    }
 }
 
 public struct BackupOutcome: Sendable {
     public let version: String?          // nil en simulation
     public let dryRun: Bool
     public let bytesByPart: [String: Int64]
+    /// Fichiers examinés par partie : estimation de la prochaine sauvegarde.
+    public var filesByPart: [String: Int] = [:]
     public let filesTransferred: Int
     public let bytesTransferred: Int64
     public let warnings: [String]
@@ -46,12 +97,14 @@ public struct BackupOutcome: Sendable {
 }
 
 public enum BackupError: Error, CustomStringConvertible {
-    case rsyncFailed(part: String, status: Int32)
+    /// `detail` : dernières lignes d'erreur de rsync (cause de l'échec).
+    case rsyncFailed(part: String, status: Int32, detail: String = "")
     case cancelled
     case destination(String)
     public var description: String {
         switch self {
-        case let .rsyncFailed(part, status): L10n.tr("backup.error.rsync", part, Int(status))
+        case let .rsyncFailed(part, status, detail):
+            L10n.tr("backup.error.rsync", part, Int(status)) + (detail.isEmpty ? "" : "\n" + detail)
         case .cancelled: L10n.tr("backup.error.cancelled")
         case let .destination(m): m
         }
@@ -67,8 +120,11 @@ public final class BackupEngine: @unchecked Sendable {
     public static let maxResumeAge: TimeInterval = 7 * 86_400
 
     private let lock = NSLock()
-    private var process: Process?
+    /// rsync en cours : la copie et les compteurs (plusieurs à la fois).
+    private var processes: [ObjectIdentifier: Process] = [:]
     private var cancelled = false
+    /// Nombre de rsync parallèles pour compter les fichiers d'une partie.
+    public static let countWorkers = 4
 
     public init() {}
 
@@ -136,13 +192,21 @@ public final class BackupEngine: @unchecked Sendable {
     public func cancel() {
         lock.withLock {
             cancelled = true
-            if let p = process, p.isRunning { p.terminate() }
+            for p in processes.values where p.isRunning { p.terminate() }
+        }
+        // rsync bloqué sur un partage qui ne répond plus ignore SIGTERM : on force au bout de 5 s.
+        DispatchQueue.global().asyncAfter(deadline: .now() + 5) { [weak self] in
+            self?.signalAll(SIGKILL)
         }
     }
 
     /// Veille : rsync est suspendu puis repris au réveil.
-    public func suspend() { lock.withLock { if let p = process, p.isRunning { kill(p.processIdentifier, SIGSTOP) } } }
-    public func resume() { lock.withLock { if let p = process, p.isRunning { kill(p.processIdentifier, SIGCONT) } } }
+    public func suspend() { signalAll(SIGSTOP) }
+    public func resume() { signalAll(SIGCONT) }
+
+    private func signalAll(_ sig: Int32) {
+        lock.withLock { for p in processes.values where p.isRunning { kill(p.processIdentifier, sig) } }
+    }
 
     var isCancelled: Bool { lock.withLock { cancelled } }
 
@@ -152,7 +216,7 @@ public final class BackupEngine: @unchecked Sendable {
     public func run(parts: [BackupPart], root: URL, retention: CairnConfig.Retention, dryRun: Bool,
                     machine: String = BackupEngine.machineName(), now: Date = Date(),
                     manifestExtra: [String: Any] = [:], forceRecopy: [String: [String]] = [:], partial: Bool = false,
-                    warnings initialWarnings: [String] = [],
+                    warnings initialWarnings: [String] = [], expectedFiles: [String: Int] = [:],
                     progress: @escaping (BackupProgress) -> Void = { _ in }) throws -> BackupOutcome {
         let start = Date()
         let fm = FileManager.default
@@ -179,21 +243,107 @@ public final class BackupEngine: @unchecked Sendable {
 
         var bytesByPart: [String: Int64] = [:]
         var transferred: [String: [String]] = [:]
+        var filesByPart: [String: Int] = [:]
         var files = 0
+        var processed = 0
         var bytes: Int64 = 0
         var warnings = initialWarnings
+        // Fichiers attendus : décompte de la sauvegarde précédente, sinon comptage en arrière-plan, pendant la copie
+        // (rsync -n, plusieurs à la fois). Le pourcentage s'affiche dès que le total est connu.
+        let counter = FileCounter(known: parts.compactMap { expectedFiles[$0.target] }.reduce(0, +))
+        let toCount = parts.filter { expectedFiles[$0.target] == nil }
+        let countGroup = ProcessGroup()
+        let counting = DispatchGroup()
+        if toCount.isEmpty {
+            counter.finish()
+        } else {
+            DispatchQueue.global(qos: .utility).async(group: counting) { [self] in
+                for part in toCount where !countGroup.isAborted {
+                    _ = try? countFiles(part, group: countGroup, worker: { counter.setWorker($0, $1) }) { counter.add($0) }
+                }
+                if !countGroup.isAborted { counter.finish() }
+            }
+        }
+        // Copie finie, annulée ou en échec : le comptage n'a plus d'utilité.
+        defer {
+            countGroup.abort()
+            counting.wait()
+        }
+        // Dernier état connu, renvoyé chaque seconde : le comptage et la durée d'une liste avancent même quand rsync
+        // ne signale aucun fichier (liste d'un gros dossier).
+        let live = LiveProgress()
+        let heartbeat = DispatchSource.makeTimerSource(queue: .global(qos: .utility))
+        heartbeat.schedule(deadline: .now() + 1, repeating: 1)
+        heartbeat.setEventHandler {
+            guard var p = live.last else { return }
+            let (total, found) = counter.state
+            p.expected = total; p.counting = total == nil; p.found = found
+            p.workers = total == nil ? counter.workers : []
+            progress(p)
+        }
+        heartbeat.resume()
+        defer { heartbeat.cancel() }
+        func report(_ part: String, files: Int, current: String, processed: Int, listing: String? = nil,
+                    chunk: Int? = nil, chunks: Int? = nil) {
+            let (total, found) = counter.state
+            var p = BackupProgress(part: part, files: files, bytes: bytes, current: current, processed: processed,
+                                   expected: total, counting: total == nil, found: found)
+            p.listing = listing
+            p.workers = total == nil ? counter.workers : []
+            p.chunk = chunk; p.chunks = chunks
+            p.listingSince = listing == nil ? nil : (live.last?.listing == listing ? live.last?.listingSince : nil) ?? Date()
+            live.last = p
+            progress(p)
+        }
         for part in parts {
             if isCancelled { throw BackupError.cancelled }
             let dest = work.appendingPathComponent(part.target)
+            let done = processed
+            // Partie en cours affichée dès son début (rsync peut parcourir longtemps avant le premier fichier).
+            report(part.target, files: files, current: "", processed: done)
             let linkDest = sources[part.target]?.appendingPathComponent(part.target)
-            let (names, status) = try rsync(part: part, dest: dest, linkDest: linkDest, dryRun: dryRun,
-                                            forceRecopy: forceRecopy[part.target] ?? [], progress: { n, b, cur in
-                progress(BackupProgress(part: part.target, files: files + n, bytes: bytes + b, current: cur))
-            })
+            // Un rsync par dossier du premier niveau : la liste de chacun est vite dressée, la progression avance
+            // dès le début au lieu d'attendre la liste complète (plusieurs minutes pour des centaines de milliers
+            // de fichiers sur un NAS).
+            let chunks = Self.copyChunks(part)
+            var seen = 0
+            var names: [String] = []
+            var status: Int32 = 0
+            var errorLines: [String] = []
+            for (i, chunk) in chunks.enumerated() {
+                if isCancelled { throw BackupError.cancelled }
+                let base = seen, copied = names.count
+                let rank = chunks.count > 1 ? i + 1 : nil, ranks = chunks.count > 1 ? chunks.count : nil
+                report(part.target, files: files + copied, current: "", processed: done + base,
+                       listing: chunk.label ?? (chunks.count > 1 ? "" : nil), chunk: rank, chunks: ranks)
+                let r = try rsync(part: part, dest: dest, linkDest: linkDest, dryRun: dryRun,
+                                  forceRecopy: i == 0 ? forceRecopy[part.target] ?? [] : [],
+                                  filters: chunk.filters, deleteExcluded: chunk.filters.isEmpty) { n, m, cur in
+                    seen = base + m
+                    report(part.target, files: files + copied + n, current: cur, processed: done + base + m,
+                           listing: m == 0 ? chunk.label : nil, chunk: rank, chunks: ranks)
+                }
+                names += r.0
+                // Code le plus grave : un échec (≠ 0, 23, 24) l'emporte sur un transfert partiel.
+                if r.1 != 0, status == 0 || status == 23 || status == 24 { status = r.1 }
+                if !r.2.isEmpty { errorLines.append(r.2) }
+            }
+            let errors = errorLines.joined(separator: "\n")
+            // Reprise d'une version interrompue : une entrée du premier niveau disparue de la source est retirée.
+            if !dryRun, chunks.count > 1, status == 0 || status == 23 || status == 24 {
+                let present = Set((try? fm.contentsOfDirectory(atPath: part.source)) ?? [])
+                for n in (try? fm.contentsOfDirectory(atPath: dest.path)) ?? [] where !present.contains(n) && n != ".cairn-partial" {
+                    try? fm.removeItem(at: dest.appendingPathComponent(n))
+                }
+            }
+            filesByPart[part.target] = seen
+            processed += seen
             if isCancelled { throw BackupError.cancelled }
             // 23/24 : transfert partiel (fichier illisible ou disparu pendant la copie) → avertissement.
-            if status == 23 || status == 24 { warnings.append(L10n.tr("backup.warning.partial", part.target, Int(status))) }
-            else if status != 0 { throw BackupError.rsyncFailed(part: part.target, status: status) }
+            if status == 23 || status == 24 {
+                warnings.append(L10n.tr("backup.warning.partial", part.target, Int(status)) + (errors.isEmpty ? "" : "\n" + errors))
+            }
+            else if status != 0 { throw BackupError.rsyncFailed(part: part.target, status: status, detail: errors) }
             let partBytes = names.reduce(Int64(0)) { sum, n in
                 let attrs = try? fm.attributesOfItem(atPath: (part.source as NSString).appendingPathComponent(n))
                 return sum + ((attrs?[.type] as? FileAttributeType) == .typeRegular ? ((attrs?[.size] as? Int64) ?? 0) : 0)
@@ -205,9 +355,11 @@ public final class BackupEngine: @unchecked Sendable {
         }
 
         if dryRun {
-            return BackupOutcome(version: nil, dryRun: true, bytesByPart: bytesByPart, filesTransferred: files,
-                                 bytesTransferred: bytes, warnings: warnings, deletedVersions: [],
-                                 duration: Date().timeIntervalSince(start))
+            var outcome = BackupOutcome(version: nil, dryRun: true, bytesByPart: bytesByPart, filesTransferred: files,
+                                        bytesTransferred: bytes, warnings: warnings, deletedVersions: [],
+                                        duration: Date().timeIntervalSince(start))
+            outcome.filesByPart = filesByPart
+            return outcome
         }
 
         // Empreintes (fichiers transférés hachés, autres repris de la version précédente) puis manifest.
@@ -235,9 +387,11 @@ public final class BackupEngine: @unchecked Sendable {
         }
 
         let deleted = try applyRetention(versionsDir: versionsDir, retention: retention, now: now)
-        return BackupOutcome(version: name, dryRun: false, bytesByPart: bytesByPart, filesTransferred: files,
-                             bytesTransferred: bytes, warnings: warnings, deletedVersions: deleted,
-                             duration: Date().timeIntervalSince(start))
+        var outcome = BackupOutcome(version: name, dryRun: false, bytesByPart: bytesByPart, filesTransferred: files,
+                                    bytesTransferred: bytes, warnings: warnings, deletedVersions: deleted,
+                                    duration: Date().timeIntervalSince(start))
+        outcome.filesByPart = filesByPart
+        return outcome
     }
 
     /// Supprime les versions hors rétention (seulement après une réussite).
@@ -283,9 +437,66 @@ public final class BackupEngine: @unchecked Sendable {
         return withUnsafePointer(to: &u.machine) { $0.withMemoryRebound(to: CChar.self, capacity: 256) { String(cString: $0) } }
     }
 
+    /// Nombre de fichiers d'une partie (exclusions comprises) : simulation vers un dossier vide, rien n'est écrit.
+    /// Les dossiers du premier niveau forment une pile partagée : chacun des `workers` rsync en prend un, le compte,
+    /// puis prend le suivant jusqu'à ce que la pile soit vide. Les exclusions de la partie s'appliquent avant le
+    /// filtre du dossier : le total est le même qu'avec un seul rsync. `progress` reçoit les fichiers trouvés depuis
+    /// le dernier appel ; `worker(rang, état)` l'avancement de chaque worker.
+    public func countFiles(_ part: BackupPart, workers: Int = BackupEngine.countWorkers, group: ProcessGroup? = nil,
+                           worker: @escaping (Int, CountWorker) -> Void = { _, _ in },
+                           progress: @escaping (Int) -> Void = { _ in }) throws -> Int {
+        let items = Self.copyChunks(part)
+        let pile = WorkPile(count: items.count)
+        let total = FileCounter(known: 0)
+        DispatchQueue.concurrentPerform(iterations: max(1, min(workers, items.count))) { w in
+            var found = 0
+            while !(group?.isAborted ?? false), let k = pile.next() {
+                let label = items[k].label ?? ""
+                worker(w, CountWorker(found: found, folder: label))
+                let empty = FileManager.default.temporaryDirectory.appendingPathComponent("cairn-count-\(UUID().uuidString)")
+                var last = 0
+                let base = found
+                let r = try? rsync(part: part, dest: empty, linkDest: nil, dryRun: true, forceRecopy: [],
+                                   filters: items[k].filters, deleteExcluded: items[k].filters.isEmpty, group: group) { _, m, cur in
+                    progress(m - last)
+                    last = m
+                    worker(w, CountWorker(found: base + m, current: cur, folder: label))
+                }
+                let n = r?.0.count ?? 0
+                progress(n - last)
+                found += n
+                total.add(n)
+            }
+            worker(w, CountWorker(found: found, done: true))
+        }
+        return total.state.found
+    }
+
+    /// Copie d'une partie en morceaux : un par dossier du premier niveau, puis un pour les fichiers du premier niveau.
+    /// Un seul morceau sans filtre pour une liste de fichiers, un dossier sans sous-dossier ou un nom avec joker.
+    public static func copyChunks(_ part: BackupPart) -> [(label: String?, filters: [String])] {
+        let fm = FileManager.default
+        let names = ((try? fm.contentsOfDirectory(atPath: part.source)) ?? []).sorted()
+        guard part.filesFrom == nil, names.count > 1,
+              !names.contains(where: { $0.contains(where: { "*?[]\\".contains($0) }) }) else { return [(nil, [])] }
+        var isDir: ObjCBool = false
+        let dirs = names.filter {
+            fm.fileExists(atPath: (part.source as NSString).appendingPathComponent($0), isDirectory: &isDir) && isDir.boolValue
+        }
+        let files = names.filter { !dirs.contains($0) }
+        guard !dirs.isEmpty else { return [(nil, [])] }
+        var chunks: [(label: String?, filters: [String])] = dirs.map { ($0, ["--include=/\($0)", "--include=/\($0)/**", "--exclude=*"]) }
+        if !files.isEmpty { chunks.append((nil, files.map { "--include=/\($0)" } + ["--exclude=*"])) }
+        return chunks
+    }
+
+
     /// Lance rsync pour une partie ; renvoie les fichiers transférés (relatifs à la source) et le code de sortie.
+    /// `progress(copiés, examinés, fichier courant)`, au plus dix fois par seconde.
+    /// `filters` : règles ajoutées après les exclusions de la partie ; `group` : arrêt groupé (comptage).
     func rsync(part: BackupPart, dest: URL, linkDest: URL?, dryRun: Bool, forceRecopy: [String],
-               progress: @escaping (Int, Int64, String) -> Void) throws -> ([String], Int32) {
+               filters: [String] = [], deleteExcluded: Bool = true, group: ProcessGroup? = nil,
+               progress: @escaping (Int, Int, String) -> Void) throws -> ([String], Int32, String) {
         let fm = FileManager.default
         // Simulation : openrsync échoue avec -n et --link-dest vers un dossier absent. On compare donc directement
         // à la version de base : la liste obtenue est exactement ce qui serait copié, et -n n'écrit rien.
@@ -295,7 +506,10 @@ public final class BackupEngine: @unchecked Sendable {
         try fm.createDirectory(at: tmp, withIntermediateDirectories: true)
         defer { try? fm.removeItem(at: tmp) }
 
-        var args = ["-a", "--out-format=%i|%n", "--partial-dir=.cairn-partial", "--delete", "--delete-excluded"]
+        // Sans --delete-excluded quand des filtres limitent la copie à un dossier : les autres dossiers, exclus
+        // par `--exclude=*`, seraient effacés de la version.
+        var args = ["-a", "--out-format=%i|%n", "--partial-dir=.cairn-partial", "--delete"]
+        if deleteExcluded { args.append("--delete-excluded") }
         // rsync GNU (Homebrew) : liens physiques de la source conservés (décision 3 du design).
         if Self.rsyncPath == "/opt/homebrew/bin/rsync" { args.insert("-H", at: 1) }
         if dryRun { args.append("-n") }
@@ -304,6 +518,7 @@ public final class BackupEngine: @unchecked Sendable {
             try (part.excludes.joined(separator: "\n") + "\n").write(to: f, atomically: true, encoding: .utf8)
             args.append("--exclude-from=\(f.path)")
         }
+        args += filters
         if let list = part.filesFrom {
             let f = tmp.appendingPathComponent("files.txt")
             try (list.joined(separator: "\n") + "\n").write(to: f, atomically: true, encoding: .utf8)
@@ -333,19 +548,33 @@ public final class BackupEngine: @unchecked Sendable {
         p.arguments = args
         let pipe = Pipe()
         p.standardOutput = pipe
-        p.standardError = FileHandle.nullDevice
+        // Erreurs gardées (20 dernières lignes) : la cause d'un échec va dans le message et le journal.
+        let errPipe = Pipe()
+        p.standardError = errPipe
+        let errors = RsyncErrors()
+        errPipe.fileHandleForReading.readabilityHandler = { h in
+            let d = h.availableData
+            if d.isEmpty { h.readabilityHandler = nil } else { errors.append(d) }
+        }
         // Publié seulement une fois lancé : terminate() sur un processus non lancé lève une exception.
         try p.run()
+        let id = ObjectIdentifier(p)
         let cancelledBeforeStart = lock.withLock { () -> Bool in
-            process = p
+            processes[id] = p
             return cancelled
         }
-        defer { lock.withLock { process = nil } }
-        if cancelledBeforeStart { p.terminate() }
+        let aborted = group?.add(p) ?? false
+        defer {
+            lock.withLock { processes[id] = nil }
+            group?.remove(p)
+        }
+        if cancelledBeforeStart || aborted { p.terminate() }
 
         var names: [String] = []
         var buffer = Data()
         var count = 0
+        var examined = 0
+        var lastReport = Date.distantPast
         let handle = pipe.fileHandleForReading
         while true {
             // Pool par lecture : les blocs autoreleased s'accumuleraient sinon pendant toute la sauvegarde.
@@ -358,14 +587,109 @@ public final class BackupEngine: @unchecked Sendable {
                 // « >f… » : fichier réellement transféré ; « hf » : lié à la version précédente ; « cd » : dossier.
                 guard let bar = line.firstIndex(of: "|") else { continue }
                 let item = line[line.startIndex..<bar]
-                guard item.hasPrefix(">f") || item.hasPrefix("<f") else { continue }
-                names.append(String(line[line.index(after: bar)...]))
-                count += 1
-                if count % 200 == 0 { progress(count, 0, line) }
+                // Deuxième caractère « f » : un fichier, copié (>f, <f) ou repris de la version précédente (hf).
+                guard item.dropFirst().first == "f" else { continue }
+                let name = String(line[line.index(after: bar)...])
+                examined += 1
+                if item.hasPrefix(">f") || item.hasPrefix("<f") {
+                    names.append(name)
+                    count += 1
+                }
+                if Date().timeIntervalSince(lastReport) >= 0.1 {
+                    lastReport = Date()
+                    progress(count, examined, name)
+                }
             }
         }
         p.waitUntilExit()
-        progress(count, 0, "")
-        return (names, p.terminationStatus)
+        errPipe.fileHandleForReading.readabilityHandler = nil
+        errors.append(errPipe.fileHandleForReading.readDataToEndOfFile())
+        progress(count, examined, "")
+        return (names, p.terminationStatus, errors.tail)
+    }
+}
+
+/// Sortie d'erreur de rsync, lue au fil de l'eau ; seules les dernières lignes sont gardées.
+final class RsyncErrors: @unchecked Sendable {
+    private let lock = NSLock()
+    private var lines: [String] = []
+    private var partial = ""
+
+    func append(_ data: Data) {
+        guard !data.isEmpty else { return }
+        lock.withLock {
+            let text = partial + String(decoding: data, as: UTF8.self)
+            var parts = text.components(separatedBy: "\n")
+            partial = parts.removeLast()
+            lines = Array((lines + parts.filter { !$0.isEmpty }).suffix(20))
+        }
+    }
+
+    var tail: String {
+        lock.withLock { (lines + (partial.isEmpty ? [] : [partial])).suffix(20).joined(separator: "\n") }
+    }
+}
+
+/// Total de fichiers attendus, rempli en arrière-plan par le comptage.
+final class FileCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var found: Int
+    private var done = false
+
+    init(known: Int) { found = known }
+
+    private var workerStates: [Int: CountWorker] = [:]
+
+    func add(_ n: Int) { lock.withLock { found += n } }
+    func setWorker(_ i: Int, _ w: CountWorker) { lock.withLock { workerStates[i] = w } }
+    var workers: [CountWorker] { lock.withLock { workerStates.keys.sorted().compactMap { workerStates[$0] } } }
+    func finish() { lock.withLock { done = true } }
+
+    /// Total (`nil` tant que le comptage tourne) et fichiers trouvés jusqu'ici.
+    var state: (total: Int?, found: Int) { lock.withLock { (done ? found : nil, found) } }
+}
+
+/// rsync lancés ensemble (compteurs) : `abort()` les arrête tous, et ceux lancés ensuite aussitôt.
+public final class ProcessGroup: @unchecked Sendable {
+    private let lock = NSLock()
+    private var processes: [ObjectIdentifier: Process] = [:]
+    private var aborted = false
+
+    var isAborted: Bool { lock.withLock { aborted } }
+
+    /// Ajoute un processus lancé ; vrai si le groupe est déjà arrêté (à terminer tout de suite).
+    func add(_ p: Process) -> Bool { lock.withLock { processes[ObjectIdentifier(p)] = p; return aborted } }
+    func remove(_ p: Process) { lock.withLock { processes[ObjectIdentifier(p)] = nil } }
+
+    func abort() {
+        lock.withLock {
+            aborted = true
+            for p in processes.values where p.isRunning { p.terminate() }
+        }
+    }
+}
+
+/// Dernière progression envoyée (relue par le battement d'une seconde).
+final class LiveProgress: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: BackupProgress?
+    var last: BackupProgress? {
+        get { lock.withLock { value } }
+        set { lock.withLock { value = newValue } }
+    }
+}
+
+/// Pile de dossiers partagée par les workers de comptage : chacun prend le suivant dès qu'il a fini.
+final class WorkPile: @unchecked Sendable {
+    private let lock = NSLock()
+    private var nextIndex = 0
+    private let count: Int
+    init(count: Int) { self.count = count }
+    func next() -> Int? {
+        lock.withLock {
+            guard nextIndex < count else { return nil }
+            defer { nextIndex += 1 }
+            return nextIndex
+        }
     }
 }

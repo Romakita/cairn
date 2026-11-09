@@ -65,6 +65,16 @@ public final class OperationLock: @unchecked Sendable {
 
     public var isHeld: Bool { fd >= 0 }
 
+    /// Verrou pris par une opération en cours (cette app ou la commande `cairn`), sans le garder.
+    public static func isHeld(at url: URL) -> Bool {
+        let f = open(url.path, O_RDONLY)
+        guard f >= 0 else { return false }
+        defer { close(f) }
+        if flock(f, LOCK_EX | LOCK_NB) != 0 { return true }
+        flock(f, LOCK_UN)
+        return false
+    }
+
     public func release() {
         guard fd >= 0 else { return }
         flock(fd, LOCK_UN)
