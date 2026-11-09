@@ -49,11 +49,11 @@ struct MainShell: View {
     var body: some View {
         // Comme Codex : cadre gris (barre du haut et rail), corps blanc arrondi et ombré qui flotte dedans.
         VStack(spacing: 0) {
-            TopBar(sidebarVisible: $sidebarVisible)
+            TopBar(sidebarVisible: $sidebarVisible, hasSidebar: model.hasSidebar)
             HStack(alignment: .top, spacing: 0) {
                 Rail().zIndex(1) // les infobulles débordent sur le corps
                 HStack(spacing: 0) {
-                    if sidebarVisible {
+                    if sidebarVisible && model.hasSidebar {
                         SidebarView()
                             .frame(width: 248)
                             .frame(maxHeight: .infinity)
@@ -98,6 +98,8 @@ struct MainShell: View {
 /// Barre du haut : place des boutons de fenêtre, bascule de la barre latérale, logo de Cairn au centre.
 struct TopBar: View {
     @Binding var sidebarVisible: Bool
+    /// Section sans sous-menu : rien à afficher ni masquer.
+    var hasSidebar = true
 
     var body: some View {
         ZStack {
@@ -106,6 +108,8 @@ struct TopBar: View {
                 IconButton(systemName: "sidebar.left", label: T("shell.toggle_sidebar")) {
                     withAnimation(.snappy(duration: 0.25)) { sidebarVisible.toggle() }
                 }
+                .disabled(!hasSidebar)
+                .opacity(hasSidebar ? 1 : 0.4)
                 Spacer()
             }
             HStack(spacing: 8) {
@@ -278,6 +282,17 @@ struct MessageBar: View {
 
 // MARK: - Barre latérale
 
+extension AppModel {
+    /// La section a un sous-menu à afficher (pas seulement son titre) ; sinon la barre latérale est masquée.
+    var hasSidebar: Bool {
+        switch section {
+        case .home, .analysis, .settings, .backup: true
+        case .cli: inventory != nil
+        case .git, .ai, .restore: false
+        }
+    }
+}
+
 struct SidebarView: View {
     @EnvironmentObject var model: AppModel
 
@@ -290,8 +305,7 @@ struct SidebarView: View {
                 case .settings: settingsSidebar
                 case .cli: toolsSidebar
                 case .backup: backupSidebar
-                default:
-                    Text(model.section.title).font(.system(size: 17, weight: .semibold)).padding(8)
+                default: EmptyView() // masquée par `hasSidebar`
                 }
             }
             .padding(.horizontal, 12).padding(.vertical, 4)
