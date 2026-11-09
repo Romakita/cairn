@@ -65,6 +65,14 @@ public struct BackupProgress: Sendable {
         return min(Double(stepDone) / Double(stepTotal), 1)
     }
 
+    /// Destination terminée (finalisée, ou en échec) : plus rien à afficher pour elle.
+    public var finished = false
+    public static var done: BackupProgress {
+        var p = BackupProgress(part: "", files: 0, bytes: 0, current: "")
+        p.finished = true
+        return p
+    }
+
     /// Étape de finalisation, avec son avancement quand il est connu.
     public static func finishing(_ step: String, done: Int? = nil, total: Int? = nil, current: String = "") -> BackupProgress {
         var p = BackupProgress(part: "", files: 0, bytes: 0, current: current)
@@ -228,12 +236,24 @@ public final class BackupEngine: @unchecked Sendable {
 
     // MARK: Exécution
 
-    /// Sauvegarde les parties dans une nouvelle version (ou simule si `dryRun`).
+    /// Sauvegarde les parties dans une nouvelle version (ou simule si `dryRun`) : copie puis finalisation.
     public func run(parts: [BackupPart], root: URL, retention: CairnConfig.Retention, dryRun: Bool,
                     machine: String = BackupEngine.machineName(), now: Date = Date(),
                     manifestExtra: [String: Any] = [:], forceRecopy: [String: [String]] = [:], partial: Bool = false,
                     warnings initialWarnings: [String] = [], expectedFiles: [String: Int] = [:],
                     progress: @escaping (BackupProgress) -> Void = { _ in }) throws -> BackupOutcome {
+        let c = try copy(parts: parts, root: root, retention: retention, dryRun: dryRun, machine: machine, now: now,
+                         manifestExtra: manifestExtra, forceRecopy: forceRecopy, partial: partial,
+                         warnings: initialWarnings, expectedFiles: expectedFiles, progress: progress)
+        return try finish(c, progress: progress)
+    }
+
+    /// Copie des parties dans la version de travail (rsync). La version n'existe qu'après `finish`.
+    public func copy(parts: [BackupPart], root: URL, retention: CairnConfig.Retention, dryRun: Bool,
+                     machine: String = BackupEngine.machineName(), now: Date = Date(),
+                     manifestExtra: [String: Any] = [:], forceRecopy: [String: [String]] = [:], partial: Bool = false,
+                     warnings initialWarnings: [String] = [], expectedFiles: [String: Int] = [:],
+                     progress: @escaping (BackupProgress) -> Void = { _ in }) throws -> CopyResult {
         let start = Date()
         let fm = FileManager.default
         let versionsDir = Self.versionsDir(root: root, machine: machine)
@@ -370,24 +390,32 @@ public final class BackupEngine: @unchecked Sendable {
             bytes += partBytes
         }
 
-        if dryRun {
-            var outcome = BackupOutcome(version: nil, dryRun: true, bytesByPart: bytesByPart, filesTransferred: files,
-                                        bytesTransferred: bytes, warnings: warnings, deletedVersions: [],
-                                        duration: Date().timeIntervalSince(start))
-            outcome.filesByPart = filesByPart
+        return CopyResult(work: work, versionsDir: versionsDir, sources: sources, parts: parts, manifestExtra: manifestExtra,
+                          now: now, machine: machine, partial: partial, retention: retention, dryRun: dryRun, start: start,
+                          bytesByPart: bytesByPart, filesByPart: filesByPart, files: files, bytes: bytes, warnings: warnings)
+    }
+
+    /// Finalisation d'une copie : empreintes des fichiers nouveaux ou modifiés, manifest, version visible, rétention.
+    /// Peut tourner pendant la copie vers une autre destination ; « Arrêter » l'interrompt entre deux fichiers.
+    public func finish(_ c: CopyResult, progress: @escaping (BackupProgress) -> Void = { _ in }) throws -> BackupOutcome {
+        let fm = FileManager.default
+        let (work, versionsDir, parts, now, machine, partial, bytes) = (c.work, c.versionsDir, c.parts, c.now, c.machine, c.partial, c.bytes)
+        if c.dryRun {
+            var outcome = BackupOutcome(version: nil, dryRun: true, bytesByPart: c.bytesByPart, filesTransferred: c.files,
+                                        bytesTransferred: bytes, warnings: c.warnings, deletedVersions: [],
+                                        duration: Date().timeIntervalSince(c.start))
+            outcome.filesByPart = c.filesByPart
             return outcome
         }
 
         // Empreintes (fichiers transférés hachés, autres repris de la version précédente) puis manifest.
-        // Finalisation : le battement ne doit plus renvoyer l'état de la copie.
-        heartbeat.cancel()
-        live.last = nil
         progress(.finishing(L10n.tr("backup.finish.listing")))
-        try Integrity.writeChecksums(version: work, linkSources: sources) { done, total, file in
+        try Integrity.writeChecksums(version: work, linkSources: c.sources, isCancelled: { [weak self] in self?.isCancelled ?? false }) { done, total, file in
             progress(.finishing(L10n.tr("backup.finish.checksums", Fmt.count(done), Fmt.count(total)), done: done, total: total, current: file))
         }
+        if isCancelled { throw BackupError.cancelled }
         progress(.finishing(L10n.tr("backup.finish.version")))
-        var manifest: [String: Any] = manifestExtra
+        var manifest: [String: Any] = c.manifestExtra
         manifest["format"] = 1
         manifest["date"] = ISO8601DateFormatter().string(from: now)
         manifest["machine"] = machine
@@ -409,11 +437,11 @@ public final class BackupEngine: @unchecked Sendable {
             try? fm.createSymbolicLink(atPath: latest.path, withDestinationPath: name)
         }
 
-        let deleted = try applyRetention(versionsDir: versionsDir, retention: retention, now: now)
-        var outcome = BackupOutcome(version: name, dryRun: false, bytesByPart: bytesByPart, filesTransferred: files,
-                                    bytesTransferred: bytes, warnings: warnings, deletedVersions: deleted,
-                                    duration: Date().timeIntervalSince(start))
-        outcome.filesByPart = filesByPart
+        let deleted = try applyRetention(versionsDir: versionsDir, retention: c.retention, now: now)
+        var outcome = BackupOutcome(version: name, dryRun: false, bytesByPart: c.bytesByPart, filesTransferred: c.files,
+                                    bytesTransferred: bytes, warnings: c.warnings, deletedVersions: deleted,
+                                    duration: Date().timeIntervalSince(c.start))
+        outcome.filesByPart = c.filesByPart
         return outcome
     }
 
@@ -715,4 +743,24 @@ final class WorkPile: @unchecked Sendable {
             return nextIndex
         }
     }
+}
+
+/// Résultat d'une copie, en attente de finalisation (`BackupEngine.finish`).
+public struct CopyResult: @unchecked Sendable {
+    let work: URL
+    let versionsDir: URL
+    let sources: [String: URL]
+    let parts: [BackupPart]
+    let manifestExtra: [String: Any]
+    let now: Date
+    let machine: String
+    let partial: Bool
+    let retention: CairnConfig.Retention
+    let dryRun: Bool
+    let start: Date
+    let bytesByPart: [String: Int64]
+    public let filesByPart: [String: Int]
+    let files: Int
+    let bytes: Int64
+    let warnings: [String]
 }

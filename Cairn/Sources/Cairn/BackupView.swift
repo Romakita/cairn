@@ -92,11 +92,14 @@ struct BackupView: View {
                 if !d.encrypted && model.config?.home.include.contains(where: { $0.hasPrefix(".ssh") || $0.hasPrefix(".aws") }) == true {
                     Banner(icon: "lock.open", text: T("onboarding.destination.unencrypted_warning"), tone: .warning)
                 }
-                if let (dest, p) = model.backupProgress, dest == d.id {
+                if let p = model.backupProgresses[d.id] {
                     BackupProgressCard(progress: p)
-                } else if model.isBackingUp && model.backupProgress == nil {
-                    // Préparation commune à toutes les destinations (copie des bases des outils IA…) : pas encore de progression.
-                    BackupProgressCard(progress: .preparing(T("backup.preparing")))
+                } else if model.backupTargets.contains(d.id) {
+                    // Pas encore de progression : préparation commune, ou attente de la copie vers une autre destination.
+                    let copying = model.backupProgresses.first { $0.value.finishing == nil && $0.value.preparing == nil }
+                    BackupProgressCard(progress: .preparing(copying.map { c in
+                        T("backup.queued", model.config?.destinations.first { $0.id == c.key }.map(model.destinationLabel) ?? c.key)
+                    } ?? T("backup.preparing")))
                 }
                 if let r = model.lastBackupResults.first(where: { $0.destination == d.id }) {
                     lastResultCard(d, r)

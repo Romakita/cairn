@@ -58,7 +58,13 @@ final class AppModel: ObservableObject {
     @Published var menuBarFrame = 0
     private var menuBarTimer: Timer?
     private var servicesStarted = false
-    @Published var backupProgress: (String, BackupProgress)?
+    /// Progression de chaque destination de la sauvegarde en cours (copie de l'une pendant la finalisation d'une autre).
+    @Published var backupProgresses: [String: BackupProgress] = [:]
+    /// Progression à résumer (barre des menus) : la copie en cours plutôt qu'une finalisation.
+    var backupProgress: (String, BackupProgress)? {
+        let all = backupProgresses.sorted { $0.key < $1.key }
+        return (all.first { $0.value.finishing == nil } ?? all.first).map { ($0.key, $0.value) }
+    }
     /// Destinations de la sauvegarde en cours (vide sans sauvegarde).
     @Published var backupTargets: Set<String> = []
     @Published var lastBackupResults: [BackupService.Result] = []

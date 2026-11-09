@@ -363,7 +363,7 @@ struct SidebarView: View {
                        meta: probed == nil ? T("destination.not_checked") : (probed! ? T("backup.badge.waiting") : nil),
                        selected: (model.selectedDestination ?? model.config?.destinations.first?.id) == d.id,
                        busy: model.backupTargets.contains(d.id),
-                       fraction: model.backupProgress.flatMap { $0.0 == d.id ? $0.1.fraction : nil }) {
+                       fraction: model.backupProgresses[d.id]?.fraction) {
                 model.selectedDestination = d.id
             }
         }

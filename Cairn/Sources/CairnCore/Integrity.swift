@@ -67,7 +67,7 @@ public enum Integrity {
 
     /// Variante par partie : chaque partie reprend les empreintes de la version qui lui sert de base.
     /// `progress(hachés, à hacher, fichier)` : seuls les fichiers nouveaux ou modifiés sont relus (au plus 10 fois/s).
-    public static func writeChecksums(version: URL, linkSources: [String: URL],
+    public static func writeChecksums(version: URL, linkSources: [String: URL], isCancelled: () -> Bool = { false },
                                       progress: (Int, Int, String) -> Void = { _, _, _ in }) throws {
         var prev: [String: Entry] = [:]
         var damaged: Set<String> = []
@@ -75,7 +75,7 @@ public enum Integrity {
             for (rel, e) in read(v) where rel.hasPrefix(target + "/") { prev[rel] = e }
             damaged.formUnion(readDamaged(v).filter { $0.hasPrefix(target + "/") })
         }
-        try writeChecksums(version: version, prev: prev, damagedBefore: damaged, progress: progress)
+        try writeChecksums(version: version, prev: prev, damagedBefore: damaged, isCancelled: isCancelled, progress: progress)
     }
 
     /// Écrit `checksums.tsv` : seuls les fichiers nouveaux ou modifiés sont hachés, les autres reprennent l'empreinte précédente.
@@ -84,6 +84,7 @@ public enum Integrity {
     }
 
     static func writeChecksums(version: URL, prev: [String: Entry], damagedBefore: Set<String>,
+                               isCancelled: () -> Bool = { false },
                                progress: (Int, Int, String) -> Void = { _, _, _ in }) throws {
         var lines: [String] = []
         let all = files(in: version).sorted(by: { $0.0 < $1.0 })
@@ -99,6 +100,7 @@ public enum Integrity {
             if let p = reuse(rel, size, mtime) {
                 lines.append("\(rel)\t\(size)\t\(mtime)\t\(p.sha256)")
             } else {
+                if isCancelled() { throw BackupError.cancelled }
                 if Date().timeIntervalSince(last) >= 0.1 { last = Date(); progress(hashed, toHash, rel) }
                 let h = try sha256(of: version.appendingPathComponent(rel))
                 hashed += 1

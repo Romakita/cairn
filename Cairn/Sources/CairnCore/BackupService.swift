@@ -161,23 +161,24 @@ public final class BackupService: @unchecked Sendable {
         let sleep = PowerState.IdleSleepAssertion(reason: "Cairn backup")
         defer { sleep.release() }
 
+        // Chaque destination : copie, puis finalisation en arrière-plan (empreintes, contrôle, image) pendant que la
+        // copie vers la destination suivante commence. La sauvegarde se termine quand toutes sont finalisées.
+        let collected = Collected(state: state)
+        let finishing = DispatchGroup()
         for d in dests {
             // Arrêt demandé : les destinations suivantes ne sont pas commencées.
             if engine.isCancelled { break }
             let session = DestinationSession(d)
-            var ds = state[d.id]
+            var ds = collected.destination(d.id)
             ds.lastAttempt = Date()
             guard session.provider.isReachable() else {
                 if ds.waitingSince == nil { ds.waitingSince = Date() }
-                state[d.id] = ds
                 log.write("\(d.id): unreachable, waiting")
-                results.append(Result(destination: d.id, outcome: nil, error: ProviderError.unreachable(d.id).description,
-                                      waiting: true, newImagePassword: nil, log: log.url))
+                collected.record(d.id, ds, Result(destination: d.id, outcome: nil, error: ProviderError.unreachable(d.id).description,
+                                                  waiting: true, newImagePassword: nil, log: log.url))
                 continue
             }
             progress(d.id, .preparing(L10n.tr("backup.prepare.open")))
-            var damagedFiles: [String] = []
-            var imageCheck: SparseImage.Check?
             do {
                 // Une simulation n'écrit rien : ni image, ni dossier. Sur une destination encore vide, elle simule
                 // contre un dossier temporaire vide (tout serait copié).
@@ -187,71 +188,39 @@ public final class BackupService: @unchecked Sendable {
                 } catch ProviderError.notCreated where request.dryRun {
                     root = staging.appendingPathComponent("empty-destination")
                 }
-                // Compactage (long sur un NAS) seulement après une sauvegarde réussie, pas après un arrêt ou un échec.
-                var succeeded = false
-                defer {
-                    if !request.dryRun {
-                        progress(d.id, .finishing(L10n.tr(succeeded ? "backup.finish.compact" : "backup.finish.close")))
-                    }
-                    session.close(compact: succeeded && !request.dryRun)
-                }
                 // Montage du partage et de l'image (non interruptibles) : l'arrêt demandé entre-temps est pris ici.
                 if engine.isCancelled { throw BackupError.cancelled }
                 let versionsDir = BackupEngine.versionsDir(root: root)
                 let sources = BackupEngine.linkSources(parts: parts, versionsDir: versionsDir)
                 let recopy = Integrity.recopyPlan(linkSources: sources, parts: parts)
-                let outcome = try engine.run(parts: parts, root: root, retention: d.retention, dryRun: request.dryRun,
+                let copied = try engine.copy(parts: parts, root: root, retention: d.retention, dryRun: request.dryRun,
                                              manifestExtra: ["cairn": CairnVersion.current, "destination": d.id,
                                                              "config_version": config.version, "log": log.url.lastPathComponent],
                                              forceRecopy: recopy, partial: request.isPartial,
                                              warnings: prepWarnings, expectedFiles: ds.fileCounts ?? [:]) { p in
                     progress(d.id, p)
                 }
-                succeeded = true
-                outcome.warnings.forEach { log.write("\(d.id): \($0)") }
-                if !request.dryRun {
-                    ds.lastSuccess = Date()
-                    ds.waitingSince = nil
-                    ds.lastError = nil
-                    ds.lastBytesTransferred = outcome.bytesTransferred
-                    ds.lastDuration = outcome.duration
-                    ds.fileCounts = (ds.fileCounts ?? [:]).merging(outcome.filesByPart) { $1 }
-                    log.write("\(d.id): version \(outcome.version ?? "-") \(outcome.bytesTransferred) bytes, deleted \(outcome.deletedVersions)")
-                    // Journaux des versions encore gardées : la purge des journaux les épargne.
-                    ds.keptLogs = BackupEngine.logs(in: versionsDir)
-                    // Les versions dont les fichiers abîmés viennent d'être recopiés (ou supprimées) ne comptent plus.
-                    ds.damagedVersions = Self.stillDamaged(ds.damagedVersions, versionsDir: versionsDir, recopied: recopy)
-                    // Vérification mensuelle : échantillon de la nouvelle version, puis l'image disque (détachée).
-                    if ds.lastVerification.map({ Date().timeIntervalSince($0) > Self.verificationInterval }) ?? true,
-                       let v = outcome.version {
-                        progress(d.id, .finishing(L10n.tr("backup.finish.verify")))
-                        let report = Integrity.verify(version: versionsDir.appendingPathComponent(v), full: false)
-                        ds.lastVerification = Date()
-                        damagedFiles = report.damaged
-                        if !report.damaged.isEmpty, !ds.damagedVersions.contains(v) { ds.damagedVersions.append(v) }
-                        log.write("\(d.id): verification \(report.checked) files, \(report.damaged.count) damaged")
-                        report.damaged.prefix(50).forEach { log.write("\(d.id): damaged \(v)/\($0)") }
-                        progress(d.id, .finishing(L10n.tr("backup.finish.image")))
-                        if let check = session.verifyImage() {
-                            imageCheck = check
-                            ds.lastImageCheck = Date()
-                            ds.lastImageCheckOK = check.ok
-                            log.write("\(d.id): image verify \(check.ok ? "ok" : "FAILED"): \(check.output)")
-                        }
-                    }
+                let started = ds
+                finishing.enter()
+                DispatchQueue.global(qos: .utility).async {
+                    defer { finishing.leave() }
+                    self.finalize(d, session: session, copied: copied, state: started, versionsDir: versionsDir,
+                                  recopy: recopy, dryRun: request.dryRun, log: log, collected: collected) { progress(d.id, $0) }
                 }
-                results.append(Result(destination: d.id, outcome: outcome, error: nil, waiting: false,
-                                      newImagePassword: session.newImagePassword, damagedFiles: damagedFiles,
-                                      imageCheck: imageCheck, log: log.url))
             } catch {
+                session.close()
+                progress(d.id, .done)
                 ds.lastError = String(describing: error)
                 if !request.dryRun { ds.lastFailure = Date() }
                 log.write("\(d.id): error \(error)")
-                results.append(Result(destination: d.id, outcome: nil, error: String(describing: error), waiting: false,
-                                      newImagePassword: session.newImagePassword, log: log.url))
+                collected.record(d.id, ds, Result(destination: d.id, outcome: nil, error: String(describing: error), waiting: false,
+                                                  newImagePassword: session.newImagePassword, log: log.url))
             }
-            state[d.id] = ds
         }
+        finishing.wait()
+        state = collected.state
+        let order = dests.map(\.id)
+        results = collected.results.sorted { (order.firstIndex(of: $0.destination) ?? 0) < (order.firstIndex(of: $1.destination) ?? 0) }
         if !request.dryRun {
             try? state.save(paths)
             // Activité récente de l'accueil : réussite ou échec par destination (sans le message d'erreur).
@@ -262,6 +231,82 @@ public final class BackupService: @unchecked Sendable {
             }
         }
         return results
+    }
+
+    /// Finalisation d'une destination copiée : empreintes, version, vérification mensuelle, fermeture (et compactage
+    /// après une réussite). Tourne en arrière-plan ; l'état et le résultat vont dans `collected`.
+    func finalize(_ d: CairnConfig.Destination, session: DestinationSession, copied: CopyResult, state started: RunState.Destination,
+                  versionsDir: URL, recopy: [String: [String]], dryRun: Bool, log: RunLog, collected: Collected,
+                  progress: @escaping (BackupProgress) -> Void) {
+        var ds = started
+        var damagedFiles: [String] = []
+        var imageCheck: SparseImage.Check?
+        // Compactage (long sur un NAS) seulement après une sauvegarde réussie, pas après un arrêt ou un échec.
+        var succeeded = false
+        defer {
+            if !dryRun { progress(.finishing(L10n.tr(succeeded ? "backup.finish.compact" : "backup.finish.close"))) }
+            session.close(compact: succeeded && !dryRun)
+            progress(.done)
+        }
+        do {
+            let outcome = try engine.finish(copied, progress: progress)
+            succeeded = true
+            outcome.warnings.forEach { log.write("\(d.id): \($0)") }
+            if !dryRun {
+                ds.lastSuccess = Date()
+                ds.waitingSince = nil
+                ds.lastError = nil
+                ds.lastBytesTransferred = outcome.bytesTransferred
+                ds.lastDuration = outcome.duration
+                ds.fileCounts = (ds.fileCounts ?? [:]).merging(outcome.filesByPart) { $1 }
+                log.write("\(d.id): version \(outcome.version ?? "-") \(outcome.bytesTransferred) bytes, deleted \(outcome.deletedVersions)")
+                // Journaux des versions encore gardées : la purge des journaux les épargne.
+                ds.keptLogs = BackupEngine.logs(in: versionsDir)
+                // Les versions dont les fichiers abîmés viennent d'être recopiés (ou supprimées) ne comptent plus.
+                ds.damagedVersions = Self.stillDamaged(ds.damagedVersions, versionsDir: versionsDir, recopied: recopy)
+                // Vérification mensuelle : échantillon de la nouvelle version, puis l'image disque (détachée).
+                if ds.lastVerification.map({ Date().timeIntervalSince($0) > Self.verificationInterval }) ?? true,
+                   let v = outcome.version {
+                    progress(.finishing(L10n.tr("backup.finish.verify")))
+                    let report = Integrity.verify(version: versionsDir.appendingPathComponent(v), full: false)
+                    ds.lastVerification = Date()
+                    damagedFiles = report.damaged
+                    if !report.damaged.isEmpty, !ds.damagedVersions.contains(v) { ds.damagedVersions.append(v) }
+                    log.write("\(d.id): verification \(report.checked) files, \(report.damaged.count) damaged")
+                    report.damaged.prefix(50).forEach { log.write("\(d.id): damaged \(v)/\($0)") }
+                    progress(.finishing(L10n.tr("backup.finish.image")))
+                    if let check = session.verifyImage() {
+                        imageCheck = check
+                        ds.lastImageCheck = Date()
+                        ds.lastImageCheckOK = check.ok
+                        log.write("\(d.id): image verify \(check.ok ? "ok" : "FAILED"): \(check.output)")
+                    }
+                }
+            }
+            collected.record(d.id, ds, Result(destination: d.id, outcome: outcome, error: nil, waiting: false,
+                                              newImagePassword: session.newImagePassword, damagedFiles: damagedFiles,
+                                              imageCheck: imageCheck, log: log.url))
+        } catch {
+            ds.lastError = String(describing: error)
+            if !dryRun { ds.lastFailure = Date() }
+            log.write("\(d.id): error \(error)")
+            collected.record(d.id, ds, Result(destination: d.id, outcome: nil, error: String(describing: error), waiting: false,
+                                              newImagePassword: session.newImagePassword, log: log.url))
+        }
+    }
+
+    /// État et résultats des destinations, remplis depuis plusieurs finalisations à la fois.
+    final class Collected: @unchecked Sendable {
+        private let lock = NSLock()
+        private var _state: RunState
+        private var _results: [Result] = []
+        init(state: RunState) { _state = state }
+        var state: RunState { lock.withLock { _state } }
+        var results: [Result] { lock.withLock { _results } }
+        func destination(_ id: String) -> RunState.Destination { lock.withLock { _state[id] } }
+        func record(_ id: String, _ ds: RunState.Destination, _ result: Result) {
+            lock.withLock { _state[id] = ds; _results.append(result) }
+        }
     }
 
     /// Versions encore abîmées : présentes sur la destination, avec des fichiers abîmés qui n'ont pas tous été
