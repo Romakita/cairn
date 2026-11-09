@@ -1,0 +1,8 @@
+.value {
+  white-space: nowrap;
+}
+
+.chevron {
+  display: inline-flex;
+  color: var(--color-text-secondary);
+}

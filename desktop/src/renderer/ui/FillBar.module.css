@@ -1,0 +1,17 @@
+.track {
+  position: relative;
+  width: 100%;
+  height: var(--size-bar);
+  border-radius: var(--radius-capsule);
+  background: var(--color-field);
+  overflow: hidden;
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  width: max(4px, var(--fill));
+  border-radius: inherit;
+  background: var(--fill-color, var(--color-accent));
+  transition: width var(--duration-progress) var(--ease-out);
+}

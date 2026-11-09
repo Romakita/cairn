@@ -1,0 +1,19 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: var(--space-8);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-content);
+}
+
+/* Liste de lignes : le survol de la première et de la dernière suit les coins arrondis. */
+.card[data-flush] {
+  padding: 0;
+  overflow: clip;
+}
+
+.card[data-fill] {
+  height: 100%;
+}

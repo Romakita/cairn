@@ -1,0 +1,66 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+  min-width: 0;
+  padding: 7px var(--space-3);
+  border: 0;
+  border-radius: var(--radius-row);
+  background: transparent;
+  color: var(--color-text);
+  font: var(--text-body);
+  text-align: left;
+}
+
+.clickable {
+  transition: background-color var(--duration-state) var(--ease-out);
+}
+
+.clickable:hover,
+:global([data-simulate="hover"]) .clickable {
+  background: var(--color-row-hover);
+}
+
+.row[data-selected] {
+  background: var(--color-row-selected);
+}
+
+.dot {
+  width: var(--size-dot);
+  height: var(--size-dot);
+  flex-shrink: 0;
+  border-radius: var(--radius-capsule);
+  background: var(--dot);
+}
+
+.title {
+  flex: 1;
+}
+
+.trailing {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.meta {
+  font: var(--text-meta);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.ring {
+  display: block;
+  flex-shrink: 0;
+}
+
+.ringTrack {
+  stroke: var(--color-field);
+}
+
+.ringValue {
+  stroke: var(--color-accent);
+  transition: stroke-dasharray var(--duration-progress) var(--ease-out);
+}

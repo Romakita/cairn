@@ -1,0 +1,35 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: var(--space-1) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-capsule);
+  background: var(--color-field);
+  color: var(--color-text);
+  font: var(--text-caption);
+  white-space: nowrap;
+  transition: background-color var(--duration-state) var(--ease-out);
+}
+
+.chip:not([data-active]):hover,
+:global([data-simulate="hover"]) .chip:not([data-active]) {
+  background: var(--color-field-pressed);
+}
+
+.chip[data-active] {
+  background: var(--tint-active);
+  box-shadow: inset 0 0 0 1px var(--tint);
+}
+
+.dot {
+  width: var(--size-dot);
+  height: var(--size-dot);
+  border-radius: var(--radius-capsule);
+  background: var(--tint);
+}
+
+.total {
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}

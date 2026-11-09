@@ -1,0 +1,71 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--size-control);
+  padding: 0 var(--space-6);
+  border: 1px solid transparent;
+  border-radius: var(--radius-button);
+  font: var(--text-body);
+  white-space: nowrap;
+  cursor: default;
+  transition:
+    background-color var(--duration-state) var(--ease-out),
+    opacity var(--duration-state) var(--ease-out);
+}
+
+.full {
+  width: 100%;
+}
+
+.label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.button[data-variant="primary"] {
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+}
+
+.button[data-variant="secondary"] {
+  background: var(--color-field);
+  color: var(--color-text);
+}
+
+.button[data-variant="outline"] {
+  background: var(--color-content);
+  border-color: var(--color-field-border);
+  color: var(--color-text);
+}
+
+.button[data-variant="danger"] {
+  background: var(--color-danger-solid);
+  color: var(--color-danger-solid-text);
+}
+
+.button:not([aria-disabled]):hover[data-variant="primary"],
+.button:not([aria-disabled]):hover[data-variant="danger"],
+:global([data-simulate="hover"]) .button:not([aria-disabled])[data-variant="primary"],
+:global([data-simulate="hover"]) .button:not([aria-disabled])[data-variant="danger"] {
+  opacity: var(--opacity-hover-solid);
+}
+
+.button:not([aria-disabled]):hover[data-variant="secondary"],
+:global([data-simulate="hover"]) .button:not([aria-disabled])[data-variant="secondary"] {
+  background: var(--color-field-pressed);
+}
+
+.button:not([aria-disabled]):hover[data-variant="outline"],
+:global([data-simulate="hover"]) .button:not([aria-disabled])[data-variant="outline"] {
+  background: var(--color-row-hover);
+}
+
+.button:not([aria-disabled]):active {
+  opacity: var(--opacity-pressed);
+}
+
+.button[aria-disabled="true"]:not([aria-busy]) {
+  opacity: var(--opacity-disabled);
+}

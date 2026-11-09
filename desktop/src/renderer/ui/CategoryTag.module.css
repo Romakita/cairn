@@ -1,0 +1,12 @@
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-capsule);
+  background: var(--tint-tag);
+  color: var(--tint);
+  font: var(--text-badge);
+  font-weight: 500;
+  white-space: nowrap;
+}

@@ -1,0 +1,38 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: 9px 0;
+}
+
+.icon {
+  display: inline-flex;
+  justify-content: center;
+  width: 18px;
+  color: var(--color-text-secondary);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  font: var(--text-caption);
+  font-weight: 500;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.detail {
+  font: var(--text-mono-small);
+  color: var(--color-text-secondary);
+}
+
+.done {
+  display: inline-flex;
+  color: var(--tone-success-fg);
+}

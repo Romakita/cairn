@@ -1,0 +1,11 @@
+.divider {
+  height: 1px;
+  margin: 0;
+  border: 0;
+  flex-shrink: 0;
+  background: var(--color-border);
+}
+
+.divider[data-inset] {
+  margin: 0 var(--space-7);
+}

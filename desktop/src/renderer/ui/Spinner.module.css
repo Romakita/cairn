@@ -1,0 +1,39 @@
+.root {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
+.svg {
+  display: block;
+  animation: spin var(--duration-spin) linear infinite;
+}
+
+.track {
+  stroke: var(--color-field-pressed);
+}
+
+.arc {
+  stroke: currentColor;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .svg {
+    animation-duration: calc(var(--duration-spin) * 3);
+  }
+}
+
+.root[data-inherit] {
+  color: inherit;
+}
+
+.root[data-inherit] .track {
+  stroke: currentColor;
+  opacity: 0.25;
+}

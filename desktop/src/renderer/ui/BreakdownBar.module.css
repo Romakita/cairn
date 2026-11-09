@@ -1,0 +1,17 @@
+.track {
+  width: 100%;
+  height: var(--size-breakdown-bar);
+}
+
+.bar {
+  display: flex;
+  width: max(1px, var(--width));
+  height: 100%;
+  border-radius: var(--radius-bar);
+  overflow: hidden;
+}
+
+.part {
+  flex: var(--grow) 1 0;
+  background: var(--part-color);
+}

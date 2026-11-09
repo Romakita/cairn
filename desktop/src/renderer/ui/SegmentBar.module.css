@@ -1,0 +1,19 @@
+.track {
+  display: flex;
+  gap: 2px;
+  width: 100%;
+  height: var(--size-bar);
+  border-radius: var(--radius-capsule);
+  background: var(--color-field);
+  overflow: hidden;
+}
+
+.track[data-empty] {
+  visibility: hidden;
+}
+
+.part {
+  flex: var(--grow) 1 0;
+  min-width: 3px;
+  background: var(--part-color);
+}

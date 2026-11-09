@@ -1,0 +1,14 @@
+.tinted {
+  width: 100%;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-5);
+}
+
+.pathRoom {
+  padding-top: 170px;
+  width: 100%;
+}

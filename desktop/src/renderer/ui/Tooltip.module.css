@@ -1,0 +1,31 @@
+.anchor {
+  display: inline-flex;
+  max-width: 100%;
+}
+
+.block {
+  display: flex;
+  width: 100%;
+}
+
+.bubble {
+  position: fixed;
+  z-index: 1000;
+  max-width: 320px;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-row);
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  box-shadow: var(--shadow-tooltip);
+  font: var(--text-caption);
+  pointer-events: none;
+  animation: fade var(--duration-fade) var(--ease-out);
+  white-space: normal;
+  user-select: none;
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}

@@ -1,0 +1,47 @@
+.root {
+  position: relative;
+  width: 100%;
+}
+
+.list {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + var(--space-3));
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: var(--color-content);
+  box-shadow: var(--shadow-suggestions);
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 7px var(--space-4);
+  border-radius: var(--radius-row);
+  color: var(--color-text);
+}
+
+.option:hover,
+.option[data-highlighted] {
+  background: var(--color-field);
+}
+
+.optionIcon {
+  display: inline-flex;
+  color: var(--color-text-secondary);
+}
+
+.optionPath {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: var(--text-mono);
+  font-size: 13px;
+}
