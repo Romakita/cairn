@@ -230,6 +230,27 @@ extension CairnTests {
             }
         }
 
+        @Test func deletion_updates_one_repo_without_reanalysis() throws {
+            try withTempDir { dir in
+                let repo = try makeFixture(dir)
+                var o = GitOptions()
+                o.gc = false
+                let r = GitMaintenance.analyze(repo: repo.path, options: o)
+                #expect(r.lastModified.map { Date().timeIntervalSince($0) < 3_600 } == true, "dernière activité récente")
+                #expect(r.unpushedCommits > 0, "branches locales absentes du distant")
+                let wt = try #require(r.worktrees.first { $0.path.hasSuffix("/wt") })
+                let res = GitMaintenance.apply(repo: repo.path, branches: [], worktrees: [wt], options: o)
+                #expect(res.removedWorktrees == [wt.path])
+                let after = r.removing(branches: Set(res.deletedBranches), worktrees: Set(res.removedWorktrees))
+                #expect(!after.worktrees.contains { $0.path == wt.path }, "worktree retiré du rapport")
+                #expect(after.worktrees.count == r.worktrees.count - 1)
+                #expect(after.branches.first { $0.name == "feat-wt" }?.checkedOutInWorktree == nil, "sa branche redevient libre")
+                let refreshed = GitMaintenance.refreshSizes(after, options: o)
+                #expect(refreshed.branches.map(\.id) == after.branches.map(\.id))
+                #expect(refreshed.gitBytes > 0)
+            }
+        }
+
         @Test func apply_skips_branch_moved_since_analysis() throws {
             try withTempDir { dir in
                 let repo = try makeFixture(dir)

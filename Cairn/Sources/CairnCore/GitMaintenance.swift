@@ -83,7 +83,7 @@ public struct GoneBranch: Identifiable, Hashable, Sendable, Codable {
     public let date: String
     public let subject: String
     /// Extraite dans un worktree conservé : non proposée.
-    public let checkedOutInWorktree: String?
+    public var checkedOutInWorktree: String?
     public var id: String { repo + "#" + name }
 }
 
@@ -112,14 +112,33 @@ public struct WorktreeInfo: Identifiable, Hashable, Sendable, Codable {
 
 public struct RepoReport: Identifiable, Sendable, Codable {
     public let path: String
-    public let gitBytes: Int64
-    public let looseBytes: Int64
+    public var gitBytes: Int64
+    public var looseBytes: Int64
     public let mainRef: String?
-    public let branches: [GoneBranch]
-    public let worktrees: [WorktreeInfo]
+    public var branches: [GoneBranch]
+    public var worktrees: [WorktreeInfo]
     /// Espace libéré estimé par la suppression des branches proposées.
-    public let reclaimableBytes: Int64
+    public var reclaimableBytes: Int64
+    /// Dernière activité : commit le plus récent (toutes branches) ou fichier le plus récemment modifié.
+    public let lastModified: Date?
+    /// Travail du dossier principal qui serait perdu avec le dépôt : fichiers modifiés ou non suivis,
+    /// commits locaux absents de tout dépôt distant.
+    public let modifiedFiles: Int
+    public let unpushedCommits: Int
     public var id: String { path }
+    public var isAtRisk: Bool { modifiedFiles > 0 || unpushedCommits > 0 }
+
+    /// Rapport après suppression de branches (noms) et de worktrees (chemins) : le reste de l'analyse est gardé,
+    /// les branches extraites dans un worktree supprimé redeviennent libres.
+    public func removing(branches names: Set<String>, worktrees paths: Set<String>) -> RepoReport {
+        var r = self
+        r.worktrees.removeAll { paths.contains($0.path) }
+        r.branches.removeAll { names.contains($0.name) }
+        for i in r.branches.indices where r.branches[i].checkedOutInWorktree.map(paths.contains) == true {
+            r.branches[i].checkedOutInWorktree = nil
+        }
+        return r
+    }
 }
 
 public struct GitOptions: Sendable, Codable {
@@ -312,17 +331,23 @@ public enum GitMaintenance {
 
     // MARK: Analyse (lecture seule)
 
-    public static func analyze(repo: String, options: GitOptions, now: Date = Date()) -> RepoReport {
-        let git = Git(repo)
-        if options.fetch, !(git.line(["remote"]) ?? "").isEmpty {
-            git.run(["fetch", "--all", "--prune", "--quiet"])
-        }
+    /// Octets des objets non compressés et des packs (`git count-objects`).
+    static func objectSizes(_ git: Git) -> (loose: Int64, pack: Int64) {
         var loose: Int64 = 0, pack: Int64 = 0
         for l in git.run(["count-objects", "-v"]).out.split(separator: "\n") {
             let p = l.split(separator: ":").map { $0.trimmingCharacters(in: .whitespaces) }
             guard p.count == 2, let v = Int64(p[1]) else { continue }
             if p[0] == "size" { loose = v * 1024 } else if p[0] == "size-pack" { pack = v * 1024 }
         }
+        return (loose, pack)
+    }
+
+    public static func analyze(repo: String, options: GitOptions, now: Date = Date()) -> RepoReport {
+        let git = Git(repo)
+        if options.fetch, !(git.line(["remote"]) ?? "").isEmpty {
+            git.run(["fetch", "--all", "--prune", "--quiet"])
+        }
+        let (loose, pack) = objectSizes(git)
         let main = mainRef(git)
         let current = git.line(["symbolic-ref", "-q", "--short", "HEAD"])
         let worktreeList = parseWorktrees(git.run(["worktree", "list", "--porcelain"]).out)
@@ -353,8 +378,25 @@ public enum GitMaintenance {
                                        subject: f[4...].joined(separator: " "), checkedOutInWorktree: w.path))
         }
         let toDelete = branches.filter { selectedByDefault($0, options: options) }
+        let lastCommit = git.line(["for-each-ref", "--sort=-committerdate", "--count=1", "--format=%(committerdate:unix)"])
+            .flatMap(TimeInterval.init).map { Date(timeIntervalSince1970: $0) }
+        let modified = git.run(["status", "--porcelain"]).out.split(separator: "\n").count
+        let unpushed = Int(git.line(["rev-list", "--count", "--branches", "--not", "--remotes"]) ?? "0") ?? 0
         return RepoReport(path: repo, gitBytes: loose + pack, looseBytes: loose, mainRef: main, branches: branches,
-                          worktrees: wts, reclaimableBytes: estimate(git, deleting: toDelete.map(\.name)))
+                          worktrees: wts, reclaimableBytes: estimate(git, deleting: toDelete.map(\.name)),
+                          lastModified: [lastCommit, lastModified(repo)].compactMap { $0 }.max(),
+                          modifiedFiles: modified, unpushedCommits: unpushed)
+    }
+
+    /// Tailles d'un dépôt remesurées après une suppression (`.git`, espace récupérable), sans refaire l'analyse.
+    public static func refreshSizes(_ report: RepoReport, options: GitOptions) -> RepoReport {
+        let git = Git(report.path)
+        var r = report
+        let (loose, pack) = objectSizes(git)
+        r.gitBytes = loose + pack
+        r.looseBytes = loose
+        r.reclaimableBytes = estimate(git, deleting: r.branches.filter { selectedByDefault($0, options: options) }.map(\.name))
+        return r
     }
 
     /// Proposée par défaut : fusionnée/squashée, non extraite dans un worktree (non fusionnée seulement si demandé).
