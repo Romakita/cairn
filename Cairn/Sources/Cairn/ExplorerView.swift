@@ -94,9 +94,10 @@ struct ExplorerView: View {
                                     .font(.caption).foregroundStyle(.secondary)
                             }
                             HStack {
-                                Button(T("action.reveal")) { model.reveal(focus.path) }
+                                Button(T("action.reveal")) { model.reveal(focus.path) }.buttonStyle(.pill)
                                 if selected.count >= 1 {
                                     Button(T("action.trash_short")) { pending = PendingDeletion(nodes: selected, permanently: false) }
+                                        .buttonStyle(.pill)
                                 }
                             }
                         }

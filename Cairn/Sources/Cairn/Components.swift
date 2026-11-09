@@ -73,7 +73,8 @@ struct SidebarRow: View {
 }
 
 /// Sélecteur segmenté à la Codex (bascule « Chat / Work ») : piste grise bordée, segments de même largeur,
-/// libellés gris foncé, segment choisi blanc, ombré, qui glisse d'une option à l'autre.
+/// libellés gris foncé, segment choisi blanc, ombré, qui glisse d'une option à l'autre. Pour les onglets d'une page
+/// (accueil, analyse, git, outils) ; dans une carte ou un tableau, utiliser `TabBar`.
 struct PillPicker<Value: Hashable>: View {
     let options: [(Value, String)]
     @Binding var selection: Value
@@ -113,7 +114,8 @@ struct PillPicker<Value: Hashable>: View {
 }
 
 /// Groupe de boutons à la Codex (« Public  Personnel ») : texte gris sans conteneur, choix courant dans une pilule
-/// grise. Pour les onglets de page comme pour un choix d'option (rétention, fréquence).
+/// grise. Pour un choix d'option dans une carte ou un tableau (rétention, fréquence) ; les onglets d'une page
+/// utilisent `PillPicker`.
 struct TabBar<Value: Hashable>: View {
     let options: [(Value, String)]
     @Binding var selection: Value
@@ -220,27 +222,34 @@ struct DropdownMenu<Value: Hashable>: View {
     @ViewState private var hover = false
 
     var body: some View {
-        // Le chevron est dessiné hors du Menu : un menu macOS sans bordure teinte et déplace l'image de son libellé.
-        HStack(spacing: 8) {
-            Menu {
-                ForEach(options.indices, id: \.self) { i in
-                    Button { selection = options[i].0 } label: {
-                        if options[i].0 == selection { Label(options[i].1, systemImage: "checkmark") } else { Text(options[i].1) }
-                    }
-                }
-            } label: {
+        PopupMenuButton(entries: {
+            options.map { o in .item(title: o.1, checked: o.0 == selection) { selection = o.0 } }
+        }, minWidth: 160) {
+            HStack(spacing: 8) {
                 Text(options.first { $0.0 == selection }?.1 ?? "").font(.system(size: 13.5)).foregroundStyle(Palette.text)
+                Icon("chevron.down", size: 13).foregroundStyle(Palette.secondary)
             }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .fixedSize()
-            Icon("chevron.down", size: 13).foregroundStyle(Palette.secondary)
-                .allowsHitTesting(false)
+            .padding(.horizontal, 12).frame(height: 32)
+            .background(hover ? Palette.rowHover : Palette.content, in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Palette.fieldBorder))
+            .contentShape(RoundedRectangle(cornerRadius: 10))
+            .onHover { hover = $0 }
         }
-        .padding(.horizontal, 12).frame(height: 32)
-        .background(hover ? Palette.rowHover : Palette.content, in: RoundedRectangle(cornerRadius: 10))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Palette.fieldBorder))
-        .onHover { hover = $0 }
+        .fixedSize()
+    }
+}
+
+/// Icône « … » d'un menu, au style des boutons icône de Codex (sans fond, fond gris au survol).
+struct MoreIcon: View {
+    @ViewState private var hover = false
+
+    var body: some View {
+        Icon("ellipsis", size: 16)
+            .foregroundStyle(hover ? Palette.text : Palette.secondary)
+            .frame(width: 32, height: 32)
+            .background(hover ? Palette.field : .clear, in: RoundedRectangle(cornerRadius: 10))
+            .contentShape(Rectangle())
+            .onHover { hover = $0 }
     }
 }
 

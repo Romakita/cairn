@@ -20,7 +20,7 @@ struct ToolsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TabBar(options: [(InventoryEntry.Status?.none, T("inventory.filter.all")),
+            PillPicker(options: [(InventoryEntry.Status?.none, T("inventory.filter.all")),
                                  (.used, T("inventory.status.used")), (.unused, T("inventory.status.unused")),
                                  (.missing, T("inventory.status.missing"))], selection: $filter)
                 .frame(height: 64)
