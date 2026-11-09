@@ -96,33 +96,6 @@
 			<string>%2$lld worktrees</string>
 		</dict>
 	</dict>
-	<key>git.confirm.title</key>
-	<dict>
-		<key>NSStringLocalizedFormatKey</key>
-		<string>Supprimer %1$#@branches@ et %2$#@worktrees@ ?</string>
-		<key>branches</key>
-		<dict>
-			<key>NSStringFormatSpecTypeKey</key>
-			<string>NSStringPluralRuleType</string>
-			<key>NSStringFormatValueTypeKey</key>
-			<string>lld</string>
-			<key>one</key>
-			<string>%1$lld branche</string>
-			<key>other</key>
-			<string>%1$lld branches</string>
-		</dict>
-		<key>worktrees</key>
-		<dict>
-			<key>NSStringFormatSpecTypeKey</key>
-			<string>NSStringPluralRuleType</string>
-			<key>NSStringFormatValueTypeKey</key>
-			<string>lld</string>
-			<key>one</key>
-			<string>%2$lld worktree</string>
-			<key>other</key>
-			<string>%2$lld worktrees</string>
-		</dict>
-	</dict>
 	<key>git.done</key>
 	<dict>
 		<key>NSStringLocalizedFormatKey</key>

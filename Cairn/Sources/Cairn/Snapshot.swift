@@ -193,14 +193,12 @@ enum Snapshot {
         model.gitLive = live
         render(RootView().environmentObject(model), size: CGSize(width: 1280, height: 800), dark: dark, to: "\(outDir)/git-discovering-\(suffix).png")
         live.done = reports.count
-        live.running = ["\(sample)/api", "\(sample)/web"]
-        for r in reports { live.add(r, options: GitOptions()) }
+        live.reports = reports
         model.gitLive = live
         render(RootView().environmentObject(model), size: CGSize(width: 1280, height: 800), dark: dark, to: "\(outDir)/git-live-\(suffix).png")
         model.gitLive = nil
         model.isAnalyzingGit = false
         model.gitReports = reports
-        (model.selectedBranches, model.selectedWorktrees) = GitMaintenance.preselection(reports, options: GitOptions())
         render(RootView().environmentObject(model), size: CGSize(width: 1280, height: 800), dark: dark, to: "\(outDir)/git-done-\(suffix).png")
         model.gitReports = nil
     }

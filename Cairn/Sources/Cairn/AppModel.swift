@@ -15,12 +15,9 @@ final class AppModel: ObservableObject {
     @Published var inventory: Inventory?
     @Published var gitReports: [RepoReport]?
     @Published var isAnalyzingGit = false
-    @Published var selectedBranches = Set<String>()
-    @Published var selectedWorktrees = Set<String>()
     @Published var gitOptions = GitOptions()
-    /// Espace libéré estimé pour la sélection git réelle (nil pendant le calcul).
-    @Published var gitSelectionReclaimable: Int64?
-    var gitEstimateGeneration = 0
+    /// Dépôts en cours de suppression (branche, worktree ou dépôt) : leurs actions sont indisponibles.
+    @Published var gitBusy = Set<String>()
     /// Analyse git en cours : rapports déjà reçus et avancement (nil hors analyse).
     @Published var gitLive: GitLiveAnalysis?
     var gitAnalysisGeneration = 0
