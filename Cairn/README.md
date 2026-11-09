@@ -1,18 +1,18 @@
 # Cairn
 
-App macOS (SwiftUI, SwiftPM, Command Line Tools suffisantes) et commande `cairn` : analyse du stockage,
+App macOS (SwiftUI, SwiftPM ; Command Line Tools suffisantes pour construire, Xcode pour les tests) et commande `cairn` : analyse du stockage,
 sauvegardes, outils IA, inventaire des CLI, maintenance git et restauration.
 Le plan complet est dans `openspec/changes/cairn-integration-scripts/`.
 
 ## Construire et tester
 
 ```bash
-just test              # tests (exécutable cairn-selftest)
+just test              # tests (Swift Testing, Xcode requis)
 just storage-install   # construit Cairn.app et l'installe dans ~/Applications
 ```
 
 Structure : `Sources/CairnCore` (logique, sans SwiftUI), `Sources/Cairn` (interface + aiguillage ligne de commande),
-`Tests/CairnSelfTest` (tests). Textes : `Sources/CairnCore/Resources/{en,fr}.lproj/Localizable.strings`.
+`Tests/CairnTests` (tests Swift Testing), `Tests/CairnTestHelper` (processus auxiliaire des tests). Textes : `Sources/CairnCore/Resources/{en,fr}.lproj/Localizable.strings`.
 
 ## Ligne de commande
 
