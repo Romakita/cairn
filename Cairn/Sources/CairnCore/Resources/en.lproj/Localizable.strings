@@ -23,6 +23,7 @@
 "action.choose_folder" = "Choose a folder…";
 "action.choose_folder.help" = "Choose the folder to analyze";
 "action.stop" = "Stop";
+"action.stopping" = "Stopping…";
 "action.open" = "Open";
 "action.reveal" = "Show in Finder";
 "action.copy_path" = "Copy path";
@@ -464,6 +465,29 @@
 "cli.backup.no_destination" = "No backup destination configured.";
 "cli.backup.unknown_destination" = "Unknown destination: %@";
 "cli.backup.progress" = "%1$@ · %2$@ · %3$@ files";
+"cli.backup.counting" = "%@ · counting files…";
+"cli.backup.progress_percent" = "%1$@ · %2$@ · %3$lld %% (%4$@ / %5$@ files)";
+"backup.progress.title" = "Backup in progress";
+"backup.worker.copy" = "Copy";
+"backup.worker.copy_chunk" = "Copy · folder %1$lld of %2$lld: %3$@";
+"backup.worker.listing" = "rsync is building the file list (%@) — long for a large folder, nothing is wrong";
+"backup.worker.count" = "Worker %1$lld · %2$@ files";
+"backup.worker.count_folder" = "Worker %1$lld · %2$@ · %3$@ files";
+"backup.worker.listing_short" = "rsync is building the file list…";
+"backup.worker.done" = "Finished";
+"backup.progress.preparing_title" = "Preparing the backup…";
+"backup.prepare.parts" = "Listing what to back up (folders, tools inventory, AI tools)…";
+"backup.prepare.open" = "Connecting to the destination and opening the disk image…";
+"backup.prepare.generated" = "Looking for regenerable folders: %@";
+"backup.prepare.tools" = "Inventory of installed tools (Homebrew, npm…)…";
+"backup.prepare.ai" = "Copying AI tool data…";
+"backup.progress.counting" = "%1$@ files backed up · counting: %2$@ found so far";
+"backup.progress.files" = "%1$@ of %2$@ files · %3$@ copied";
+"backup.progress.current" = "Backing up: %@";
+"backup.progress.listing" = "rsync is building and comparing the file list (a few minutes for a large folder)…";
+"backup.progress.listing_entry" = "rsync is building the file list of “%@”…";
+"backup.progress.part" = "Part: %@";
+"backup.progress.menu" = "Backing up… %lld %%";
 "cli.busy" = "A backup or restore is already running.";
 "cli.backup.dry_result" = "%1$@ (simulation): %2$@ files, %3$@ to copy";
 "cli.backup.result" = "%1$@: version %2$@ — %3$@ files, %4$@ copied in %5$@";
@@ -584,6 +608,7 @@
 
 /* Corrections de la vérification : mots de passe, versions partielles, outils ouverts, chemins */
 "destination.error.image_password" = "The password of the disk image “%@” is needed";
+"destination.error.image_busy" = "The disk image “%@” is still held by a previous backup that got stuck (diskimages-helper process). Restart the Mac, or quit that process in Activity Monitor, then try again.";
 "destination.error.not_created" = "Nothing has been backed up to “%@” yet";
 "cli.restore.share_password" = "Password for %@:";
 "cli.restore.image_password" = "Disk image password:";
@@ -701,13 +726,15 @@
 "probe.browser.no_location" = "No disk or folder available.";
 "probe.browser.new_folder_placeholder" = "New folder";
 "probe.browser.create" = "Create";
-"probe.smb.url_hint" = "smb://host/share; the browser opens inside this share.";
+"probe.smb.url_hint" = "smb://host lists its shared folders; smb://host/share opens that share.";
 "probe.smb.keychain_later" = "Stored in the macOS Keychain only when the destination is saved.";
 "probe.smb.connect" = "Connect";
 "probe.smb.reconnect" = "Reconnect";
 "probe.smb.connect_hint" = "Connect to browse the share and verify it.";
 "probe.status.unverified" = "Not verified";
 "probe.status.pick_folder" = "Pick the backup folder; it is verified automatically.";
+"probe.status.pick_share" = "Choose the shared folder: Cairn creates a “cairn” folder in it for the backups.";
+"probe.smb.shares_title" = "Shared folders";
 "probe.status.connect_first" = "Connect to the share to verify it.";
 "probe.status.checking" = "Verifying…";
 "probe.status.connecting" = "Connecting to the server…";
@@ -729,7 +756,7 @@
 "probe.error.name_empty" = "Type a folder name.";
 "probe.error.name_character" = "A folder name cannot contain “/” or “:”.";
 "probe.error.name_exists" = "A folder with this name already exists.";
-"probe.hint.address" = "Use the form smb://nas.local/share.";
+"probe.hint.address" = "Use the form smb://nas.local or smb://nas.local/share.";
 "probe.hint.unreachable" = "Check the address and that the NAS is on and on the same network.";
 "probe.hint.password" = "Check the user name and password.";
 "probe.hint.retry" = "Try again, or check the share settings on the NAS.";
@@ -748,6 +775,8 @@
 "backup.history.unreachable" = "The destination isn't reachable: the list will load once it responds.";
 "backup.history.empty" = "No backup of this Mac on this destination yet.";
 "backup.history.error" = "Could not read the backups: %@";
+"backup.history.busy" = "A backup is in progress: the history will show when it finishes.";
+"backup.busy_other" = "Another Cairn operation is running (started from the cairn command). Backing up will be available when it finishes.";
 "backup.history.refresh" = "Refresh";
 "backup.history.more" = "and %lld older backups";
 "destination.edit" = "Edit";

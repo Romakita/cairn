@@ -58,6 +58,26 @@ enum Snapshot {
                 model.storage.check()
                 render(MenuBarPanel().environmentObject(model).background(Palette.content), size: CGSize(width: 360, height: 640),
                        dark: dark, to: "\(outDir)/menubar-\(suffix).png")
+                render(VStack(spacing: 16) {
+                    BackupProgressCard(progress: .preparing(T("backup.prepare.open")))
+                    BackupProgressCard(progress: BackupProgress(part: "folders/workspaces", files: 1_234, bytes: 0,
+                                                                current: "exports/Cairn/Sources/CairnCore/BackupEngine.swift",
+                                                                processed: 12_345, expected: 29_870))
+                    BackupProgressCard(progress: BackupProgress(part: "folders/workspaces", files: 0, bytes: 0,
+                                                                current: "", processed: 3_410, counting: true, found: 8_120).with {
+                        $0.listing = "Archive"; $0.listingSince = Date().addingTimeInterval(-150); $0.chunk = 1; $0.chunks = 23
+                        $0.workers = [CountWorker(found: 4_210, current: "clubmed/api/src/index.ts", folder: "clubmed"),
+                                      CountWorker(found: 2_900, current: "exports/Cairn/Sources/App.swift", folder: "exports"),
+                                      CountWorker(found: 1_010, done: true), CountWorker(found: 0, folder: "tsed")]
+                    })
+                }.padding(24).frame(width: 900).background(Palette.content),
+                       size: CGSize(width: 900, height: 760), dark: dark, to: "\(outDir)/backup-progress-\(suffix).png")
+                render(PopupMenuContent(entries: [.item(icon: "play.circle", title: T("backup.simulate")) {},
+                                                  .item(icon: "link", title: T("destination.copy_address")) {},
+                                                  .divider,
+                                                  .item(icon: "trash", title: T("destination.delete.menu"), destructive: true) {}]) {}
+                        .padding(20).background(Palette.rail),
+                       size: CGSize(width: 320, height: 200), dark: dark, to: "\(outDir)/popup-menu-\(suffix).png")
                 renderDestinationStates(model: model, outDir: outDir, suffix: suffix, size: size, dark: dark)
                 renderHubStates(model, sample: sample, dark: dark, suffix: suffix, outDir: outDir)
                 renderGitStates(model, reports: gitReports, sample: sample, dark: dark, suffix: suffix, outDir: outDir)
@@ -196,5 +216,14 @@ enum Snapshot {
         host.cacheDisplay(in: host.bounds, to: rep)
         try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
         window.contentView = nil
+    }
+}
+
+extension BackupProgress {
+    /// Copie modifiée (exemples des captures).
+    func with(_ change: (inout BackupProgress) -> Void) -> BackupProgress {
+        var p = self
+        change(&p)
+        return p
     }
 }

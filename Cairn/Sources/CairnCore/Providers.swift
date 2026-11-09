@@ -23,6 +23,8 @@ public enum ProviderError: Error, CustomStringConvertible {
     case missingImagePassword(String)
     case mountFailed(String, Int32)
     case image(String)
+    /// Image encore ouverte ailleurs (montage d'une sauvegarde précédente resté bloqué) : verrou du sparsebundle pris.
+    case imageBusy(String)
     /// Rien n'existe encore sur la destination (simulation ou restauration).
     case notCreated(String)
     public var description: String {
@@ -33,6 +35,7 @@ public enum ProviderError: Error, CustomStringConvertible {
         case let .notCreated(d): L10n.tr("destination.error.not_created", d)
         case let .mountFailed(d, code): L10n.tr("destination.error.mount", d, Int(code))
         case let .image(m): L10n.tr("destination.error.image", m)
+        case let .imageBusy(p): L10n.tr("destination.error.image_busy", (p as NSString).lastPathComponent)
         }
     }
 }
@@ -204,6 +207,8 @@ public final class SparseImage: @unchecked Sendable {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
         p.arguments = args
+        // Messages en anglais (reconnus par `attachFailure`), quelle que soit la langue du Mac.
+        p.environment = ProcessInfo.processInfo.environment.merging(["LC_ALL": "C", "LANG": "C"]) { $1 }
         let out = Pipe()
         p.standardOutput = out
         p.standardError = out
@@ -219,7 +224,10 @@ public final class SparseImage: @unchecked Sendable {
         }
         let data = out.fileHandleForReading.readDataToEndOfFile()
         p.waitUntilExit()
-        return (p.terminationStatus, String(decoding: data, as: UTF8.self))
+        // L'avertissement « -nobrowse is deprecated » n'apporte rien au message d'erreur.
+        let text = String(decoding: data, as: UTF8.self).components(separatedBy: "\n")
+            .filter { !$0.contains("WARNING:") || !$0.contains("deprecated") }.joined(separator: "\n")
+        return (p.terminationStatus, text)
     }
 
     /// Mot de passe de l'image (Trousseau).
@@ -257,10 +265,18 @@ public final class SparseImage: @unchecked Sendable {
               let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
               let entities = plist["system-entities"] as? [[String: Any]],
               let mp = entities.compactMap({ $0["mount-point"] as? String }).first else {
-            throw ProviderError.image(out.trimmingCharacters(in: .whitespacesAndNewlines))
+            throw Self.attachFailure(output: out, path: path)
         }
         mountPoint = mp
         return URL(fileURLWithPath: mp)
+    }
+
+    /// Erreur d'un `hdiutil attach` raté. EAGAIN : le verrou de l'image est tenu par un autre processus.
+    public static func attachFailure(output: String, path: String) -> ProviderError {
+        // hdiutil répond dans la langue du Mac malgré LC_ALL : message anglais et français.
+        let busy = ["Resource temporarily unavailable", "Ressources temporairement indisponibles"]
+        if busy.contains(where: output.contains) { return .imageBusy(path) }
+        return .image(output.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
     public func detach() {

@@ -163,7 +163,7 @@ struct MenuBarPanel: View {
                         Label { Text(model.summary.map { T("menu.analysis_stale", Fmt.date($0.date)) } ?? T("menu.no_analysis")) } icon: { Icon("clock.arrow.circlepath", size: 15) }
                             .font(.system(size: 13, weight: .medium)).foregroundStyle(Palette.foreground(.warning))
                         Spacer()
-                        Button(T("action.analyze")) { model.scan() }.buttonStyle(.bordered)
+                        Button(T("action.analyze")) { model.scan() }.buttonStyle(.pill)
                     }
                 }
             }
@@ -178,21 +178,22 @@ struct MenuBarPanel: View {
                 Text(model.summary.map { T("menu.clean_amount", Fmt.bytes($0.reclaimableBytes)) } ?? T("action.clean"))
                     .frame(maxWidth: .infinity, minHeight: 36)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.pillPrimary)
             HStack(spacing: 8) {
                 Button { model.backups.run(destinations: nil, dryRun: false) } label: {
                     Text(T("action.backup_now")).frame(maxWidth: .infinity, minHeight: 30)
                 }
-                .disabled(model.isBackingUp || (model.config?.destinations.isEmpty ?? true))
-                Menu {
-                    Button(T("action.analyze")) { model.scan() }
-                    Button(T("menu.open")) { open(.home) }
-                    Button(T("section.settings")) { open(.settings) }
-                    Divider()
-                    Button(T("menu.quit")) { NSApp.terminate(nil) }
-                } label: { Icon("ellipsis", size: 16) }
-                .menuIndicator(.hidden)
-                .fixedSize()
+                .buttonStyle(.pill)
+                .disabled(model.isBackingUp || model.otherOperationRunning || (model.config?.destinations.isEmpty ?? true))
+                PopupMenuButton(entries: {
+                    [.item(icon: "magnifyingglass", title: T("action.analyze")) { model.scan() },
+                     .item(icon: "macwindow", title: T("menu.open")) { open(.home) },
+                     .item(icon: "gearshape", title: T("section.settings")) { open(.settings) },
+                     .divider,
+                     .item(icon: "power", title: T("menu.quit")) { NSApp.terminate(nil) }]
+                }) {
+                    MoreIcon()
+                }
                 .accessibilityLabel(T("menu.more"))
             }
             Text(model.summary.map { T("menu.analysis_date", Fmt.date($0.date)) } ?? T("menu.no_analysis"))
@@ -243,7 +244,8 @@ struct MenuBarPanel: View {
                 Icon(model.isBackingUp ? "arrow.triangle.2.circlepath" : (waiting.isEmpty ? "checkmark.shield" : "clock"), size: 16)
                     .foregroundStyle(waiting.isEmpty ? Palette.foreground(.success) : Palette.foreground(.warning))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(model.isBackingUp ? (model.backupProgress.map { T("backup.running", $0.1.part) } ?? T("backup.preparing")) :
+                    Text(model.isBackingUp ? (model.backupProgress?.1.fraction.map { T("backup.progress.menu", Int($0 * 100)) }
+                                              ?? model.backupProgress.map { T("backup.running", $0.1.part) } ?? T("backup.preparing")) :
                             (last.map { T("menu.backed_up", Fmt.date($0)) } ?? T("home.no_backup")))
                         .font(.system(size: 13.5, weight: .semibold))
                     if let w = waiting.first { Text(T("menu.waiting", model.destinationLabel(w))).font(.system(size: 12)).foregroundStyle(Palette.secondary) }

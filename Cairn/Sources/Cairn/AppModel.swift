@@ -28,11 +28,16 @@ final class AppModel: ObservableObject {
     @Published var pendingCleanupPreselection = false
     // Sauvegardes.
     @Published var runState = RunState()
+    /// Opération Cairn lancée ailleurs (commande `cairn`) qui tient le verrou : aucune sauvegarde ne peut démarrer.
+    @Published var otherOperationRunning = false
+    /// « Arrêter » demandé : la sauvegarde s'arrête à la fin de l'étape en cours (montage, image, rsync).
+    @Published var isStoppingBackup = false
     @Published var isBackingUp = false {
         didSet {
             guard oldValue != isBackingUp else { return }
             // Le panneau de mise à jour n'observe que `updates` : on le prévient, son bouton dépend de la sauvegarde.
             updates.objectWillChange.send()
+            if !isBackingUp { isStoppingBackup = false }
             menuBarTimer?.invalidate()
             menuBarTimer = nil
             menuBarFrame = 0
@@ -62,6 +67,8 @@ final class AppModel: ObservableObject {
     /// Historique en cours de lecture, et erreur de la dernière lecture, par destination.
     @Published var versionsLoading: Set<String> = []
     @Published var versionsError: [String: String] = [:]
+    /// Destinations dont l\'historique attend la fin d\'une sauvegarde en cours (image ouverte).
+    @Published var versionsBusy: Set<String> = []
     /// Destinations en cours de vérification (échantillon ou complète).
     @Published var verifying: Set<String> = []
     /// Rendu `--snapshot` : aucune lecture de destination (ni montage ni réseau).

@@ -78,26 +78,25 @@ struct BackupView: View {
                     moreMenu(d)
                     Button { editing = d } label: { Label(T("destination.edit"), systemImage: "gearshape") }.buttonStyle(.pill)
                     if model.isBackingUp {
-                        Button(T("action.stop")) { model.backups.cancel() }.buttonStyle(.pill)
+                        Button(T(model.isStoppingBackup ? "action.stopping" : "action.stop")) { model.backups.cancel() }
+                            .buttonStyle(.pill).disabled(model.isStoppingBackup)
                     } else {
                         Button(T("action.backup_now")) { model.backups.run(destinations: [d.id], dryRun: false) }.buttonStyle(.pillPrimary)
-                            .disabled(reason(.backup, d) != nil).help(reason(.backup, d).map { T($0) } ?? "")
+                            .disabled(reason(.backup, d) != nil || model.otherOperationRunning)
+                            .help(model.otherOperationRunning ? T("backup.busy_other") : reason(.backup, d).map { T($0) } ?? "")
                     }
+                }
+                if model.otherOperationRunning && !model.isBackingUp {
+                    Banner(icon: "clock", text: T("backup.busy_other"), tone: .info)
                 }
                 if !d.encrypted && model.config?.home.include.contains(where: { $0.hasPrefix(".ssh") || $0.hasPrefix(".aws") }) == true {
                     Banner(icon: "lock.open", text: T("onboarding.destination.unencrypted_warning"), tone: .warning)
                 }
                 if let (dest, p) = model.backupProgress, dest == d.id {
-                    Card {
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack { ProgressView().controlSize(.small); Text(T("backup.running", p.part)).fontWeight(.medium) }
-                            Text(T("cli.backup.progress", model.destinationLabel(d), p.part, Fmt.count(p.files))).font(.system(size: 12.5)).foregroundStyle(Palette.secondary)
-                            Text(p.current).font(.system(size: 11.5)).foregroundStyle(Palette.secondary).lineLimit(1).truncationMode(.middle)
-                        }
-                    }
+                    BackupProgressCard(progress: p)
                 } else if model.isBackingUp && model.backupProgress == nil {
                     // Préparation commune à toutes les destinations (copie des bases des outils IA…) : pas encore de progression.
-                    Card { HStack { ProgressView().controlSize(.small); Text(T("backup.preparing")).fontWeight(.medium) } }
+                    BackupProgressCard(progress: .preparing(T("backup.preparing")))
                 }
                 if let r = model.lastBackupResults.first(where: { $0.destination == d.id }) {
                     lastResultCard(d, r)
@@ -111,7 +110,7 @@ struct BackupView: View {
                 // Cartes d'une même rangée à la même hauteur : la rangée prend la hauteur de la plus haute.
                 HStack(alignment: .top, spacing: 14) {
                     statCard(T("home.last_backup"), ds.lastSuccess.map(Fmt.date) ?? T("backup.never"),
-                             ds.lastSuccess == nil ? (ds.lastError ?? "") : T("backup.transferred", Fmt.bytes(ds.lastBytesTransferred), Fmt.duration(ds.lastDuration)))
+                             ds.lastSuccess == nil ? (model.isBackingUp ? T("backup.progress.title") : ds.lastError ?? "") : T("backup.transferred", Fmt.bytes(ds.lastBytesTransferred), Fmt.duration(ds.lastDuration)))
                     statCard(T("backup.next"), nextText(), waiting ? T("backup.waiting_since", ds.waitingSince.map(Fmt.date) ?? "—") : T("frequency.\(model.config?.schedule.frequency.rawValue ?? "daily")"))
                     statCard(T("backup.integrity"), ds.damagedVersions.isEmpty ? T("backup.integrity.ok") : T("backup.integrity.damaged", ds.damagedVersions.count),
                              ds.lastVerification.map { T("backup.integrity.checked", Fmt.date($0)) } ?? T("backup.integrity.never")) {
@@ -152,20 +151,18 @@ struct BackupView: View {
 
     /// Menu « … » : simulation, adresse, suppression (en rouge, en dernier).
     func moreMenu(_ d: CairnConfig.Destination) -> some View {
-        Menu {
-            Button { model.backups.run(destinations: [d.id], dryRun: true) } label: { Label(T("backup.simulate"), systemImage: "play.circle") }
-                .disabled(reason(.simulate, d) != nil)
-            Button {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(d.url ?? d.path ?? "", forType: .string)
-            } label: { Label(T("destination.copy_address"), systemImage: "link") }
-            Divider()
-            Button(role: .destructive) { deleting = d } label: { Label(T("destination.delete.menu"), systemImage: "trash") }
-        } label: {
-            Image(systemName: "ellipsis").font(.system(size: 14, weight: .semibold)).foregroundStyle(Palette.text)
-                .frame(width: 36, height: 36).background(Palette.field, in: Circle()).contentShape(Circle())
+        PopupMenuButton(entries: {
+            [.item(icon: "play.circle", title: T("backup.simulate"), disabled: reason(.simulate, d) != nil,
+                   help: reason(.simulate, d).map { T($0) }) { model.backups.run(destinations: [d.id], dryRun: true) },
+             .item(icon: "link", title: T("destination.copy_address")) {
+                 NSPasteboard.general.clearContents()
+                 NSPasteboard.general.setString(d.url ?? d.path ?? "", forType: .string)
+             },
+             .divider,
+             .item(icon: "trash", title: T("destination.delete.menu"), destructive: true) { deleting = d }]
+        }) {
+            MoreIcon()
         }
-        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
         .help(T("destination.more"))
         .accessibilityLabel(T("destination.more"))
     }
@@ -315,6 +312,7 @@ struct BackupView: View {
 
     func historyPlaceholder(_ d: CairnConfig.Destination, loading: Bool) -> String {
         if loading { return T("backup.history.loading") }
+        if model.versionsBusy.contains(d.id) { return T("backup.history.busy") }
         if let e = model.versionsError[d.id] { return T("backup.history.error", e) }
         if model.destinationWaiting[d.id] == true { return T("backup.history.unreachable") }
         return model.versions[d.id] == nil ? T("backup.history.loading") : T("backup.history.empty")
@@ -414,8 +412,18 @@ extension AppModel {
     /// Liste les sauvegardes de ce Mac sur une destination, en arrière-plan ; démonte toujours ce qui a été monté.
     func loadVersions(_ d: CairnConfig.Destination) {
         guard !Self.offline, !versionsLoading.contains(d.id) else { return }
-        versionsLoading.insert(d.id)
         versionsError[d.id] = nil
+        // Une sauvegarde en cours (app ou commande `cairn`) tient l'image : on la relira à sa fin.
+        if OperationLock.isHeld(at: paths.operationLock) {
+            versionsBusy.insert(d.id)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 30) { [weak self] in
+                guard let self, self.versionsBusy.contains(d.id) else { return }
+                self.loadVersions(d)
+            }
+            return
+        }
+        versionsBusy.remove(d.id)
+        versionsLoading.insert(d.id)
         Task.detached(priority: .userInitiated) {
             let session = DestinationSession(d)
             var list: [VersionInfo] = []
@@ -500,5 +508,125 @@ extension AppModel {
                 then(list)
             }
         }
+    }
+}
+
+/// Sauvegarde en cours, à la manière d'une analyse antivirus : anneau de pourcentage, barre, fichier en cours,
+/// compteurs. Pendant le comptage des fichiers (première sauvegarde), l'anneau tourne sans pourcentage.
+struct BackupProgressCard: View {
+    let progress: BackupProgress
+
+    var body: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .center, spacing: 22) {
+                    ring
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(T(progress.preparing != nil ? "backup.progress.preparing_title" : "backup.progress.title"))
+                            .font(.system(size: 16, weight: .semibold)).foregroundStyle(Palette.text)
+                        bar
+                        Text(summary).font(.system(size: 13)).foregroundStyle(Palette.secondary).monospacedDigit()
+                        Text(progress.part.isEmpty ? " " : T("backup.progress.part", progress.part))
+                            .font(.system(size: 12.5)).foregroundStyle(Palette.secondary).lineLimit(1)
+                    }
+                }
+                if progress.preparing == nil {
+                    VStack(alignment: .leading, spacing: 0) {
+                        copyRow
+                        ForEach(progress.workers.indices, id: \.self) { i in
+                            RowDivider().padding(.horizontal, -16)
+                            workerRow(i, progress.workers[i])
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .background(Palette.rowHover, in: RoundedRectangle(cornerRadius: 12))
+                }
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: progress.fraction)
+    }
+
+    var summary: String {
+        if let step = progress.preparing { return step }
+        if progress.counting { return T("backup.progress.counting", Fmt.count(progress.processed), Fmt.count(progress.found)) }
+        return T("backup.progress.files", Fmt.count(progress.processed), Fmt.count(progress.expected ?? 0), Fmt.count(progress.files))
+    }
+
+    /// Ligne de la copie : dossier du premier niveau (rang sur total), puis liste en cours (durée) ou fichier courant.
+    var copyRow: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            WorkerRow(icon: "arrow.up.doc", title: copyTitle, detail: copyDetail(now: context.date), done: false)
+        }
+    }
+
+    var copyTitle: String {
+        if let n = progress.chunk, let total = progress.chunks {
+            return T("backup.worker.copy_chunk", n, total, progress.listing ?? progress.current.split(separator: "/").first.map(String.init) ?? "")
+        }
+        return T("backup.worker.copy")
+    }
+
+    func copyDetail(now: Date) -> String {
+        if !progress.current.isEmpty { return progress.current }
+        let since = progress.listingSince.map { Fmt.duration(max(0, now.timeIntervalSince($0))) } ?? ""
+        return T("backup.worker.listing", since)
+    }
+
+    func workerRow(_ i: Int, _ w: CountWorker) -> some View {
+        WorkerRow(icon: "cpu", title: w.done || w.folder.isEmpty ? T("backup.worker.count", i + 1, Fmt.count(w.found))
+                                                : T("backup.worker.count_folder", i + 1, w.folder, Fmt.count(w.found)),
+                  detail: w.done ? T("backup.worker.done") : (w.current.isEmpty ? T("backup.worker.listing_short") : w.current),
+                  done: w.done)
+    }
+
+    /// Barre bleue (le `tint` d'une `ProgressView` linéaire n'est pas toujours appliqué) ; vide pendant le comptage.
+    var bar: some View {
+        GeometryReader { g in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Palette.field)
+                Capsule().fill(Palette.accent).frame(width: g.size.width * (progress.fraction ?? 0))
+            }
+        }
+        .frame(height: 6)
+    }
+
+    var ring: some View {
+        ZStack {
+            Circle().stroke(Palette.field, lineWidth: 8)
+            if let f = progress.fraction {
+                Circle().trim(from: 0, to: f)
+                    .stroke(Palette.accent, style: StrokeStyle(lineWidth: 8, lineCap: .round)).rotationEffect(.degrees(-90))
+                Text(verbatim: "\(Int(f * 100)) %").font(.system(size: 20, weight: .bold)).monospacedDigit().foregroundStyle(Palette.text)
+            } else {
+                ProgressView().controlSize(.regular)
+            }
+        }
+        .frame(width: 84, height: 84)
+    }
+}
+
+/// Ligne d'un worker (copie ou comptage) : icône, titre, détail en police fixe, sablier ou coche.
+private struct WorkerRow: View {
+    let icon: String
+    let title: String
+    let detail: String
+    let done: Bool
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Icon(icon, size: 15).foregroundStyle(Palette.secondary).frame(width: 18)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.system(size: 13, weight: .medium)).foregroundStyle(Palette.text).monospacedDigit()
+                Text(detail).font(.system(size: 11.5, design: .monospaced)).foregroundStyle(Palette.secondary)
+                    .lineLimit(1).truncationMode(.middle)
+            }
+            Spacer(minLength: 8)
+            if done {
+                Icon("checkmark.circle", size: 15).foregroundStyle(Palette.foreground(.success))
+            } else {
+                ProgressView().controlSize(.small)
+            }
+        }
+        .padding(.vertical, 9)
     }
 }

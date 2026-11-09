@@ -629,10 +629,22 @@ public enum CLI {
                           out: (String) -> Void, err: (String) -> Void) -> Exit {
         let results: [BackupService.Result]
         do {
+            // Une ligne par point de pourcentage (une seule pendant le comptage).
+            final class Last: @unchecked Sendable { var value: Int?; var counting = false }
+            let last = Last()
             results = try service.run(req) { dest, p in
-                if !p.current.isEmpty, p.files % 1000 == 0 {
-                    FileHandle.standardError.write(Data((L10n.tr("cli.backup.progress", dest, p.part, Fmt.count(p.files)) + "\n").utf8))
+                if p.counting {
+                    guard !last.counting else { return }
+                    last.counting = true
+                    FileHandle.standardError.write(Data((L10n.tr("cli.backup.counting", dest) + "\n").utf8))
+                    return
                 }
+                guard let f = p.fraction else { return }
+                let pct = Int(f * 100)
+                guard pct != last.value else { return }
+                last.value = pct
+                let line = L10n.tr("cli.backup.progress_percent", dest, p.part, pct, Fmt.count(p.processed), Fmt.count(p.expected ?? 0))
+                FileHandle.standardError.write(Data((line + "\n").utf8))
             }
         } catch OperationLock.Failure.alreadyHeld {
             err(L10n.tr("cli.busy")); return .failure

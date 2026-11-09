@@ -44,6 +44,7 @@ final class BackupController {
 
     /// Vérifie chaque destination : sauvegarde due, conditions d'alimentation, joignabilité, retard à signaler.
     func tick() {
+        refreshOtherOperation()
         guard let model, let config = model.config, !config.destinations.isEmpty, !model.isBackingUp,
               !model.configIssues.contains(where: { $0.severity == .error }) else { return }
         let state = RunState.load(model.paths)
@@ -94,6 +95,8 @@ final class BackupController {
     /// Lance une sauvegarde (ou une simulation) en arrière-plan.
     func run(destinations: [String]?, dryRun: Bool, only: Set<BackupPart.Kind>? = nil) {
         guard let model, let config = model.config, !model.isBackingUp else { return }
+        // Verrou tenu par la commande `cairn` : on le dit au lieu d'échouer sans un mot.
+        if refreshOtherOperation() { return }
         let service = BackupService(paths: model.paths, config: config)
         service.extraParts = CLI.aiParts
         self.service = service
@@ -119,6 +122,8 @@ final class BackupController {
             }
             let (r, f, log, wasBusy) = (results, failure, service.logURL, busy)
             await MainActor.run {
+                // Arrêt demandé par l'utilisateur : pas de notification d'échec.
+                let stopped = model.isStoppingBackup
                 model.isBackingUp = false
                 model.backupProgress = nil
                 self.service = nil
@@ -129,12 +134,12 @@ final class BackupController {
                 // en cours (verrou pris) n'est pas un échec : simple message.
                 if let f {
                     model.lastMessage = f
-                    if !dryRun && !wasBusy { self.notify(title: T("backup.notify.failed_title"), body: f, log: log) }
+                    if !dryRun && !wasBusy && !stopped { self.notify(title: T("backup.notify.failed_title"), body: f, log: log) }
                 }
                 for res in r {
                     if let pw = res.newImagePassword { model.newImagePassword = (res.destination, pw) }
                     let label = config.destinations.first { $0.id == res.destination }.map(model.destinationLabel) ?? res.destination
-                    if let e = res.error, !res.waiting, !dryRun {
+                    if let e = res.error, !res.waiting, !dryRun, !stopped {
                         self.notify(title: T("backup.notify.failed_title"), body: e, log: res.log)
                     }
                     if !res.damagedFiles.isEmpty {
@@ -149,7 +154,24 @@ final class BackupController {
         }
     }
 
-    func cancel() { service?.cancel() }
+    /// Met à jour `otherOperationRunning` ; vrai si une opération lancée hors de l'app tient le verrou.
+    @discardableResult
+    func refreshOtherOperation() -> Bool {
+        guard let model else { return false }
+        let other = !model.isBackingUp && OperationLock.isHeld(at: model.paths.operationLock)
+        if model.otherOperationRunning != other { model.otherOperationRunning = other }
+        if other {
+            // Vérifié de nouveau dans 10 s, pour réactiver le bouton dès la fin.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in self?.refreshOtherOperation() }
+        }
+        return other
+    }
+
+    func cancel() {
+        guard let service, let model, model.isBackingUp else { return }
+        model.isStoppingBackup = true
+        service.cancel()
+    }
 
     /// Fin de l'app : la sauvegarde en cours est annulée et on attend brièvement que rsync s'arrête
     /// (la version reste incomplète et sera reprise ; l'image est détachée, le verrou rendu).

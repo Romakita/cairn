@@ -64,7 +64,15 @@ public final class BackupService: @unchecked Sendable {
     public var isRunning: Bool { stateLock.withLock { running } }
 
     /// Parties à sauvegarder. `staging` reçoit les fichiers générés (inventaire des outils…).
-    public func parts(staging: URL, request: Request, warn: (String) -> Void = { _ in }) throws -> [BackupPart] {
+    /// `step` : étape en cours (dossier examiné, inventaire…), pour la progression.
+    public func parts(staging: URL, request: Request, warn: (String) -> Void = { _ in },
+                      step: (String) -> Void = { _ in }) throws -> [BackupPart] {
+        var lastStep = Date.distantPast
+        func report(_ text: String) {
+            guard Date().timeIntervalSince(lastStep) >= 0.1 else { return }
+            lastStep = Date()
+            step(text)
+        }
         var parts: [BackupPart] = []
         let want = { (k: BackupPart.Kind) in request.only?.contains(k) ?? true }
         let destPaths = config.destinations.compactMap { $0.provider == .local ? (($0.path ?? "") as NSString).expandingTildeInPath : nil }
@@ -74,8 +82,10 @@ public final class BackupService: @unchecked Sendable {
                 var name = (f.expandedPath as NSString).lastPathComponent
                 while used.contains(name) { name += "-" }
                 used.insert(name)
-                parts.append(BackupPart(kind: .folder, target: "folders/\(name)", source: f.expandedPath,
-                                        excludes: BackupExclusions.forFolder(f.expandedPath, userPatterns: f.exclude, destinations: destPaths)))
+                let excludes = BackupExclusions.forFolder(f.expandedPath, userPatterns: f.exclude, destinations: destPaths) { dir in
+                    report(L10n.tr("backup.prepare.generated", name + (dir.isEmpty ? "" : "/" + dir)))
+                }
+                parts.append(BackupPart(kind: .folder, target: "folders/\(name)", source: f.expandedPath, excludes: excludes))
             }
         }
         if want(.home) {
@@ -88,11 +98,13 @@ public final class BackupService: @unchecked Sendable {
         }
         if want(.tools) {
             let dir = staging.appendingPathComponent("tools")
+            step(L10n.tr("backup.prepare.tools"))
             let inv = InventoryCollector.collect(config: config)
             try InventoryExport.write(inv, to: dir)
             parts.append(BackupPart(kind: .tools, target: "tools", source: dir.path))
         }
         if want(.ai), let extra = extraParts {
+            step(L10n.tr("backup.prepare.ai"))
             parts += try extra(config, staging, warn)
         }
         return parts
@@ -113,10 +125,17 @@ public final class BackupService: @unchecked Sendable {
         try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: staging) }
 
+        // Préparation affichée tout de suite : l'inventaire et l'ouverture de l'image prennent parfois des minutes.
+        let targets = config.destinations.filter { request.destinationIDs?.contains($0.id) ?? true }.map(\.id)
+        for id in targets { progress(id, .preparing(L10n.tr("backup.prepare.parts"))) }
         let parts: [BackupPart]
         // Avertissements de préparation (base d'un outil IA illisible…) : repris dans le résultat de chaque destination.
         var prepWarnings: [String] = []
-        do { parts = try self.parts(staging: staging, request: request, warn: { prepWarnings.append($0) }) } catch {
+        do {
+            parts = try self.parts(staging: staging, request: request, warn: { prepWarnings.append($0) }) { text in
+                for id in targets { progress(id, .preparing(text)) }
+            }
+        } catch {
             log.write("error before destinations: \(error)")
             // Noté sur chaque destination visée : l'état l'affiche et la planification attend avant de relancer.
             if !request.dryRun {
@@ -132,6 +151,8 @@ public final class BackupService: @unchecked Sendable {
             }
             throw error
         }
+        // « Arrêter » pendant la préparation : rien n'a encore été écrit sur une destination.
+        if engine.isCancelled { log.write("cancelled before destinations"); throw BackupError.cancelled }
         log.write("parts: " + parts.map(\.target).joined(separator: ", "))
         if request.only?.contains(.ai) ?? true, let line = AIBackup.openToolsLogLine(config: config) { log.write(line) }
         var state = RunState.load(paths)
@@ -141,6 +162,8 @@ public final class BackupService: @unchecked Sendable {
         defer { sleep.release() }
 
         for d in dests {
+            // Arrêt demandé : les destinations suivantes ne sont pas commencées.
+            if engine.isCancelled { break }
             let session = DestinationSession(d)
             var ds = state[d.id]
             ds.lastAttempt = Date()
@@ -152,6 +175,7 @@ public final class BackupService: @unchecked Sendable {
                                       waiting: true, newImagePassword: nil, log: log.url))
                 continue
             }
+            progress(d.id, .preparing(L10n.tr("backup.prepare.open")))
             var damagedFiles: [String] = []
             var imageCheck: SparseImage.Check?
             do {
@@ -163,7 +187,11 @@ public final class BackupService: @unchecked Sendable {
                 } catch ProviderError.notCreated where request.dryRun {
                     root = staging.appendingPathComponent("empty-destination")
                 }
-                defer { session.close(compact: !request.dryRun) }
+                // Compactage (long sur un NAS) seulement après une sauvegarde réussie, pas après un arrêt ou un échec.
+                var succeeded = false
+                defer { session.close(compact: succeeded && !request.dryRun) }
+                // Montage du partage et de l'image (non interruptibles) : l'arrêt demandé entre-temps est pris ici.
+                if engine.isCancelled { throw BackupError.cancelled }
                 let versionsDir = BackupEngine.versionsDir(root: root)
                 let sources = BackupEngine.linkSources(parts: parts, versionsDir: versionsDir)
                 let recopy = Integrity.recopyPlan(linkSources: sources, parts: parts)
@@ -171,9 +199,10 @@ public final class BackupService: @unchecked Sendable {
                                              manifestExtra: ["cairn": CairnVersion.current, "destination": d.id,
                                                              "config_version": config.version, "log": log.url.lastPathComponent],
                                              forceRecopy: recopy, partial: request.isPartial,
-                                             warnings: prepWarnings) { p in
+                                             warnings: prepWarnings, expectedFiles: ds.fileCounts ?? [:]) { p in
                     progress(d.id, p)
                 }
+                succeeded = true
                 outcome.warnings.forEach { log.write("\(d.id): \($0)") }
                 if !request.dryRun {
                     ds.lastSuccess = Date()
@@ -181,6 +210,7 @@ public final class BackupService: @unchecked Sendable {
                     ds.lastError = nil
                     ds.lastBytesTransferred = outcome.bytesTransferred
                     ds.lastDuration = outcome.duration
+                    ds.fileCounts = (ds.fileCounts ?? [:]).merging(outcome.filesByPart) { $1 }
                     log.write("\(d.id): version \(outcome.version ?? "-") \(outcome.bytesTransferred) bytes, deleted \(outcome.deletedVersions)")
                     // Journaux des versions encore gardées : la purge des journaux les épargne.
                     ds.keptLogs = BackupEngine.logs(in: versionsDir)

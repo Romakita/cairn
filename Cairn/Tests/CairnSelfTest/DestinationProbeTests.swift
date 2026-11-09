@@ -152,6 +152,26 @@ let destinationProbeTests: [TestCase] = [
         // L'adresse finale est relue telle quelle par SMBProvider (URL.path décodé).
         try expectEqual(DestinationProbe.smbParts(spaced)?.subpath, ["Mon Mac"])
     },
+    TestCase("smb_host_only_address_lists_disk_shares") {
+        try expectEqual(DestinationProbe.smbHost("smb://syno"), "syno")
+        try expectEqual(DestinationProbe.smbHost("smb://syno/home/cairn"), "syno")
+        try expect(DestinationProbe.smbHost("smb://") == nil, "hôte requis")
+        try expect(DestinationProbe.smbHost("afp://syno") == nil, "SMB seulement")
+        let output = """
+        Share                                           Type    Comments
+        -------------------------------
+        homes                                           Disk    user home
+        Time Machine Folder                             Disk
+        IPC$                                            Pipe    IPC Service ()
+        home                                            Disk    Home directory of romain
+        ADMIN$                                          Disk
+        Plex                                            Disk    Plex Media Library
+
+        4 shares listed
+        """
+        try expectEqual(DestinationProbe.parseShares(output), ["home", "homes", "Plex", "Time Machine Folder"])
+        try expectEqual(DestinationProbe.parseShares("smbutil: server rejected the authentication"), [])
+    },
     TestCase("new_destination_ids_are_unique") {
         try expectEqual(CairnConfig.newDestinationID(provider: .smb, existing: []), "main")
         try expectEqual(CairnConfig.newDestinationID(provider: .smb, existing: ["main"]), "nas")
