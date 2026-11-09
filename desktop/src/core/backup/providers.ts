@@ -123,6 +123,28 @@ export const readMountTable: MountTableReader = async () => {
   }
 };
 
+/** Hôte d'une ligne `//user@host/share` (ou `//host/share`), en minuscules. */
+function mountHost(from: string): string | null {
+  const m = /^\/\/(?:[^@/]*@)?([^/]+)\//.exec(from);
+  return m ? m[1]!.toLowerCase() : null;
+}
+
+/**
+ * Serveur SMB joignable : un partage de cet hôte est déjà monté (Finder, autre session), sinon son port répond.
+ * Le montage passe par le système et reste utilisable même quand macOS refuse à l'app l'accès au réseau local
+ * (Confidentialité › Réseau local) : sans ce test, un NAS ouvert dans le Finder paraissait injoignable.
+ */
+export async function smbReachable(
+  host: string,
+  port: number = SMB_PORT,
+  deps: { mountTable?: MountTableReader; reachable?: (host: string, port: number) => Promise<boolean> } = {},
+): Promise<boolean> {
+  const wanted = host.toLowerCase();
+  const mounts = await (deps.mountTable ?? readMountTable)();
+  if (mounts.some((m) => m.type === "smbfs" && mountHost(m.from) === wanted)) return true;
+  return (deps.reachable ?? ((h, p) => tcpReachable(h, p)))(host, port);
+}
+
 /** Adresse `smb://hôte/partage/sous/dossier` découpée (segments décodés, comme `URL.path`). */
 export interface SMBAddress {
   host: string;
@@ -218,6 +240,8 @@ export class SMBProvider implements BackupProvider {
   async isReachable(): Promise<boolean> {
     const a = this.address;
     if (!a) return false;
+    // Un partage déjà monté est utilisable tel quel (réutilisé par prepare), même sans accès réseau de l'app.
+    if (await this.existingMount()) return true;
     return (this.deps.reachable ?? tcpReachable)(a.host, a.port, REACH_TIMEOUT_MS);
   }
 

@@ -57,6 +57,8 @@ mac:
       - en
       - fr
     NSHighResolutionCapable: true
+    # macOS 15 : sans ce texte, l'accès au réseau local (NAS) est refusé sans demande à l'utilisateur.
+    NSLocalNetworkUsageDescription: Cairn connects to your NAS on the local network to back up and restore your files.
 
 # Options d'exécution fermées (scénario « Exécutable détourné ») : l'app n'est pas un interpréteur Node.
 electronFuses:

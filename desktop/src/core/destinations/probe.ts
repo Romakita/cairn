@@ -6,7 +6,7 @@ import type { Dirent } from "node:fs";
 import { lstat, mkdir, readdir, readFile, realpath, rm, stat, statfs, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { SMB_PORT, tcpReachable } from "../backup/providers.ts";
+import { SMB_PORT, smbReachable } from "../backup/providers.ts";
 import { type BackupSecrets, keychainSecrets } from "../backup/secrets.ts";
 import { machineName } from "../machine.ts";
 import { native } from "../native.ts";
@@ -388,7 +388,7 @@ export async function listShares(
   password: string | null,
   deps: ListSharesDeps = {},
 ): Promise<ProbeOutcome<string[]>> {
-  const reachable = deps.reachable ?? ((h, p) => tcpReachable(h, p));
+  const reachable = deps.reachable ?? ((h, p) => smbReachable(h, p));
   if (!(await reachable(host, SMB_PORT))) return failed({ kind: "unreachable", host });
   const user = username === "" ? defaultSMBUser() : username;
   const pw = password ? password : await keychainPassword(deps.secrets ?? keychainSecrets, host, user);
