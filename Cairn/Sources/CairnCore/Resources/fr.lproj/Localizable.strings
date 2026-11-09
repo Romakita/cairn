@@ -785,6 +785,7 @@
 "backup.history.empty" = "Aucune sauvegarde de ce Mac sur cette destination pour l'instant.";
 "backup.history.error" = "Impossible de lire les sauvegardes : %@";
 "backup.history.busy" = "Une sauvegarde est en cours : l'historique s'affichera à sa fin.";
+"backup.busy_running" = "Sauvegarde en cours vers %@. Cette destination pourra être sauvegardée à sa fin.";
 "backup.busy_other" = "Une autre opération Cairn est en cours (lancée par la commande cairn). La sauvegarde sera possible à sa fin.";
 "backup.history.refresh" = "Actualiser";
 "backup.history.more" = "et %lld sauvegardes plus anciennes";

@@ -45,7 +45,6 @@ public final class BackupService: @unchecked Sendable {
 
     public let paths: CairnPaths
     public let config: CairnConfig
-    public let engine = BackupEngine()
     /// Parties supplémentaires fournies par d'autres capacités (outils IA) ; le 3e argument reçoit les avertissements.
     public var extraParts: ((CairnConfig, URL, (String) -> Void) throws -> [BackupPart])?
 
@@ -55,6 +54,13 @@ public final class BackupService: @unchecked Sendable {
     private let stateLock = NSLock()
     private var running = false
     private var currentLog: URL?
+    /// Arrêt de toute la sauvegarde (préparation comprise), ou de certaines destinations seulement.
+    private var cancelledAll = false
+    private var cancelledIDs: Set<String> = []
+    /// Destinations visées pas encore terminées (nil tant que `run` ne les connaît pas) ; un moteur par destination,
+    /// pour n'arrêter que celle demandée.
+    private var pendingIDs: Set<String>?
+    private var engines: [String: BackupEngine] = [:]
 
     public init(paths: CairnPaths, config: CairnConfig) {
         self.paths = paths
@@ -68,8 +74,9 @@ public final class BackupService: @unchecked Sendable {
 
     /// Parties à sauvegarder. `staging` reçoit les fichiers générés (inventaire des outils…).
     /// `step` : étape en cours (dossier examiné, inventaire…), pour la progression.
+    /// `isCancelled` : « Arrêter » pendant la préparation (parcours des dossiers, inventaire…) lève `.cancelled`.
     public func parts(staging: URL, request: Request, warn: (String) -> Void = { _ in },
-                      step: (String) -> Void = { _ in }) throws -> [BackupPart] {
+                      isCancelled: () -> Bool = { false }, step: (String) -> Void = { _ in }) throws -> [BackupPart] {
         var lastStep = Date.distantPast
         func report(_ text: String) {
             guard Date().timeIntervalSince(lastStep) >= 0.1 else { return }
@@ -82,10 +89,12 @@ public final class BackupService: @unchecked Sendable {
         if want(.folder) {
             var used = Set<String>()
             for f in config.folders where f.backup && f.isAvailable {
+                if isCancelled() { throw BackupError.cancelled }
                 var name = (f.expandedPath as NSString).lastPathComponent
                 while used.contains(name) { name += "-" }
                 used.insert(name)
-                let excludes = BackupExclusions.forFolder(f.expandedPath, userPatterns: f.exclude, destinations: destPaths) { dir in
+                let excludes = BackupExclusions.forFolder(f.expandedPath, userPatterns: f.exclude, destinations: destPaths,
+                                                          isCancelled: isCancelled) { dir in
                     report(L10n.tr("backup.prepare.generated", name + (dir.isEmpty ? "" : "/" + dir)))
                 }
                 parts.append(BackupPart(kind: .folder, target: "folders/\(name)", source: f.expandedPath, excludes: excludes))
@@ -99,6 +108,7 @@ public final class BackupService: @unchecked Sendable {
                                         excludes: BackupExclusions.homeExcludes + config.home.exclude, filesFrom: items))
             }
         }
+        if isCancelled() { throw BackupError.cancelled }
         if want(.tools) {
             let dir = staging.appendingPathComponent("tools")
             step(L10n.tr("backup.prepare.tools"))
@@ -106,16 +116,28 @@ public final class BackupService: @unchecked Sendable {
             try InventoryExport.write(inv, to: dir)
             parts.append(BackupPart(kind: .tools, target: "tools", source: dir.path))
         }
+        if isCancelled() { throw BackupError.cancelled }
         if want(.ai), let extra = extraParts {
             step(L10n.tr("backup.prepare.ai"))
             parts += try extra(config, staging, warn)
         }
+        if isCancelled() { throw BackupError.cancelled }
         return parts
     }
 
     /// Lance la sauvegarde vers chaque destination demandée. Le verrou empêche deux sauvegardes simultanées.
-    public func run(_ request: Request, progress: @escaping (String, BackupProgress) -> Void = { _, _ in }) throws -> [Result] {
-        stateLock.withLock { running = true; currentLog = nil }
+    public func run(_ request: Request, progress report: @escaping (String, BackupProgress) -> Void = { _, _ in }) throws -> [Result] {
+        let targets = config.destinations.filter { request.destinationIDs?.contains($0.id) ?? true }.map(\.id)
+        stateLock.withLock {
+            running = true; currentLog = nil; pendingIDs = Set(targets); engines = [:]
+            // « Arrêter » cliqué avant le lancement sur toutes les destinations visées : rien ne démarre.
+            if !targets.isEmpty, Set(targets).isSubset(of: cancelledIDs) { cancelledAll = true }
+        }
+        // Destination terminée : elle ne compte plus pour savoir si tout a été arrêté.
+        let progress: (String, BackupProgress) -> Void = { [self] id, p in
+            if p.finished { stateLock.withLock { _ = pendingIDs?.remove(id) } }
+            report(id, p)
+        }
         // Déclaré en premier : exécuté en dernier, une fois l'image détachée et le verrou rendu.
         defer { stateLock.withLock { running = false } }
         let lock = OperationLock(url: paths.operationLock)
@@ -129,15 +151,19 @@ public final class BackupService: @unchecked Sendable {
         defer { try? FileManager.default.removeItem(at: staging) }
 
         // Préparation affichée tout de suite : l'inventaire et l'ouverture de l'image prennent parfois des minutes.
-        let targets = config.destinations.filter { request.destinationIDs?.contains($0.id) ?? true }.map(\.id)
         for id in targets { progress(id, .preparing(L10n.tr("backup.prepare.parts"))) }
         let parts: [BackupPart]
         // Avertissements de préparation (base d'un outil IA illisible…) : repris dans le résultat de chaque destination.
         var prepWarnings: [String] = []
         do {
-            parts = try self.parts(staging: staging, request: request, warn: { prepWarnings.append($0) }) { text in
+            parts = try self.parts(staging: staging, request: request, warn: { prepWarnings.append($0) },
+                                   isCancelled: { [self] in isCancelled }) { text in
                 for id in targets { progress(id, .preparing(text)) }
             }
+        } catch BackupError.cancelled {
+            // « Arrêter » pendant la préparation : rien n'a été écrit, ce n'est pas un échec.
+            log.write("cancelled before destinations")
+            throw BackupError.cancelled
         } catch {
             log.write("error before destinations: \(error)")
             // Noté sur chaque destination visée : l'état l'affiche et la planification attend avant de relancer.
@@ -155,7 +181,7 @@ public final class BackupService: @unchecked Sendable {
             throw error
         }
         // « Arrêter » pendant la préparation : rien n'a encore été écrit sur une destination.
-        if engine.isCancelled { log.write("cancelled before destinations"); throw BackupError.cancelled }
+        if isCancelled { log.write("cancelled before destinations"); throw BackupError.cancelled }
         log.write("parts: " + parts.map(\.target).joined(separator: ", "))
         if request.only?.contains(.ai) ?? true, let line = AIBackup.openToolsLogLine(config: config) { log.write(line) }
         var state = RunState.load(paths)
@@ -170,13 +196,16 @@ public final class BackupService: @unchecked Sendable {
         let finishing = DispatchGroup()
         for d in dests {
             // Arrêt demandé : les destinations suivantes ne sont pas commencées.
-            if engine.isCancelled { break }
+            if isCancelled { break }
+            if isCancelled(d.id) { log.write("\(d.id): cancelled before start"); progress(d.id, .done); continue }
+            let engine = self.engine(for: d.id)
             let session = DestinationSession(d)
             var ds = collected.destination(d.id)
             ds.lastAttempt = Date()
             guard session.provider.isReachable() else {
                 if ds.waitingSince == nil { ds.waitingSince = Date() }
                 log.write("\(d.id): unreachable, waiting")
+                progress(d.id, .done)
                 collected.record(d.id, ds, Result(destination: d.id, outcome: nil, error: ProviderError.unreachable(d.id).description,
                                                   waiting: true, newImagePassword: nil, log: log.url))
                 continue
@@ -207,7 +236,7 @@ public final class BackupService: @unchecked Sendable {
                 finishing.enter()
                 WaitedWork.async {
                     defer { finishing.leave() }
-                    self.finalize(d, session: session, copied: copied, state: started, versionsDir: versionsDir,
+                    self.finalize(d, engine: engine, session: session, copied: copied, state: started, versionsDir: versionsDir,
                                   recopy: recopy, dryRun: request.dryRun, log: log, collected: collected) { progress(d.id, $0) }
                 }
             } catch {
@@ -238,7 +267,7 @@ public final class BackupService: @unchecked Sendable {
 
     /// Finalisation d'une destination copiée : empreintes, version, vérification mensuelle, fermeture (et compactage
     /// après une réussite). Tourne en arrière-plan ; l'état et le résultat vont dans `collected`.
-    func finalize(_ d: CairnConfig.Destination, session: DestinationSession, copied: CopyResult, state started: RunState.Destination,
+    func finalize(_ d: CairnConfig.Destination, engine: BackupEngine, session: DestinationSession, copied: CopyResult, state started: RunState.Destination,
                   versionsDir: URL, recopy: [String: [String]], dryRun: Bool, log: RunLog, collected: Collected,
                   progress: @escaping (BackupProgress) -> Void) {
         var ds = started
@@ -325,7 +354,44 @@ public final class BackupService: @unchecked Sendable {
         }
     }
 
-    public func cancel() { engine.cancel() }
+    /// Arrête toute la sauvegarde : préparation, copie et finalisations en cours.
+    public func cancel() {
+        let all = stateLock.withLock { () -> [BackupEngine] in
+            cancelledAll = true
+            return Array(engines.values)
+        }
+        all.forEach { $0.cancel() }
+    }
+
+    /// Arrête une destination seulement ; les autres continuent. Si plus aucune destination visée ne reste,
+    /// toute la sauvegarde s'arrête (y compris la préparation commune).
+    public func cancel(destination id: String) {
+        let (engine, everything) = stateLock.withLock { () -> (BackupEngine?, Bool) in
+            cancelledIDs.insert(id)
+            // Avant `run`, les destinations visées sont inconnues : l'arrêt est noté, `run` le reprend.
+            guard let pendingIDs else { return (nil, false) }
+            return (engines[id], pendingIDs.isSubset(of: cancelledIDs))
+        }
+        if everything { cancel() } else { engine?.cancel() }
+    }
+
+    var isCancelled: Bool { stateLock.withLock { cancelledAll } }
+    func isCancelled(_ id: String) -> Bool { stateLock.withLock { cancelledAll || cancelledIDs.contains(id) } }
+
+    /// Moteur de la destination (copie et finalisation), déjà arrêté si l'arrêt a été demandé entre-temps.
+    private func engine(for id: String) -> BackupEngine {
+        let e = BackupEngine()
+        let stop = stateLock.withLock { () -> Bool in
+            engines[id] = e
+            return cancelledAll || cancelledIDs.contains(id)
+        }
+        if stop { e.cancel() }
+        return e
+    }
+
+    /// Veille : les rsync de toutes les destinations sont suspendus, puis repris au réveil.
+    public func suspend() { stateLock.withLock { Array(engines.values) }.forEach { $0.suspend() } }
+    public func resume() { stateLock.withLock { Array(engines.values) }.forEach { $0.resume() } }
 
     /// Attend la fin de `run` (rsync arrêté, image détachée, verrou rendu) ; `false` si le délai est dépassé.
     @discardableResult

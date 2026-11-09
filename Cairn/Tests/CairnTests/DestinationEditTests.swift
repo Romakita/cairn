@@ -159,8 +159,8 @@ extension CairnTests {
 
         @Test func actions_running() {
             let c = BackupActions.Context(reachable: true, backingUp: true, verifying: false, hasBackups: true)
-            #expect(BackupActions.unavailableReason(.simulate, c) == "backup.unavailable.running")
-            #expect(BackupActions.unavailableReason(.verifyFull, c) == "backup.unavailable.running")
+            // « Sauvegarder maintenant » aussi : la destination en cours affiche « Arrêter », les autres attendent.
+            for a in BackupAction.allCases { #expect(BackupActions.unavailableReason(a, c) == "backup.unavailable.running") }
             let v = BackupActions.Context(reachable: true, backingUp: false, verifying: true, hasBackups: true)
             for a in BackupAction.allCases { #expect(BackupActions.unavailableReason(a, v) == "backup.unavailable.verifying") }
         }
