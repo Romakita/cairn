@@ -222,7 +222,7 @@ public final class BackupEngine: @unchecked Sendable {
             for p in processes.values where p.isRunning { p.terminate() }
         }
         // rsync bloqué sur un partage qui ne répond plus ignore SIGTERM : on force au bout de 5 s.
-        DispatchQueue.global().asyncAfter(deadline: .now() + 5) { [weak self] in
+        WaitedWork.timerQueue("force-kill").asyncAfter(deadline: .now() + 5) { [weak self] in
             self?.signalAll(SIGKILL)
         }
     }
@@ -299,7 +299,7 @@ public final class BackupEngine: @unchecked Sendable {
         if toCount.isEmpty {
             counter.finish()
         } else {
-            DispatchQueue.global(qos: .utility).async(group: counting) { [self] in
+            WaitedWork.async(group: counting) { [self] in
                 for part in toCount where !countGroup.isAborted {
                     let n = try? countFiles(part, group: countGroup, worker: { counter.setWorker($0, $1) }) { counter.add($0) }
                     if let n, !countGroup.isAborted { counter.setPart(part.target, n) }
@@ -315,7 +315,7 @@ public final class BackupEngine: @unchecked Sendable {
         // Dernier état connu, renvoyé chaque seconde : le comptage et la durée d'une liste avancent même quand rsync
         // ne signale aucun fichier (liste d'un gros dossier).
         let live = LiveProgress()
-        let heartbeat = DispatchSource.makeTimerSource(queue: .global(qos: .utility))
+        let heartbeat = DispatchSource.makeTimerSource(queue: WaitedWork.timerQueue("progress"))
         heartbeat.schedule(deadline: .now() + 1, repeating: 1)
         heartbeat.setEventHandler {
             guard var p = live.last else { return }

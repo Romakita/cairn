@@ -248,7 +248,7 @@ public enum DestinationProbe {
         p.standardInput = input
         do { try p.run() } catch { return .failure(.unreachable(host)) }
         let writer = input.fileHandleForWriting
-        DispatchQueue.global(qos: .userInitiated).async {
+        WaitedWork.async(qos: .userInitiated) {
             if let pw { writer.write(Data((pw + "\n").utf8)) }
             try? writer.close()
         }

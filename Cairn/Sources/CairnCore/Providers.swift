@@ -217,7 +217,7 @@ public final class SparseImage: @unchecked Sendable {
         do { try p.run() } catch { return (127, "") }
         if let stdin {
             let writer = input.fileHandleForWriting
-            DispatchQueue.global(qos: .userInitiated).async {
+            WaitedWork.async(qos: .userInitiated) {
                 writer.write(Data((stdin + "\0").utf8))
                 try? writer.close()
             }

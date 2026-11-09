@@ -42,7 +42,7 @@ final class GitWorkerPool: @unchecked Sendable {
         let group = DispatchGroup()
 
         // Surveillance : durée et mémoire de chaque worker, une fois par seconde.
-        let monitor = DispatchSource.makeTimerSource(queue: .global(qos: .utility))
+        let monitor = DispatchSource.makeTimerSource(queue: WaitedWork.timerQueue("git-pool-monitor"))
         monitor.schedule(deadline: .now() + 1, repeating: 1)
         monitor.setEventHandler { [weak self] in
             guard let self else { return }
@@ -68,7 +68,7 @@ final class GitWorkerPool: @unchecked Sendable {
             sem.wait()
             if cancel?.isCancelled == true { sem.signal(); break }
             group.enter()
-            DispatchQueue.global(qos: .userInitiated).async {
+            WaitedWork.async(qos: .userInitiated) {
                 defer { sem.signal(); group.leave() }
                 let p = Process()
                 p.executableURL = URL(fileURLWithPath: self.executable)
