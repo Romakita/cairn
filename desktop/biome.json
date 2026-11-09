@@ -1,0 +1,35 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.6.6/schema.json",
+  "files": { "includes": ["src/**", "scripts/**", "test/**", "!**/dist/**"] },
+  "formatter": { "indentStyle": "space", "indentWidth": 2, "lineWidth": 120 },
+  "linter": {
+    "rules": {
+      "preset": "recommended",
+      "style": { "noNonNullAssertion": "off" }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["src/core/**", "src/cli/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedGlobals": {
+              "level": "error",
+              "options": { "deniedGlobals": { "Bun": "Le core tourne sous le Node d'Electron : utiliser node:*." } }
+            },
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  { "group": ["bun", "bun:*"], "message": "Le core tourne sous Node : pas d'API Bun." },
+                  { "group": ["electron", "react", "react-dom"], "message": "Le core reste sans Electron ni React." }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

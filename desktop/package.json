@@ -1,0 +1,47 @@
+{
+  "name": "cairn",
+  "productName": "Cairn",
+  "version": "0.8.0",
+  "description": "Disk usage, backups, restore and git cleanup for macOS",
+  "private": true,
+  "license": "MIT",
+  "author": "Romain Lenzotti",
+  "main": "dist/main.cjs",
+  "type": "module",
+  "scripts": {
+    "build": "bun scripts/build.ts",
+    "start": "bun run build && electron .",
+    "cli": "bun run build && electron . --",
+    "test": "bun test ./test/core ./test/regressions ./test/tooling",
+    "test:e2e": "bun run build && playwright test",
+    "lint": "biome check src scripts test && bun scripts/check-style.ts",
+    "typecheck": "tsc --noEmit -p .",
+    "dev:web": "bun scripts/dev-web.ts",
+    "shots": "bun scripts/shots.ts",
+    "dist": "bun run build && electron-builder --mac --publish never && bun scripts/zip.ts",
+    "postinstall": "node node_modules/electron/install.js",
+    "build:native": "bun scripts/build-native.ts"
+  },
+  "dependencies": {
+    "lucide-react": "1.70.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.6",
+    "@playwright/test": "1.65.0",
+    "@types/bun": "1.4.4",
+    "@types/node": "26.6.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "electron": "45.2.3",
+    "electron-builder": "26.18.0",
+    "node-addon-api": "8.9.2",
+    "node-gyp": "13.1.0",
+    "typescript": "7.0.2"
+  },
+  "trustedDependencies": [
+    "electron"
+  ]
+}

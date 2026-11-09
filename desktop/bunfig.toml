@@ -1,0 +1,7 @@
+# electron-builder parcourt node_modules : dépendances à plat, pas de liens isolés.
+[install]
+linker = "hoisted"
+
+[test]
+# Suite racine : CAIRN_HOME temporaire et inventaire vide pour chaque fichier de test.
+preload = ["./test/setup.ts"]
