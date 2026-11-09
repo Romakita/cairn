@@ -348,7 +348,8 @@ public final class BackupEngine: @unchecked Sendable {
         var count = 0
         let handle = pipe.fileHandleForReading
         while true {
-            let chunk = handle.availableData
+            // Pool par lecture : les blocs autoreleased s'accumuleraient sinon pendant toute la sauvegarde.
+            let chunk = autoreleasepool { handle.availableData }
             if chunk.isEmpty { break }
             buffer.append(chunk)
             while let nl = buffer.firstIndex(of: 0x0A) {

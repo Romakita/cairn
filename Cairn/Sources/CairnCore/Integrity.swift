@@ -23,7 +23,11 @@ public enum Integrity {
         let h = try FileHandle(forReadingFrom: url)
         defer { try? h.close() }
         var hasher = SHA256()
-        while let chunk = try h.read(upToCount: 1 << 20), !chunk.isEmpty { hasher.update(data: chunk) }
+        // Chaque bloc lu est autoreleased : sans pool, ils s'accumulent jusqu'à la fin de la tâche (16 Go en mémoire
+        // sur une grosse sauvegarde, jusqu'au panic du noyau).
+        while let chunk = try autoreleasepool(invoking: { try h.read(upToCount: 1 << 20) }), !chunk.isEmpty {
+            hasher.update(data: chunk)
+        }
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
