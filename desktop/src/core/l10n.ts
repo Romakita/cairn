@@ -1,6 +1,16 @@
 // Traductions (en-US, fr-FR), portées depuis L10n.swift. Catalogues `locales/{en,fr}.json`, produits une fois depuis
 // les `.strings`/`.stringsdict` par `scripts/convert-locales.ts` : jetons positionnels `{1}`, `{2}`… à la place des
 // spécificateurs printf, pluriels choisis par `Intl.PluralRules` sur l'argument numérique.
+
+import backupArea from "../../locales/areas/backup.json" with { type: "json" };
+import gitArea from "../../locales/areas/git.json" with { type: "json" };
+import homeArea from "../../locales/areas/home.json" with { type: "json" };
+import menubarArea from "../../locales/areas/menubar.json" with { type: "json" };
+import restoreArea from "../../locales/areas/restore.json" with { type: "json" };
+import settingsArea from "../../locales/areas/settings.json" with { type: "json" };
+import shellArea from "../../locales/areas/shell.json" with { type: "json" };
+import storageArea from "../../locales/areas/storage.json" with { type: "json" };
+import toolsArea from "../../locales/areas/tools.json" with { type: "json" };
 import enCatalog from "../../locales/en.json" with { type: "json" };
 import frCatalog from "../../locales/fr.json" with { type: "json" };
 
@@ -16,9 +26,30 @@ type CompositeEntry = { format: string; plurals: Record<string, PluralForms> };
 export type CatalogEntry = string | PluralForms | CompositeEntry;
 export type Catalog = Readonly<Record<string, CatalogEntry>>;
 
+/**
+ * Textes des écrans, un fichier par zone (`locales/areas/<zone>.json` : `{ "en": {…}, "fr": {…} }`), ajoutés aux
+ * catalogues convertis de la 0.8.0. Une clé de zone ne remplace jamais une clé existante (test l10n-areas).
+ */
+type AreaFile = { en: Record<string, CatalogEntry>; fr: Record<string, CatalogEntry> };
+export const areaFiles: Readonly<Record<string, AreaFile>> = {
+  shell: shellArea as AreaFile,
+  home: homeArea as AreaFile,
+  storage: storageArea as AreaFile,
+  backup: backupArea as AreaFile,
+  restore: restoreArea as AreaFile,
+  git: gitArea as AreaFile,
+  tools: toolsArea as AreaFile,
+  settings: settingsArea as AreaFile,
+  menubar: menubarArea as AreaFile,
+};
+
+function withAreas(base: Catalog, language: "en" | "fr"): Catalog {
+  return Object.assign({}, ...Object.values(areaFiles).map((area) => area[language]), base);
+}
+
 const catalogs: Record<AppLanguage, Catalog> = {
-  "en-US": enCatalog as Catalog,
-  "fr-FR": frCatalog as Catalog,
+  "en-US": withAreas(enCatalog as Catalog, "en"),
+  "fr-FR": withAreas(frCatalog as Catalog, "fr"),
 };
 
 let current: AppLanguage = "en-US";

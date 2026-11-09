@@ -4,4 +4,4 @@ release/
 native/build/
 test-results/
 playwright-report/
-shots/
+/shots/
