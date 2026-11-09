@@ -13,36 +13,21 @@ private func du(_ path: String) throws -> Int64 {
 
 private func date(_ s: String) -> Date { BackupEngine.date(ofVersion: s)! }
 
-/// Empreinte mémoire du processus (celle que suit le noyau), en octets.
-private func footprint() -> Int64 {
-    var info = task_vm_info_data_t()
-    var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<integer_t>.size)
-    let kr = withUnsafeMutablePointer(to: &info) {
-        $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count) }
-    }
-    return kr == KERN_SUCCESS ? Int64(info.phys_footprint) : 0
-}
-
 extension CairnTests {
     @Suite struct BackupTests {
         @Test func sha256_streams_large_files_in_constant_memory() throws {
-            // Hors du fil principal, comme pendant une sauvegarde : aucun pool n'y vide les blocs lus.
+            // Mesure dans CairnTestHelper : les autres tests, en parallèle, fausseraient la mémoire de ce processus.
+            let helper = try #require(builtExecutable("CairnTestHelper"))
             try withTempDir { dir in
                 let file = dir.appendingPathComponent("big.bin")
                 FileManager.default.createFile(atPath: file.path, contents: nil)
                 let h = try FileHandle(forWritingTo: file)
                 try h.truncate(atOffset: 512 << 20) // fichier creux de 512 Mo
                 try h.close()
-                var growth: Int64 = 0
-                var hash = ""
-                let done = DispatchSemaphore(value: 0)
-                Thread {
-                    let before = footprint()
-                    hash = (try? Integrity.sha256(of: file)) ?? ""
-                    growth = footprint() - before
-                    done.signal()
-                }.start()
-                done.wait()
+                let (code, out) = try shell(helper.path, ["--hash-footprint", file.path])
+                let fields = out.split(separator: " ").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                try #require(code == 0 && fields.count == 2, "sortie inattendue : \(out)")
+                let hash = fields[0], growth = Int64(fields[1]) ?? .max
                 #expect(hash == "9acca8e8c22201155389f65abbf6bc9723edc7384ead80503839f49dcc56d767")
                 #expect(growth < 64 << 20, "mémoire +\(growth >> 20) Mo pour hacher 512 Mo")
             }
