@@ -41,6 +41,7 @@ import type { Inventory } from "../core/inventory/types.ts";
 import type { AppLanguage } from "../core/l10n.ts";
 import type { PathSuggestion } from "../core/path-completion.ts";
 import type { Category } from "../core/regenerable.ts";
+import type { RestoreProgress, RestoreStep } from "../core/restore/service.ts";
 import type { ScanProgress } from "../core/scanner.ts";
 import type { StorageAlert } from "../core/storage-alerts.ts";
 
@@ -304,11 +305,24 @@ export interface LockView {
 /** Partie restaurable (même découpage que `cairn restore --parts`). */
 export type RestorePart = "tools" | "home" | "ai" | "folders";
 
+/** Étape d'une restauration (simulée ou appliquée) : `home`, `folders/<nom>`, `ai`, `ai/<outil>`, `tool:<nom>`… */
+export type RestoreStepView = RestoreStep;
+
+/** Avancement d'une restauration appliquée (modèle `restore/service.ts`, sérialisable). */
+export type RestoreProgressView = RestoreProgress;
+
 export interface RestoreView {
-  /** La restauration est portée par un autre lot : `false` tant qu'elle n'est pas branchée. */
+  /** La restauration est branchée (moteur `src/core/restore`). */
   available: boolean;
+  /** Une restauration appliquée est en cours. */
   running: boolean;
+  /** Dernier plan préparé (`planRestore`). */
   plan: RestorePlanView | null;
+  /** Avancement de la restauration en cours ou de la dernière appliquée. */
+  progress: RestoreProgressView | null;
+  /** Dernière restauration appliquée : toutes les étapes ont réussi (`null` avant la première). */
+  ok: boolean | null;
+  /** Erreur de la dernière restauration appliquée (verrou tenu, destination fermée…), texte traduit. */
   error: string | null;
 }
 
@@ -478,29 +492,94 @@ export interface RetentionPlanView {
   excess: { names: string[]; bytes: number } | null;
 }
 
-/** Source d'une restauration (types minimaux : le moteur arrive avec `src/core/restore`). */
+/**
+ * Source d'une restauration : une destination configurée, ou un dossier (version Cairn, sauvegarde de backup.sh, ou
+ * racine d'une destination avec `cairn/<machine>/versions`).
+ */
 export type RestoreSource = { kind: "destination"; destination: string } | { kind: "folder"; path: string };
 
 export interface RestorePlanArgs {
   source: RestoreSource;
+  /** Nom de la version (`--version`) ; absent : la plus récente complète de ce Mac. */
   version?: string;
+  /** Parties à restaurer ; absent : outils CLI et home (plan par défaut de la 0.8.0). */
   parts?: RestorePart[];
+  /** Dossiers de la sauvegarde à restaurer (noms) ; absent : tous, si `folders` est dans `parts`. */
+  folders?: string[];
   /** Dossier restauré → nouvel emplacement (`--target nom=chemin`). */
   targets?: Record<string, string>;
+  /** Outils IA à restaurer (`--tool`) ; absent : tous ceux de la sauvegarde, si `ai` est dans `parts`. */
   tools?: string[];
   replaceDatabases?: boolean;
+  /** Tailles par partie et simulation complète (rien n'est écrit) : récapitulatif avant « Restaurer ». */
+  simulate?: boolean;
+  /** Mots de passe saisis pour cette restauration (Mac neuf) : jamais renvoyés ni enregistrés. */
   imagePassword?: string;
   sharePassword?: string;
 }
 
+/** Version trouvée sur une destination (toutes les machines). */
+export interface RestoreVersionView {
+  name: string;
+  machine: string;
+  /** Date de la version (ms), d'après son nom. */
+  date: number | null;
+  partial: boolean;
+  /** Version de ce Mac. */
+  thisMac: boolean;
+}
+
+export interface RestoreFolderView {
+  name: string;
+  /** Emplacement d'origine sur la machine sauvegardée. */
+  originalPath: string;
+  /** Cible retenue (l'origine par défaut, ou `targets[nom]`). */
+  target: string;
+  /** La cible n'existe pas sur ce Mac (volume absent : à créer ou à changer). */
+  targetMissing: boolean;
+}
+
+/** Version ouverte : ce qu'elle contient. */
+export interface RestoreSourceView {
+  kind: "cairn" | "legacy";
+  path: string;
+  date: number | null;
+  machine: string;
+  arch: string;
+  /** Architecture de ce Mac (`uname -m`). */
+  currentArch: string;
+  archMatches: boolean;
+  home: boolean;
+  folders: RestoreFolderView[];
+  aiTools: { id: string; name: string }[];
+  /** Inventaire des outils CLI présent (réinstallation possible). */
+  tools: boolean;
+}
+
 export interface RestorePlanView {
+  /** Jeton du plan, à repasser à `applyRestore` (le main garde le plan et la destination ouverte). */
   planId: string;
   source: RestoreSource;
+  /** Mot de passe à saisir pour ouvrir la destination (Mac neuf) ; le reste du plan est alors vide. */
+  needsPassword: "share" | "image" | null;
+  /** Versions de la destination (vide pour une version ouverte directement depuis un dossier). */
+  versions: RestoreVersionView[];
+  /** Version retenue (nom), `null` pour un dossier ou sans version. */
   version: string | null;
+  details: RestoreSourceView | null;
+  /** Parties retenues (celles absentes de la version sont retirées). */
   parts: RestorePart[];
-  /** Lignes de la simulation (texte traduit). */
-  lines: string[];
+  /** Outils IA retenus. */
+  ai: string[];
+  replaceDatabases: boolean;
+  /** Octets à copier par partie (`home`, `folders/<nom>`, `ai/<outil>`), après `simulate`. */
+  sizes: Record<string, number>;
+  /** Étapes de la simulation (après `simulate`) : outils présents, à installer, à réinstaller à la main… */
+  steps: RestoreStepView[];
+  /** Avertissements (texte traduit) : architecture différente, cible absente. */
   warnings: string[];
+  /** La simulation a été faite : `applyRestore` est possible. */
+  simulated: boolean;
 }
 
 export type ShowTarget = { kind: "node"; nodeId: number } | { kind: "path"; path: string };
@@ -614,7 +693,7 @@ export interface CairnMethods {
   planRetention: { args: { destination: string; retention: Retention }; result: RetentionPlanView };
   applyRetention: { args: { planId: string }; result: Confirmed<{ deleted: string[]; failed: string[] }> };
 
-  // Restauration (types minimaux : le moteur arrive avec `src/core/restore`)
+  // Restauration (simulation d'abord ; `applyRestore` est confirmé par le main, puis suivi par `restore.progress`)
   planRestore: { args: RestorePlanArgs; result: RestorePlanView };
   applyRestore: { args: { planId: string }; result: Confirmed };
 

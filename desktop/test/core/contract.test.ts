@@ -196,9 +196,10 @@ describe("contract", () => {
     expect(SCENARIOS["disk-critical"].build().storage.alerts[0]?.level).toBe(2);
     expect(SCENARIOS["git-many-repos"].build().git.progress?.total).toBe(79);
     expect(SCENARIOS["update-available"].build().updates.available?.version).toBe("0.10.0");
-    await expect(api.planRestore({ source: { kind: "destination", destination: "nas" } })).rejects.toMatchObject({
-      code: "notImplemented",
-    });
+    const plan = await api.planRestore({ source: { kind: "destination", destination: "nas" } });
+    expect(plan.versions.length).toBeGreaterThan(0);
+    expect(plan.parts).toEqual(["tools", "home"]);
+    expect(plan.simulated).toBe(false);
   });
 
   test("API d'exemple : la sauvegarde à deux destinations avance dans le temps", async () => {
@@ -250,5 +251,38 @@ describe("contract", () => {
     expect(state.backup.destinations.find((d) => d.destination === "disk")?.phase).toBe("waiting");
     expect(state.backup.running).toBe(true);
     await expect(api.startBackup({})).rejects.toMatchObject({ code: "busy" });
+  });
+  test("API d'exemple : restauration sur un Mac neuf, simulée puis appliquée", async () => {
+    const api = fixture("restore");
+    const source = { kind: "destination" as const, destination: "nas" };
+    // Mac neuf : le mot de passe de l'image est demandé avant toute version.
+    expect((await api.planRestore({ source })).needsPassword).toBe("image");
+    const opened = await api.planRestore({ source, imagePassword: "secret" });
+    expect(opened.versions.every((v) => !v.thisMac)).toBe(true);
+    expect(opened.details?.archMatches).toBe(false);
+    await expect(api.applyRestore({ planId: opened.planId })).rejects.toMatchObject({ code: "notFound" });
+    const plan = await api.planRestore({
+      source,
+      imagePassword: "secret",
+      version: opened.version ?? undefined,
+      parts: ["tools", "home", "ai", "folders"],
+      folders: ["Documents"],
+      simulate: true,
+    });
+    expect(plan.simulated).toBe(true);
+    expect(Object.keys(plan.sizes).sort()).toEqual(["ai/claude-code", "ai/codex", "folders/Documents", "home"]);
+    // go et ~/.local/bin : à réinstaller à la main, avec leur version.
+    expect(plan.steps.filter((x) => x.manual).map((x) => [x.manual?.name, x.manual?.version])).toEqual([
+      ["gopls", "v0.16.2"],
+      ["llm-helper", null],
+    ]);
+    await api.applyRestore({ planId: plan.planId });
+    let last = await api.getSnapshot();
+    expect(last.restore.running).toBe(true);
+    api.advance(20);
+    last = await api.getSnapshot();
+    expect(last.restore.running).toBe(false);
+    expect(last.restore.progress?.finished).toBe(true);
+    api.dispose();
   });
 });

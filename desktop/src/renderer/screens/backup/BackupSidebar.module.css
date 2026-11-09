@@ -1,0 +1,6 @@
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: var(--space-5);
+}

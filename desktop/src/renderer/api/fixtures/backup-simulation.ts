@@ -36,7 +36,7 @@ function counters(progress: number): CounterProgress[] {
   });
 }
 
-function result(dest: string, version: string, files: number, bytes: number): DestinationResultSummary {
+function result(version: string, files: number, bytes: number): DestinationResultSummary {
   return {
     status: "succeeded",
     version,
@@ -47,7 +47,7 @@ function result(dest: string, version: string, files: number, bytes: number): De
     deletedVersions: [],
     damagedFiles: [],
     imageCheck: null,
-    log: `/Users/demo/.cairn/logs/backup-20261109-100000.log#${dest}`,
+    log: "/Users/demo/.cairn/logs/backup-20261109-100000.log",
   };
 }
 
@@ -143,7 +143,7 @@ function nas(t: number): DestinationProgress {
     counting,
     copy: { ...copy(1, true), percent: 100 },
     finishing: finishing(1, steps),
-    result: result("nas", "2026-11-09T100000", 1_958, 74_400_000),
+    result: result("2026-11-09T100000", 1_958, 74_400_000),
   };
 }
 
@@ -170,7 +170,7 @@ function disk(t: number): DestinationProgress {
     counting,
     copy: { ...copy(1, true), percent: 100 },
     finishing: finishing(1, steps),
-    result: result("disk", "2026-11-09T100000", 1_958, 74_400_000),
+    result: result("2026-11-09T100000", 1_958, 74_400_000),
   };
 }
 

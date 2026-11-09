@@ -1,0 +1,216 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-8);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-content);
+}
+
+.top {
+  display: flex;
+  gap: var(--space-8);
+  align-items: center;
+}
+
+.ring {
+  position: relative;
+  flex-shrink: 0;
+  width: 84px;
+  height: 84px;
+}
+
+.ringCenter {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ringValue {
+  font: var(--text-stat);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1;
+  min-width: 0;
+}
+
+.titleLine {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font: var(--text-progress-title);
+  color: var(--color-text);
+}
+
+.destination {
+  font: var(--text-caption);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.summary {
+  margin: 0;
+  font: var(--text-caption);
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.detail {
+  font: var(--text-small);
+  color: var(--color-text-secondary);
+}
+
+.phases {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  list-style: none;
+  font: var(--text-meta);
+  color: var(--color-text-secondary);
+}
+
+.phase {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.phase[data-state="current"] {
+  font: var(--text-meta-strong);
+  color: var(--color-text);
+}
+
+.phase[data-state="done"] {
+  color: var(--color-text-tertiary);
+}
+
+.phaseMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--color-field-border);
+  border-radius: var(--radius-capsule);
+}
+
+.phase[data-state="current"] .phaseMark {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  box-shadow: inset 0 0 0 2.5px var(--color-content);
+}
+
+.phase[data-state="done"] .phaseMark {
+  border-color: var(--color-text);
+  background: var(--color-text);
+  color: var(--color-content);
+}
+
+.phaseLine {
+  flex: 0 1 18px;
+  min-width: 6px;
+  height: 1.5px;
+  background: var(--color-field-border);
+}
+
+.workers {
+  padding: var(--space-1) var(--space-6);
+  border-radius: var(--radius-window);
+  background: var(--color-row-hover);
+}
+
+.divider {
+  height: 1px;
+  background: var(--color-border);
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: var(--space-2) 0;
+  list-style: none;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: 7px 0;
+  font: var(--text-caption);
+  color: var(--color-text-secondary);
+}
+
+.step[data-status="running"] {
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.stepIcon {
+  display: inline-flex;
+  justify-content: center;
+  width: 18px;
+  flex-shrink: 0;
+}
+
+.step[data-status="done"] .stepIcon {
+  color: var(--tone-success-fg);
+}
+
+.stepText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.stepLabel {
+  font-variant-numeric: tabular-nums;
+}
+
+.stepPercent {
+  font: var(--text-meta-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.mono {
+  font: var(--text-mono-small);
+  color: var(--color-text-secondary);
+}
+
+.ringTrack {
+  position: absolute;
+  inset: 0;
+  border: 8px solid var(--color-field);
+  border-radius: var(--radius-capsule);
+}
+
+.counting {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font: var(--text-caption);
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
