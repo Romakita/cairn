@@ -13,6 +13,13 @@ enum Snapshot {
         try? FileManager.default.createDirectory(atPath: outDir, withIntermediateDirectories: true)
         let scan = Scanner.scan(root: sample, ctx: ScanContext())
         let volume = Scanner.volumeInfo(for: sample)
+        // Écran Git : une seule analyse pour toutes les captures, par le pool de workers (durée et mémoire
+        // bornées, comme dans l'app), limitée au premier dépôt trouvé sous `sample`.
+        GitMaintenance.workerExecutable = Bundle.main.executablePath ?? CommandLine.arguments[0]
+        var gitOptions = GitOptions()
+        gitOptions.only = GitMaintenance.discover(in: [sample]).first
+        let gitReports = gitOptions.only == nil ? []
+            : Array(GitMaintenance.analyzeAll(folders: [sample], options: gitOptions, timeout: 60).prefix(3))
 
         for lang in [AppLanguage.frFR, .enUS] {
             for dark in [false, true] {
@@ -53,7 +60,7 @@ enum Snapshot {
                        dark: dark, to: "\(outDir)/menubar-\(suffix).png")
                 renderDestinationStates(model: model, outDir: outDir, suffix: suffix, size: size, dark: dark)
                 renderHubStates(model, sample: sample, dark: dark, suffix: suffix, outDir: outDir)
-                renderGitStates(model, sample: sample, dark: dark, suffix: suffix, outDir: outDir)
+                renderGitStates(model, reports: gitReports, sample: sample, dark: dark, suffix: suffix, outDir: outDir)
                 for step in OnboardingView.steps.indices {
                     render(OnboardingView(step: step).environmentObject(model).frame(width: size.width, height: size.height)
                             .background(Palette.content),
@@ -153,10 +160,9 @@ enum Snapshot {
         model.lastMessage = nil
     }
 
-    /// Écran Git pendant l'analyse (rapports partiels, avancement) et une fois terminée. Analyse en lecture seule,
-    /// dans le processus, des premiers dépôts trouvés sous `sample`.
-    static func renderGitStates(_ model: AppModel, sample: String, dark: Bool, suffix: String, outDir: String) {
-        let reports = GitMaintenance.discover(in: [sample]).prefix(3).map { GitMaintenance.analyze(repo: $0, options: GitOptions()) }
+    /// Écran Git pendant l'analyse (rapports partiels, avancement) et une fois terminée, à partir de `reports`
+    /// (analyse faite une fois par `run`).
+    static func renderGitStates(_ model: AppModel, reports: [RepoReport], sample: String, dark: Bool, suffix: String, outDir: String) {
         model.config?.folders = [.init(path: sample)]
         model.section = .git
         model.isAnalyzingGit = true
