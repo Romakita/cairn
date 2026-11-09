@@ -1,4 +1,32 @@
 {
-  "en": {},
-  "fr": {}
+  "en": {
+    "home.backup_blocked.config": "Fix config.toml before backing up: its schedule is paused.",
+    "home.backup_blocked.lock": "Another Cairn operation is running (the cairn command or another window).",
+    "home.chart.ai": "Size of each AI tool's data",
+    "home.chart.days": {
+      "one": "Backups over the last 7 days: {1} day with a successful backup",
+      "other": "Backups over the last 7 days: {1} days with a successful backup"
+    },
+    "home.chart.git": "{1} branches and {2} worktrees to review",
+    "home.chart.reclaimable": "Share of the analyzed space that can be recovered",
+    "home.destination.failed": "Failed",
+    "home.destination.never": "Never backed up",
+    "home.destination.unreachable": "Unreachable",
+    "home.folder.unavailable": "Unavailable"
+  },
+  "fr": {
+    "home.backup_blocked.config": "Corrigez config.toml avant de sauvegarder : sa planification est en pause.",
+    "home.backup_blocked.lock": "Une autre opération de Cairn est en cours (commande cairn ou autre fenêtre).",
+    "home.chart.ai": "Taille des données de chaque outil IA",
+    "home.chart.days": {
+      "one": "Sauvegardes des 7 derniers jours : {1} jour avec une sauvegarde réussie",
+      "other": "Sauvegardes des 7 derniers jours : {1} jours avec une sauvegarde réussie"
+    },
+    "home.chart.git": "{1} branches et {2} worktrees à examiner",
+    "home.chart.reclaimable": "Part de l'espace analysé qui peut être récupérée",
+    "home.destination.failed": "Échec",
+    "home.destination.never": "Jamais sauvegardée",
+    "home.destination.unreachable": "Injoignable",
+    "home.folder.unavailable": "Indisponible"
+  }
 }

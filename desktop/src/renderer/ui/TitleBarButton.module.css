@@ -1,0 +1,59 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 26px;
+  max-width: 280px;
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: var(--radius-capsule);
+  background: var(--color-field);
+  color: var(--color-text);
+  font: var(--text-meta-strong);
+  -webkit-app-region: no-drag;
+  transition:
+    background-color var(--duration-state) var(--ease-out),
+    opacity var(--duration-state) var(--ease-out);
+}
+
+.button:hover {
+  background: var(--color-field-pressed);
+}
+
+.button:active {
+  opacity: var(--opacity-pressed);
+}
+
+.button[data-tone="accent"],
+.button[data-tone="accent"]:hover {
+  background: var(--tone-info-bg);
+  color: var(--tone-info-fg);
+}
+
+.button[data-tone="success"],
+.button[data-tone="success"]:hover {
+  background: var(--tone-success-bg);
+  color: var(--tone-success-fg);
+}
+
+.button[data-tone="warning"],
+.button[data-tone="warning"]:hover {
+  background: var(--tone-warning-bg);
+  color: var(--tone-warning-fg);
+}
+
+.button[data-tone="danger"],
+.button[data-tone="danger"]:hover {
+  background: var(--tone-danger-bg);
+  color: var(--tone-danger-fg);
+}
+
+.button[data-tone]:not([data-tone="neutral"]):hover {
+  opacity: var(--opacity-hover-solid);
+}
+
+.text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}

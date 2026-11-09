@@ -1,0 +1,28 @@
+.bar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  /* Feux tricolores de macOS (position 14, 12) : la marque commence après eux. */
+  padding: 0 var(--space-3) 0 84px;
+  -webkit-app-region: drag;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  font: 600 13.5px / 1 var(--font-sans);
+  color: var(--color-text);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}

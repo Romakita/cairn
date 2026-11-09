@@ -1,0 +1,29 @@
+.gauge {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.svg {
+  position: absolute;
+  inset: 0;
+}
+
+.track {
+  stroke: var(--color-field);
+}
+
+.value {
+  stroke: var(--ring-color, var(--color-accent));
+  transition: stroke-dasharray var(--duration-progress) var(--ease-out);
+}
+
+.center {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
