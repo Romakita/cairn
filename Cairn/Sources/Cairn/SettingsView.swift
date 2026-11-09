@@ -5,6 +5,8 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject var model: AppModel
     @ViewState private var newHomeItem = ""
+    /// Éléments trouvés dans le home (fichiers connus, dossiers cachés et visibles), lus à l'ouverture.
+    @ViewState private var homeFound: [String] = []
 
     var body: some View {
         let c = model.config ?? CairnConfig()
@@ -63,24 +65,32 @@ struct SettingsView: View {
                     SectionTitle(title: T("settings.home"))
                     Card(padding: 0) {
                         VStack(spacing: 0) {
-                            ForEach(Array(c.home.include.enumerated()), id: \.offset) { i, item in
+                            // Tous les éléments du home (déjà sauvegardés ou trouvés), un interrupteur par ligne.
+                            let items = OnboardingDraft.sortedHomeItems(c.home.include + homeFound)
+                            ForEach(Array(items.enumerated()), id: \.element) { i, item in
                                 if i > 0 { RowDivider() }
                                 SettingsRow(icon: OnboardingView.homeIcon(item), title: "~/" + item, monospaced: true) {
-                                    IconButton(systemName: "trash", label: T("action.remove")) {
-                                        model.updateConfig { $0.home.include.remove(at: i) }
-                                    }
+                                    Toggle("", isOn: Binding(get: { c.home.include.contains(item) }, set: { on in
+                                        model.updateConfig { cfg in
+                                            if on { if !cfg.home.include.contains(item) { cfg.home.include.append(item) } }
+                                            else { cfg.home.include.removeAll { $0 == item } }
+                                        }
+                                    }))
+                                    .labelsHidden().toggleStyle(.switch).controlSize(.small)
+                                    .accessibilityLabel("~/" + item)
                                 }
                                 .padding(.vertical, -4)
                             }
                             CardTray {
                                 PathField(placeholder: T("onboarding.home.add_placeholder"), text: $newHomeItem,
-                                          excluding: Set(c.home.include), onSubmit: addHomeItem)
+                                          excluding: Set(items), onSubmit: addHomeItem)
                                 Button(action: addHomeItem) { Label { Text(T("action.add")) } icon: { Icon("plus", size: 15) } }
                                     .buttonStyle(.pillPrimary)
                                     .disabled(newHomeItem.trimmingCharacters(in: .whitespaces).isEmpty)
                             }
                         }
                     }
+                    .onAppear { homeFound = OnboardingDraft.homeChoices(include: []) }
 
                     SectionTitle(title: T("settings.schedule"))
                     Card(padding: 0) {
