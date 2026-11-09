@@ -11,7 +11,6 @@ mkdir -p Cairn/build
 "$ROOT/Cairn/scripts/release-notes.sh" "$SINCE" > Cairn/build/changes.md
 "$ROOT/Cairn/scripts/bump-version.sh" "$VERSION" Cairn/build/changes.md
 
-swift build --package-path Cairn
-Cairn/.build/debug/cairn-selftest
+swift test --package-path Cairn
 Cairn/build-app.sh --no-install --zip
 Cairn/scripts/smoke-test-app.sh Cairn/build/Cairn-"$VERSION"-*.zip
