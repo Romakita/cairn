@@ -7,7 +7,6 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [
         .executable(name: "Cairn", targets: ["Cairn"]),
-        .executable(name: "cairn-selftest", targets: ["CairnSelfTest"]),
     ],
     targets: [
         // Cœur sans interface : modèle, analyse, configuration, sauvegarde… testable sans SwiftUI.
@@ -22,11 +21,17 @@ let package = Package(
             dependencies: ["CairnCore"],
             path: "Sources/Cairn"
         ),
-        // Les Command Line Tools n'ont ni XCTest ni le plugin de swift-testing : tests dans un exécutable.
-        .executableTarget(
-            name: "CairnSelfTest",
+        // Tests (Swift Testing, Xcode requis) : `swift test`, ou `just test [filtre]`.
+        .testTarget(
+            name: "CairnTests",
             dependencies: ["CairnCore"],
-            path: "Tests/CairnSelfTest"
+            path: "Tests/CairnTests"
+        ),
+        // Processus auxiliaire lancé par certains tests (verrou, journal d'activité concurrent).
+        .executableTarget(
+            name: "CairnTestHelper",
+            dependencies: ["CairnCore"],
+            path: "Tests/CairnTestHelper"
         ),
     ]
 )

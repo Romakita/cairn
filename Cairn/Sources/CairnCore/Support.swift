@@ -161,6 +161,10 @@ public enum CairnResources {
             out.append(dir.appendingPathComponent(name))                                    // swift build, tests
         }
         out.append(Bundle.main.bundleURL.appendingPathComponent(name))
+        // `swift test` : Bundle.main est le lanceur xctest d'Xcode ; le bundle est à côté de CairnTests.xctest.
+        out.append(Bundle(for: Marker.self).bundleURL.deletingLastPathComponent().appendingPathComponent(name))
         return out
     }
+
+    private final class Marker {}
 }
