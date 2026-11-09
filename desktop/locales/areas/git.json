@@ -1,4 +1,90 @@
 {
-  "en": {},
-  "fr": {}
+  "en": {
+    "git.page.ack_required": "Check the box above to confirm.",
+    "git.page.analyzed_on": "Analyzed {1} · the analysis changes nothing",
+    "git.page.at_risk": {
+      "one": "{1} with work not pushed",
+      "other": "{1} with work not pushed"
+    },
+    "git.page.compacted": "{1} compacted.",
+    "git.page.empty_title": "No repository analyzed yet",
+    "git.page.failed": {
+      "one": "{1} repository could not be analyzed",
+      "other": "{1} repositories could not be analyzed"
+    },
+    "git.page.failures": {
+      "one": "{1} item could not be deleted: see the log.",
+      "other": "{1} items could not be deleted: see the log."
+    },
+    "git.page.loose": "{1} uncompressed",
+    "git.page.lost": "If you continue, {1}",
+    "git.page.missing_folder": "Its folder no longer exists.",
+    "git.page.no_folder": "Add a tracked folder in Settings first.",
+    "git.page.no_repo": "No git repository in the tracked folders.",
+    "git.page.option.days": {
+      "one": "{1} day",
+      "other": "{1} days"
+    },
+    "git.page.option.fetch": "Update remote branches first",
+    "git.page.option.fetch.text": "Asks each remote which branches still exist before the analysis. Slower, needs the network.",
+    "git.page.option.less": "Fewer days",
+    "git.page.option.more": "More days",
+    "git.page.option.stale": "Inactive worktree after",
+    "git.page.option.stale.text": "A worktree without changes for this long is marked inactive.",
+    "git.page.options": "Options…",
+    "git.page.options.text": "Saved in config.toml and used by the next analysis.",
+    "git.page.options.title": "Analysis options",
+    "git.page.reclaimable_detail": "By deleting the listed branches",
+    "git.page.running_note": "Deletions are available once the analysis is finished.",
+    "git.page.stat.branches": "Branches to clean up",
+    "git.page.unmerged": {
+      "one": "{1} not merged",
+      "other": "{1} not merged"
+    },
+    "git.page.worktrees_detail": "{1} obsolete · {2} at risk"
+  },
+  "fr": {
+    "git.page.ack_required": "Cochez la case ci-dessus pour confirmer.",
+    "git.page.analyzed_on": "Analysé le {1} · l'analyse ne modifie rien",
+    "git.page.at_risk": {
+      "one": "{1} avec du travail non poussé",
+      "other": "{1} avec du travail non poussé"
+    },
+    "git.page.compacted": "{1} compacté.",
+    "git.page.empty_title": "Aucun dépôt analysé",
+    "git.page.failed": {
+      "one": "{1} dépôt n'a pas pu être analysé",
+      "other": "{1} dépôts n'ont pas pu être analysés"
+    },
+    "git.page.failures": {
+      "one": "{1} élément n'a pas pu être supprimé : voir le journal.",
+      "other": "{1} éléments n'ont pas pu être supprimés : voir le journal."
+    },
+    "git.page.loose": "{1} non compressés",
+    "git.page.lost": "Si vous continuez, {1}",
+    "git.page.missing_folder": "Son dossier n'existe plus.",
+    "git.page.no_folder": "Ajoutez d'abord un dossier suivi dans les Réglages.",
+    "git.page.no_repo": "Aucun dépôt git dans les dossiers suivis.",
+    "git.page.option.days": {
+      "one": "{1} jour",
+      "other": "{1} jours"
+    },
+    "git.page.option.fetch": "Mettre à jour les branches distantes d'abord",
+    "git.page.option.fetch.text": "Demande à chaque dépôt distant quelles branches existent encore avant l'analyse. Plus lent, demande le réseau.",
+    "git.page.option.less": "Moins de jours",
+    "git.page.option.more": "Plus de jours",
+    "git.page.option.stale": "Worktree inactif après",
+    "git.page.option.stale.text": "Un worktree sans modification depuis ce délai est marqué inactif.",
+    "git.page.options": "Options…",
+    "git.page.options.text": "Enregistrées dans config.toml et appliquées à la prochaine analyse.",
+    "git.page.options.title": "Options de l'analyse",
+    "git.page.reclaimable_detail": "En supprimant les branches listées",
+    "git.page.running_note": "Les suppressions sont disponibles à la fin de l'analyse.",
+    "git.page.stat.branches": "Branches à nettoyer",
+    "git.page.unmerged": {
+      "one": "{1} non fusionnée",
+      "other": "{1} non fusionnées"
+    },
+    "git.page.worktrees_detail": "{1} obsolète(s) · {2} à risque"
+  }
 }

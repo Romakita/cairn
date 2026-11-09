@@ -1,0 +1,52 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-4) var(--space-6);
+  border-radius: var(--radius-panel);
+  background: var(--color-field);
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+.path {
+  flex: 1;
+  font: var(--text-mono);
+  color: var(--color-text);
+}
+
+.size {
+  flex-shrink: 0;
+  font: var(--text-meta);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.more {
+  font: var(--text-meta);
+  color: var(--color-text-secondary);
+}
+
+.note,
+.danger {
+  margin: 0;
+  font: var(--text-caption);
+  color: var(--color-text-secondary);
+}
+
+.danger {
+  color: var(--tone-danger-fg);
+}

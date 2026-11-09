@@ -1,0 +1,58 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-9);
+}
+
+.top {
+  display: grid;
+  grid-template-columns: minmax(300px, 420px) minmax(0, 1fr);
+  gap: var(--space-5);
+}
+
+.chart {
+  display: flex;
+  flex-direction: column;
+}
+
+.stats {
+  display: grid;
+  grid-template-rows: repeat(3, 1fr);
+  gap: var(--space-5);
+}
+
+.statWithAction {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.meta {
+  font: var(--text-meta);
+  color: var(--color-text-secondary);
+}
+
+.name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  color: var(--color-text);
+}
+
+.name > svg {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
+.mono {
+  font: var(--text-mono);
+  color: var(--color-text-secondary);
+}

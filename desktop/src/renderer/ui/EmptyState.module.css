@@ -1,0 +1,40 @@
+.root {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  min-height: 280px;
+  padding: var(--space-11) var(--space-9);
+  text-align: center;
+}
+
+.icon {
+  display: flex;
+  margin-bottom: var(--space-3);
+  color: var(--color-text-secondary);
+}
+
+.title {
+  margin: 0;
+  font: var(--text-progress-title);
+  color: var(--color-text);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 520px;
+  min-width: 0;
+  font: var(--text-caption);
+  color: var(--color-text-secondary);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}

@@ -1,4 +1,150 @@
 {
-  "en": {},
-  "fr": {}
+  "en": {
+    "storage.analyzed_on": "Analyzed {1}",
+    "storage.analyzing": "Analysis in progress…",
+    "storage.big_objects.count": {
+      "format": "{1} · {2}",
+      "plurals": {
+        "1": {
+          "one": "{1} big file",
+          "other": "{1} big files"
+        },
+        "2": {
+          "one": "{2} big folder",
+          "other": "{2} big folders"
+        }
+      }
+    },
+    "storage.big_objects.empty": "No file or folder above the size thresholds.",
+    "storage.clean.all_selected": "Every folder shown is already selected.",
+    "storage.clean.empty": "Nothing to clean up: no regenerable folder was found.",
+    "storage.clean.no_match": "No folder matches this filter.",
+    "storage.clean.preselected": "The largest folders are selected for you. Nothing is deleted until you confirm.",
+    "storage.clean.select": "Select {1}",
+    "storage.col.project": "Project",
+    "storage.col.share": "Share",
+    "storage.empty.no_folder.text": "Add a folder to follow in Settings: Cairn measures it and finds what can be deleted safely.",
+    "storage.empty.no_folder.title": "No tracked folder",
+    "storage.empty.text": "Cairn measures your tracked folders and finds what can be deleted safely. Nothing is deleted without your confirmation.",
+    "storage.explorer.at_top": "You are at the top of the analysis.",
+    "storage.explorer.bar": "Breakdown of {1} by type",
+    "storage.explorer.empty": "This folder is empty.",
+    "storage.explorer.loading": "Loading the folder…",
+    "storage.explorer.path": "Folder shown",
+    "storage.projects.all": "Show all {1} projects",
+    "storage.projects.bar": "Breakdown of {1}: sources, .git, regenerable, worktrees",
+    "storage.projects.empty": "No project found in the tracked folders.",
+    "storage.remove.busy": "Deleting…",
+    "storage.remove.items": "Items to delete",
+    "storage.remove.permanently": "Delete permanently instead of moving to the Trash",
+    "storage.removed": {
+      "format": "{1} deleted, {2} freed.",
+      "plurals": {
+        "1": {
+          "one": "{1} item",
+          "other": "{1} items"
+        }
+      }
+    },
+    "storage.removed.failures": {
+      "format": "{1} could not be deleted, for example {2}.",
+      "plurals": {
+        "1": {
+          "one": "{1} item",
+          "other": "{1} items"
+        }
+      }
+    },
+    "storage.rescan.help": "Measure the tracked folders again (read-only, ⌘R)",
+    "storage.scan.unreadable": {
+      "one": "{1} unreadable item",
+      "other": "{1} unreadable items"
+    },
+    "storage.stale": "This analysis is more than 7 days old: sizes may have changed since.",
+    "storage.stat.big_objects": {
+      "one": "{1} big file or folder",
+      "other": "{1} big files and folders"
+    },
+    "storage.stat.free": "Free space",
+    "storage.stat.free_detail": "On the main volume",
+    "storage.stat.reclaimable_detail": "{1} of the analyzed space",
+    "storage.tab.overview": "Overview",
+    "storage.unavailable.none_selected": "Select at least one folder.",
+    "storage.unavailable.not_in_tree": "This item is no longer in the analysis: analyze again to delete it from Cairn.",
+    "storage.unavailable.scanning": "Unavailable while the analysis is running."
+  },
+  "fr": {
+    "storage.analyzed_on": "Analysé le {1}",
+    "storage.analyzing": "Analyse en cours…",
+    "storage.big_objects.count": {
+      "format": "{1} · {2}",
+      "plurals": {
+        "1": {
+          "one": "{1} gros fichier",
+          "other": "{1} gros fichiers"
+        },
+        "2": {
+          "one": "{2} gros dossier",
+          "other": "{2} gros dossiers"
+        }
+      }
+    },
+    "storage.big_objects.empty": "Aucun fichier ni dossier au-dessus des seuils de taille.",
+    "storage.clean.all_selected": "Tous les dossiers affichés sont déjà sélectionnés.",
+    "storage.clean.empty": "Rien à nettoyer : aucun dossier régénérable trouvé.",
+    "storage.clean.no_match": "Aucun dossier ne correspond à ce filtre.",
+    "storage.clean.preselected": "Les plus gros dossiers sont sélectionnés pour vous. Rien n'est supprimé avant votre confirmation.",
+    "storage.clean.select": "Sélectionner {1}",
+    "storage.col.project": "Projet",
+    "storage.col.share": "Part",
+    "storage.empty.no_folder.text": "Ajoutez un dossier à suivre dans les Réglages : Cairn le mesure et repère ce qui peut être supprimé sans risque.",
+    "storage.empty.no_folder.title": "Aucun dossier suivi",
+    "storage.empty.text": "Cairn mesure vos dossiers suivis et repère ce qui peut être supprimé sans risque. Rien n'est supprimé sans votre confirmation.",
+    "storage.explorer.at_top": "Vous êtes en haut de l'analyse.",
+    "storage.explorer.bar": "Répartition de {1} par type",
+    "storage.explorer.empty": "Ce dossier est vide.",
+    "storage.explorer.loading": "Chargement du dossier…",
+    "storage.explorer.path": "Dossier affiché",
+    "storage.projects.all": "Voir les {1} projets",
+    "storage.projects.bar": "Répartition de {1} : sources, .git, régénérable, worktrees",
+    "storage.projects.empty": "Aucun projet trouvé dans les dossiers suivis.",
+    "storage.remove.busy": "Suppression…",
+    "storage.remove.items": "Éléments à supprimer",
+    "storage.remove.permanently": "Supprimer définitivement au lieu de mettre à la corbeille",
+    "storage.removed": {
+      "format": "{1}, {2} libérés.",
+      "plurals": {
+        "1": {
+          "one": "{1} élément supprimé",
+          "other": "{1} éléments supprimés"
+        }
+      }
+    },
+    "storage.removed.failures": {
+      "format": "{1}, par exemple {2}.",
+      "plurals": {
+        "1": {
+          "one": "{1} élément n'a pas pu être supprimé",
+          "other": "{1} éléments n'ont pas pu être supprimés"
+        }
+      }
+    },
+    "storage.rescan.help": "Mesurer à nouveau les dossiers suivis (lecture seule, ⌘R)",
+    "storage.scan.unreadable": {
+      "one": "{1} élément illisible",
+      "other": "{1} éléments illisibles"
+    },
+    "storage.stale": "Cette analyse date de plus de 7 jours : les tailles ont pu changer depuis.",
+    "storage.stat.big_objects": {
+      "one": "{1} gros fichier ou dossier",
+      "other": "{1} gros fichiers et dossiers"
+    },
+    "storage.stat.free": "Espace libre",
+    "storage.stat.free_detail": "Sur le volume principal",
+    "storage.stat.reclaimable_detail": "{1} de l'espace analysé",
+    "storage.tab.overview": "Vue d'ensemble",
+    "storage.unavailable.none_selected": "Sélectionnez au moins un dossier.",
+    "storage.unavailable.not_in_tree": "Cet élément n'est plus dans l'analyse : relancez l'analyse pour le supprimer depuis Cairn.",
+    "storage.unavailable.scanning": "Indisponible pendant l'analyse."
+  }
 }
