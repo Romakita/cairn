@@ -77,10 +77,10 @@ Après une mise à jour d'OpenSpec : `openspec update` pour régénérer les ski
 - Comparer le comportement entre `main` et les changements quand c'est pertinent.
 - Se demander : « Est-ce qu'un Staff engineer validerait ça ? »
 - Lancer les vérifications, lire les logs, démontrer que c'est correct. Dans ce repo :
-  - `just test` (exécutable `cairn-selftest`, à faire passer à chaque lot) ;
+  - `just test` (Swift Testing, à faire passer à chaque lot) ;
   - les modes simulation : `just backup-dry`, `just git-clean`, `just restore`, `just check` ;
   - pour un changement OpenSpec : `openspec validate <change>` puis `/opsx:verify`.
-  - pour `Cairn/` : `just test` (exécutable `cairn-selftest`), `just storage-report` (totaux à comparer à
+  - pour `Cairn/` : `just test`, `just storage-report` (totaux à comparer à
     `du -sk <dossier>`), puis `just storage-install` pour reconstruire l'app.
 
 ### 5. Exiger l'élégance (avec mesure)
@@ -108,10 +108,13 @@ Pour le travail qui ne passe pas par un changement OpenSpec :
 
 ## App Cairn
 
-- Seuls les Command Line Tools sont installés (pas Xcode) : le plugin de macro `@State` est absent,
-  utiliser `@ViewState` (alias défini dans `Compat.swift`) ; éviter `@Observable` et `#Preview`.
-- Ni XCTest ni swift-testing ne sont disponibles : les tests sont dans `Tests/CairnSelfTest` (mini framework
-  `expect`/`expectEqual`), une suite par fichier, enregistrée dans `main.swift`.
+- L'app doit rester constructible avec les seuls Command Line Tools (sans Xcode) : leur plugin de macro `@State`
+  est absent, utiliser `@ViewState` (alias défini dans `Compat.swift`) ; éviter `@Observable` et `#Preview`.
+- Les tests (`Tests/CairnTests`) utilisent Swift Testing et demandent Xcode (`xcode-select` pointé sur Xcode) :
+  une suite par fichier, déclarée dans `extension CairnTests { @Suite struct … }` (suite racine dans
+  `TestSupport.swift` : `CAIRN_HOME` temporaire, inventaire des outils vide). Les tests tournent en parallèle :
+  un test qui passe par `CLI.run`, change `L10n.current` ou compare un texte traduit porte `@Test(.globalState)`.
+  Un test qui doit lancer un autre processus passe par `Tests/CairnTestHelper` (`builtExecutable("CairnTestHelper")`).
 - `CairnCore` (bibliothèque, sans SwiftUI) contient la logique ; `Cairn` (exécutable) l'interface et l'aiguillage
   vers la ligne de commande (`main.swift`).
 - Tout texte visible passe par `T("clé")` / `L10n.tr` avec une entrée dans `en.lproj` ET `fr.lproj`

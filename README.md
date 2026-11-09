@@ -130,7 +130,7 @@ appears at the bottom of the icon bar (or use **Cairn → Check for Updates…**
 
 ### From source
 
-You need the [Command Line Tools](https://developer.apple.com/xcode/resources/) (Xcode is not required) and
+You need the [Command Line Tools](https://developer.apple.com/xcode/resources/) (Xcode is only needed to run the tests) and
 [just](https://github.com/casey/just).
 
 ```bash
@@ -203,12 +203,12 @@ time = "12:30"
 
 ## Tests
 
-Only the Command Line Tools are required, with neither XCTest nor swift-testing: tests live in a dedicated executable,
-`cairn-selftest`, with a small in-house framework (`expect` / `expectEqual`).
+Tests use [Swift Testing](https://developer.apple.com/xcode/swift-testing/) and need Xcode (building the app
+does not): `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`.
 
 ```bash
 just test              # build + the whole suite
-just test Inventory    # only tests whose name contains "Inventory"
+just test Inventory    # only the suites or tests whose name matches "Inventory"
 ```
 
 To check a change end to end, the dry-run modes write nothing:
@@ -220,7 +220,7 @@ just restore
 just storage-report    # totals to compare with `du -sk <folder>`
 ```
 
-The **CI** workflow builds, runs `cairn-selftest` and bundles the app on every push to `main` and every pull request.
+The **CI** workflow builds, runs the tests and bundles the app on every push to `main` and every pull request.
 
 ## Architecture
 
@@ -231,7 +231,8 @@ Cairn/
 │   ├── CairnCore/        # UI-free logic: analysis, backup, restore, git, config, inventory
 │   │   └── Resources/    # translations (en, fr), AI tool profiles, inventory rules
 │   └── Cairn/            # SwiftUI interface + command-line dispatch (a single binary)
-├── Tests/CairnSelfTest/  # one suite per file, registered in main.swift
+├── Tests/CairnTests/     # Swift Testing, one suite per file
+├── Tests/CairnTestHelper/ # helper process launched by some tests
 ├── scripts/              # icon, version bump
 └── build-app.sh          # builds and installs Cairn.app
 openspec/                 # behavior specs and proposed changes

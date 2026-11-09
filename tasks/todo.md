@@ -3,9 +3,66 @@
 Plan de la tâche en cours (voir la section « Gestion des tâches » d'AGENTS.md).
 Les nouvelles fonctionnalités passent plutôt par un changement OpenSpec (`/opsx:propose`).
 
-## Tâche en cours
+## Tâche en cours — passer les tests de Cairn à Swift Testing (branche `test/swift-testing`, faite)
 
-_Aucune._
+Xcode 27.2 est installé : le framework `Testing` et ses macros (`@Test`, `#expect`), comme celle de `@State`, sont
+enfin disponibles. Aujourd'hui : 241 tests dans l'exécutable `cairn-selftest`, mini framework maison
+(`TestCase`, `expect`, `expectEqual`, `expectThrows`), 25 suites enregistrées à la main dans `main.swift`.
+
+Pré-requis (à faire par l'utilisateur, sudo) : `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`,
+`sudo xcodebuild -license accept`, `xcodebuild -runFirstLaunch`.
+
+Points délicats repérés :
+
+- Trois tests relancent le binaire de test comme processus auxiliaire (`--hold-lock` dans `SupportTests`,
+  `--append-activity` dans `HubTests`) et `GitTests` cherche l'exécutable `Cairn` à côté de `CommandLine.arguments[0]`.
+  Sous `swift test`, le binaire est le lanceur xctest : ces modes doivent passer dans un petit exécutable
+  `cairn-test-helper`, retrouvé à côté du bundle de test. `--excludes` (comparaison avec l'ancien `backup.sh`, retiré)
+  est supprimé s'il n'a plus d'usage.
+- `main.swift` fixe `CAIRN_HOME` pour tout le processus : à reprendre dans un trait commun ou dans l'initialisation
+  des suites, pour ne jamais toucher au vrai `~/.cairn`.
+- Swift Testing lance les tests en parallèle ; le code actuel ne l'a jamais été (environnement global, `L10n`,
+  verrous). Première étape en `.serialized` ; la parallélisation viendra suite par suite, une fois vérifiée.
+- La CI utilise Xcode 16 (`macos-15`) et `swift-tools-version:5.10` : garder 5.10 (pas de passage au mode Swift 6
+  dans ce changement) et vérifier que Swift Testing passe avec l'Xcode de la CI ; sinon passer la CI sur un runner
+  plus récent.
+
+Plan :
+
+- [x] 1. Cible `.testTarget(name: "CairnTests")` + exécutable `CairnTestHelper` dans `Package.swift`.
+- [x] 2. Conversion des 23 fichiers (5 sous-agents, chacun vérifié dans sa propre copie du paquet), puis suites
+  renommées `XxxTests` comme leurs fichiers : un nom de suite comme `Scanner` masquait le type de CairnCore dans
+  toute la cible.
+- [x] 3. Processus auxiliaires dans `CairnTestHelper` (`builtExecutable`), `CAIRN_HOME` dans le trait
+  `.temporaryCairnHome` de la suite racine (exécution en série). `--excludes` supprimé (plus utilisé).
+- [x] 4. `CairnSelfTest` supprimé ; `withTempDir`, `writeFile`, `shell`, `packageRoot` dans `TestSupport.swift`.
+- [x] 5. `just test [filtre]` → `swift test --filter` (message clair si Xcode n'est pas sélectionné) ; CI et
+  `release-prepare.sh` → `swift test`.
+- [x] 6. Docs : `AGENTS.md`, `README.md`, `README.fr.md`, `Cairn/README.md`, commentaire de `Package.swift`.
+- [ ] 7. Reporté : `@ViewState` → `@State` obligerait à avoir Xcode pour construire l'app, sans aucun gain
+  (simple alias).
+
+## Revue — passage à Swift Testing (2026-11-09)
+
+- [x] 238 tests : 237 réussis + le test lent `matches_du_on_workspaces_within_1_percent`, sauté sans
+  `CAIRN_TESTS_SLOW=1`. Mêmes noms que les 239 de l'ancien harness, moins les 2 tests du mini framework
+  (`Harness.*`), retirés avec lui.
+- [x] `just test Backup` : 35 tests (suites `BackupTests` et `BackupWarningTests`).
+- [x] Aucun fichier de `~/.cairn` modifié pendant les tests.
+- [x] Un échec volontaire sort en code 1 avec le fichier, la ligne, le message et les valeurs comparées.
+- [x] Sans Xcode sélectionné, `just test` explique la commande `xcode-select` à lancer.
+- [x] L'app se construit toujours avec les seuls Command Line Tools (`build-app.sh --no-install` + smoke test).
+- Correction faite en route : `CairnResources` cherche aussi le bundle de ressources à côté du code de CairnCore
+  (sous `swift test`, `Bundle.main` est le lanceur xctest d'Xcode).
+- [x] Optimisation : 94 s → 14-21 s (5 lancements de suite, tous verts).
+  - Inventaire des outils remplacé par un inventaire vide dans les tests (`BackupService.collectInventory`) : il
+    lançait brew, mise, npm… de la machine, 1,4 s par sauvegarde, et rendait les tests dépendants du Mac.
+  - Tests en parallèle ; ceux qui touchent l'état global (`CLI.run`, `L10n.current`, texte traduit comparé) portent
+    `.globalState` et passent un par un (verrou commun). `GitMaintenance.analyzeAll(executable:)` remplace la
+    modification de `workerExecutable` dans le test du pool.
+- [ ] CI : à vérifier sur la PR (Xcode 16 sur `macos-15` ; le trait `TestScoping` demande Swift 6.1).
+
+Commits : `test: …`, `ci: …`, `refactor(app): use @State …`, `docs: …` (pas de release).
 
 ## Revue — vérification de bout en bout de Cairn (tâche 11.3 de `cairn-integration-scripts`, 2026-11-08)
 

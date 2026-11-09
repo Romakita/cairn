@@ -133,7 +133,7 @@ avec `[updates] check = false` dans `config.toml`.
 
 ### Depuis les sources
 
-Il faut les [Command Line Tools](https://developer.apple.com/xcode/resources/) (Xcode n'est pas nécessaire) et
+Il faut les [Command Line Tools](https://developer.apple.com/xcode/resources/) (Xcode n'est nécessaire que pour lancer les tests) et
 [just](https://github.com/casey/just).
 
 ```bash
@@ -205,12 +205,12 @@ time = "12:30"
 
 ## Tests
 
-Seuls les Command Line Tools sont requis, sans XCTest ni swift-testing : les tests sont regroupés dans un exécutable
-dédié, `cairn-selftest`, avec un petit framework maison (`expect` / `expectEqual`).
+Les tests utilisent [Swift Testing](https://developer.apple.com/xcode/swift-testing/) et demandent Xcode (pas la
+construction de l'app) : `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`.
 
 ```bash
 just test              # build + toute la suite
-just test Inventory    # seulement les tests dont le nom contient « Inventory »
+just test Inventory    # seulement les suites ou tests dont le nom correspond à « Inventory »
 ```
 
 Pour vérifier un changement de bout en bout, les modes simulation n'écrivent rien :
@@ -222,7 +222,7 @@ just restore
 just storage-report    # totaux à comparer à `du -sk <dossier>`
 ```
 
-Le workflow **CI** compile, lance `cairn-selftest` et construit le bundle de l'app à chaque push sur `main` et
+Le workflow **CI** compile, lance les tests et construit le bundle de l'app à chaque push sur `main` et
 chaque pull request.
 
 ## Architecture
@@ -234,7 +234,8 @@ Cairn/
 │   ├── CairnCore/        # logique sans interface : analyse, sauvegarde, restauration, git, config, inventaire
 │   │   └── Resources/    # traductions (en, fr), profils des outils IA, règles d'inventaire
 │   └── Cairn/            # interface SwiftUI + aiguillage vers la ligne de commande (un seul binaire)
-├── Tests/CairnSelfTest/  # une suite par fichier, enregistrée dans main.swift
+├── Tests/CairnTests/     # Swift Testing, une suite par fichier
+├── Tests/CairnTestHelper/ # processus auxiliaire lancé par certains tests
 ├── scripts/              # icône, montée de version
 └── build-app.sh          # construit et installe Cairn.app
 openspec/                 # specs du comportement et changements proposés
