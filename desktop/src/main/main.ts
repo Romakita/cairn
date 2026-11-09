@@ -1,8 +1,9 @@
 import { app } from "electron";
 import { isCommandLine } from "../cli/dispatch.ts";
-import { runCli } from "../cli/index.ts";
+import { cliContextForApp, runCli } from "../cli/index.ts";
 import { parseGalleryArgs, runGallery } from "./gallery.ts";
 import { startInterface } from "./interface.ts";
+import { loadNativeModule } from "./native-loader.ts";
 
 // Arguments utiles : sans l'exécutable, et sans le dossier de l'app quand on lance `electron .` en développement.
 const args = process.argv.slice(app.isPackaged ? 1 : 2);
@@ -14,6 +15,10 @@ function write(stream: NodeJS.WriteStream, text: string): Promise<void> {
     else resolve();
   });
 }
+
+// Module natif chargé avant l'aiguillage : la CLI (verrou, Trousseau) et l'interface en ont besoin. Un échec n'empêche
+// pas l'app de démarrer : le message est gardé et affiché, les opérations qui en dépendent échouent clairement.
+const nativeError = loadNativeModule();
 
 // Galerie des composants avant l'aiguillage CLI (comme main.swift) : `--gallery`, `--gallery-export <dossier>`.
 const gallery = parseGalleryArgs(args);
@@ -28,7 +33,10 @@ if (gallery) {
     out: (t: string) => void pending.push(write(process.stdout, t)),
     err: (t: string) => void pending.push(write(process.stderr, t)),
   };
-  runCli(args, io)
+  if (nativeError) io.err(`cairn: ${nativeError}`);
+  // Langues du système pour `language = "auto"` : disponibles avant `ready`.
+  const context = cliContextForApp(app.getAppPath(), app.getPreferredSystemLanguages());
+  runCli(args, io, context)
     .catch(async (error: unknown) => {
       await write(process.stderr, `cairn: ${error instanceof Error ? error.message : String(error)}`);
       return 1;
@@ -38,5 +46,5 @@ if (gallery) {
       app.exit(code);
     });
 } else {
-  startInterface(args);
+  startInterface({ args, nativeError });
 }
