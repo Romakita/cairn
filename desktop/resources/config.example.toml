@@ -1,0 +1,62 @@
+# Configuration de Cairn — ~/.cairn/config.toml
+# Modifiable à la main ou depuis les réglages de l'app (les commentaires sont conservés).
+# Les mots de passe ne sont jamais écrits ici : ils sont dans le Trousseau.
+
+version = 1
+language = "auto"                 # auto (langue de macOS), en-US ou fr-FR
+
+[analysis]
+big_file_threshold_mb = 50        # « gros fichier » au-delà de cette taille
+big_folder_threshold_gb = 1.0     # « gros dossier » (hors gros fichiers) au-delà de cette taille
+
+# Dossiers suivis : analysés et, si backup = true, sauvegardés.
+[[folders]]
+path = "/Volumes/workspaces"
+backup = true
+exclude = ["*.iso"]               # motifs en plus des dossiers régénérables
+
+# Éléments du home à sauvegarder (chemins relatifs à ~).
+[home]
+include = [".zshrc", ".gitconfig", ".ssh", ".aws", ".config/mise", ".config/gh"]
+exclude = []
+
+# Outils IA : catégories sauvegardées (conversations, config, memories, credentials).
+[ai.claude-code]
+categories = ["conversations", "config", "memories"]
+
+[ai.codex]
+categories = ["conversations", "config", "memories", "credentials"]
+
+# Destinations : provider = "local" (path) ou "smb" (url).
+[[destinations]]
+id = "nas"
+provider = "smb"
+url = "smb://nas.local/backups"
+username = "romain"
+# mot de passe dans le Trousseau, entrée déduite de url + username (jamais dans ce fichier)
+encrypted = true
+retention = { mode = "tiered", days = 30, weeks = 48 }   # ou { mode = "count", count = 12 }
+
+[schedule]
+frequency = "daily"               # daily, weekly ou manual
+time = "12:30"
+weekday = "monday"                # utilisé avec weekly
+background = true                 # accord pour tourner en tâche de fond
+on_battery_min_percent = 20
+
+[alerts]                          # disque presque plein / critique
+low_percent = 10.0
+low_gb = 20.0
+critical_percent = 5.0
+critical_gb = 5.0
+
+[logs]
+retention_days = 90
+
+[git]
+fetch_before = false
+gc = true
+worktree_stale_days = 30
+
+[tools]
+excluded = []                     # outils CLI à ne pas exporter
