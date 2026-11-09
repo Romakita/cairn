@@ -8,12 +8,28 @@ function quote(text: string): string {
   return JSON.stringify(text).replace(/\//g, "\\/");
 }
 
+/**
+ * Nombre comme Foundation, qui écrit les doubles en `%.17g` : `0.1` → `0.10000000000000001`, `12.3` →
+ * `12.300000000000001`, `1e-05` → `1.0000000000000001e-05`, `1e20` → `1e+20` ; les entiers restent tels quels.
+ */
+function formatNumber(v: number): string {
+  if (Number.isInteger(v) && Math.abs(v) < 1e17) return String(v);
+  const [mantissa = "", exponent = "0"] = v.toExponential(16).split("e");
+  const exp = Number(exponent);
+  const trim = (s: string) => (s.includes(".") ? s.replace(/0+$/, "").replace(/\.$/, "") : s);
+  if (exp < -4 || exp >= 17) {
+    const digits = String(Math.abs(exp)).padStart(2, "0");
+    return `${trim(mantissa)}e${exp < 0 ? "-" : "+"}${digits}`;
+  }
+  return trim(v.toFixed(16 - exp));
+}
+
 function encode(value: JSONValue | undefined, pretty: boolean, indent: string): string {
   if (value === null || value === undefined) return "null";
   if (typeof value === "string") return quote(value);
   if (typeof value === "number") {
     if (!Number.isFinite(value)) throw new TypeError("JSON cannot encode a non-finite number");
-    return String(value);
+    return formatNumber(value);
   }
   if (typeof value === "boolean") return value ? "true" : "false";
   const inner = `${indent}  `;
