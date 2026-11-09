@@ -5,19 +5,25 @@ import SwiftUI
 // Remplace le menu natif de macOS (petit, aux couleurs système) dans toute l'app.
 
 /// Élément d'un `PopupMenu`.
-enum PopupMenuEntry {
+public enum PopupMenuEntry {
     case item(icon: String? = nil, title: String, checked: Bool = false, destructive: Bool = false, disabled: Bool = false,
               help: String? = nil, action: () -> Void)
     case divider
 }
 
-/// Contenu du panneau (aussi rendu par `Snapshot`).
-struct PopupMenuContent: View {
+/// Contenu du panneau (aussi rendu par `Snapshot` et le catalogue).
+public struct PopupMenuContent: View {
     let entries: [PopupMenuEntry]
     var minWidth: CGFloat = 200
     let dismiss: () -> Void
 
-    var body: some View {
+    public init(entries: [PopupMenuEntry], minWidth: CGFloat = 200, dismiss: @escaping () -> Void) {
+        self.entries = entries
+        self.minWidth = minWidth
+        self.dismiss = dismiss
+    }
+
+    public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(entries.indices, id: \.self) { i in
                 switch entries[i] {
@@ -80,14 +86,22 @@ private struct PopupMenuRow: View {
 }
 
 /// Bouton qui ouvre un `PopupMenu` sous lui, aligné sur son bord droit (`trailing`) ou gauche.
-struct PopupMenuButton<Label: View>: View {
+public struct PopupMenuButton<Label: View>: View {
     let entries: () -> [PopupMenuEntry]
     var alignment: HorizontalAlignment = .trailing
     var minWidth: CGFloat = 200
-    @ViewBuilder var label: Label
+    var label: Label
     @ViewState private var anchor = PopupAnchor()
 
-    var body: some View {
+    public init(entries: @escaping () -> [PopupMenuEntry], alignment: HorizontalAlignment = .trailing, minWidth: CGFloat = 200,
+                @ViewBuilder label: () -> Label) {
+        self.entries = entries
+        self.alignment = alignment
+        self.minWidth = minWidth
+        self.label = label()
+    }
+
+    public var body: some View {
         Button { PopupMenuPanel.show(entries(), from: anchor.view, alignment: alignment, minWidth: minWidth) } label: { label }
             .buttonStyle(.plain)
             .background(AnchorView(anchor: anchor))

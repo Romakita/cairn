@@ -1,4 +1,5 @@
 import CairnCore
+import CairnUI
 import SwiftUI
 
 // MARK: - Nettoyable
@@ -107,29 +108,6 @@ struct CleanableView: View {
         filter = nil
         search = ""
         selection = Set(CleanupSuggestion.preselect(all.map(\.node)).map(\.path))
-    }
-}
-
-struct FilterChip: View {
-    let title: String
-    let total: Int64
-    let color: Color
-    let active: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 5) {
-                Circle().fill(color).frame(width: 8, height: 8)
-                Text(title)
-                Text(Fmt.bytes(total)).foregroundStyle(.secondary).monospacedDigit()
-            }
-            .font(.callout)
-            .padding(.horizontal, 10).padding(.vertical, 4)
-            .background(active ? color.opacity(0.22) : Color.gray.opacity(0.1), in: Capsule())
-            .overlay(Capsule().stroke(active ? color : .clear, lineWidth: 1))
-        }
-        .buttonStyle(.plain)
     }
 }
 

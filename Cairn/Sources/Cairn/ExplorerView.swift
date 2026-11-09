@@ -1,4 +1,5 @@
 import CairnCore
+import CairnUI
 import SwiftUI
 
 struct PendingDeletion: Identifiable {

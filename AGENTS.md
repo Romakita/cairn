@@ -109,14 +109,19 @@ Pour le travail qui ne passe pas par un changement OpenSpec :
 ## App Cairn
 
 - L'app doit rester constructible avec les seuls Command Line Tools (sans Xcode) : leur plugin de macro `@State`
-  est absent, utiliser `@ViewState` (alias défini dans `Compat.swift`) ; éviter `@Observable` et `#Preview`.
+  est absent, utiliser `@ViewState` (alias défini dans `CairnUI/Theme/Support.swift`) ; éviter `@Observable` et
+  `#Preview` (le catalogue `just gallery` les remplace).
 - Les tests (`Tests/CairnTests`) utilisent Swift Testing et demandent Xcode (`xcode-select` pointé sur Xcode) :
   une suite par fichier, déclarée dans `extension CairnTests { @Suite struct … }` (suite racine dans
   `TestSupport.swift` : `CAIRN_HOME` temporaire, inventaire des outils vide). Les tests tournent en parallèle :
   un test qui passe par `CLI.run`, change `L10n.current` ou compare un texte traduit porte `@Test(.globalState)`.
   Un test qui doit lancer un autre processus passe par `Tests/CairnTestHelper` (`builtExecutable("CairnTestHelper")`).
-- `CairnCore` (bibliothèque, sans SwiftUI) contient la logique ; `Cairn` (exécutable) l'interface et l'aiguillage
-  vers la ligne de commande (`main.swift`).
+- `CairnCore` (bibliothèque, sans SwiftUI) contient la logique ; `CairnUI` (bibliothèque) le design system :
+  jetons de thème, composants réutilisables et catalogue ; `Cairn` (exécutable) les écrans et l'aiguillage vers la
+  ligne de commande (`main.swift`).
+- Un composant réutilisable va dans `Sources/CairnUI/Components` (`public`, init explicite) avec au moins une story
+  dans `Sources/CairnUI/Gallery` ; le test `GalleryTests.every_component_has_a_story` échoue sinon. Une vue qui lit
+  `AppModel` reste dans l'app.
 - Tout texte visible passe par `T("clé")` / `L10n.tr` avec une entrée dans `en.lproj` ET `fr.lproj`
   (`Sources/CairnCore/Resources`) ; le test `L10n.no_untranslated_ui_strings` échoue sinon.
 - L'analyse (`Scanner.swift`) ne doit jamais rien modifier sur le disque ; les suppressions passent

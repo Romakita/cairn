@@ -65,6 +65,16 @@ storage:
 storage-report *args:
     {{cairn}} analyze "$@"
 
+# Catalogue des composants de l'interface (CairnUI), compilé depuis les sources du dépôt
+gallery:
+    swift build --package-path Cairn --product Cairn
+    Cairn/.build/debug/Cairn --gallery
+
+# Exporte le catalogue en images PNG + index.html (dossier par défaut : build/gallery)
+gallery-export dir="build/gallery":
+    swift build --package-path Cairn --product Cairn
+    Cairn/.build/debug/Cairn --gallery-export "{{dir}}"
+
 # Version courante de Cairn (Cairn/VERSION)
 version:
     @cat Cairn/VERSION

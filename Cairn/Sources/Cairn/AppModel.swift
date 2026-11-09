@@ -1,5 +1,6 @@
 import CairnCore
 import AppKit
+import CairnUI
 import SwiftUI
 
 @MainActor

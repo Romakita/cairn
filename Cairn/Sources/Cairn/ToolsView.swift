@@ -1,5 +1,6 @@
 import AppKit
 import CairnCore
+import CairnUI
 import SwiftUI
 
 struct ToolRow: Identifiable {

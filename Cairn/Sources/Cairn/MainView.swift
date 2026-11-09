@@ -1,4 +1,5 @@
 import CairnCore
+import CairnUI
 import SwiftUI
 
 /// Sections de l'app (rail de gauche).
@@ -244,24 +245,6 @@ struct UpdatePanel: View {
             if line.hasPrefix("- ") || line.hasPrefix("* ") { return (false, "• " + line.dropFirst(2)) }
             return (false, line)
         }
-    }
-}
-
-/// Barre de message en bas de la zone de contenu.
-struct MessageBar: View {
-    let text: String
-    let close: () -> Void
-    var body: some View {
-        HStack {
-            Icon("info.circle", size: 16).foregroundStyle(Palette.secondary)
-            Text(text).font(.callout).foregroundStyle(Palette.secondary).textSelection(.enabled)
-            Spacer()
-            Button(action: close) { Icon("xmark", size: 16) }
-                .buttonStyle(.plain)
-                .accessibilityLabel(T("action.close"))
-        }
-        .padding(.horizontal, 16).padding(.vertical, 8)
-        .overlay(alignment: .top) { Rectangle().fill(Palette.border).frame(height: 1) }
     }
 }
 

@@ -1,5 +1,6 @@
 import AppKit
 import CairnCore
+import CairnUI
 import SwiftUI
 
 // Formulaire « Ajouter une destination », commun à l'assistant et à l'app : type, connexion, navigateur de
@@ -509,7 +510,7 @@ struct FolderBrowser: View {
     @ViewState private var newName = ""
     @ViewState private var createError: String?
 
-    static let rowHeight: CGFloat = 44
+    static let rowHeight = FolderRow.height
 
     var body: some View {
         Card(padding: 0) {
@@ -579,46 +580,6 @@ struct FolderBrowser: View {
     }
 }
 
-private struct FolderBreadcrumb: View {
-    let items: [(String, URL?)]
-    let select: (URL?) -> Void
-
-    var body: some View {
-        HStack(spacing: 2) {
-            ForEach(items.indices, id: \.self) { i in
-                if i > 0 {
-                    Image(systemName: "chevron.right").font(.system(size: 9, weight: .semibold)).foregroundStyle(Palette.secondary)
-                }
-                Crumb(title: items[i].0, current: i == items.count - 1) { select(items[i].1) }
-                    .disabled(items[i].0 == "…")
-            }
-        }
-        .lineLimit(1)
-    }
-}
-
-/// Élément du fil d'Ariane, au style des onglets de page (`TabBar`).
-private struct Crumb: View {
-    let title: String
-    let current: Bool
-    let action: () -> Void
-    @ViewState private var hover = false
-
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 13, weight: current ? .medium : .regular))
-                .foregroundStyle(current || hover ? Palette.text : Palette.secondary)
-                .lineLimit(1).truncationMode(.middle)
-                .padding(.horizontal, 9).padding(.vertical, 5)
-                .background(current ? Palette.field : (hover ? Palette.rowHover : .clear), in: RoundedRectangle(cornerRadius: 8))
-                .contentShape(RoundedRectangle(cornerRadius: 8))
-        }
-        .buttonStyle(.plain)
-        .onHover { hover = $0 }
-    }
-}
-
 /// Dossiers partagés du serveur (adresse `smb://hôte`) : un clic monte le partage et y crée le dossier `cairn`.
 private struct SharePicker: View {
     let shares: [String]
@@ -640,41 +601,6 @@ private struct SharePicker: View {
                 .frame(height: CGFloat(min(shares.count, 5)) * FolderBrowser.rowHeight)
             }
         }
-    }
-}
-
-private struct FolderRow: View {
-    let name: String
-    let icon: String
-    let action: () -> Void
-    @ViewState private var hover = false
-
-    init(name: String, icon: String, action: @escaping () -> Void) {
-        self.name = name
-        self.icon = icon
-        self.action = action
-    }
-
-    init(entry: FolderEntry, isRoot: Bool, action: @escaping () -> Void) {
-        let icon = !isRoot ? "folder" : entry.url.path.hasPrefix("/Volumes/") ? "externaldrive" : "house"
-        self.init(name: entry.name, icon: icon, action: action)
-    }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            IconTile(systemName: icon, size: 28)
-            Text(name).font(.system(size: 13.5)).foregroundStyle(Palette.text).lineLimit(1).truncationMode(.middle)
-            Spacer(minLength: 8)
-            Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold)).foregroundStyle(Palette.secondary)
-        }
-        .padding(.horizontal, 16)
-        .frame(height: FolderBrowser.rowHeight)
-        .background(hover ? Palette.rowHover : .clear)
-        .contentShape(Rectangle())
-        .onTapGesture(perform: action)
-        .onHover { hover = $0 }
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isButton)
     }
 }
 

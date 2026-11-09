@@ -1,4 +1,5 @@
 import CairnCore
+import CairnUI
 import SwiftUI
 
 /// Outils IA : catégories sauvegardées par outil (config.toml), tailles, ce qui n'est jamais copié.

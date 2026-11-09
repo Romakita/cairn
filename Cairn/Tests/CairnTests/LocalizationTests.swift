@@ -36,9 +36,9 @@ extension CairnTests {
                             "out(\"", "err(\"", ".alert(\"", "confirmationDialog(\""]
             let letters = CharacterSet.letters
             var offenders: [String] = []
-            for dir in ["Sources/Cairn", "Sources/CairnCore"] {
+            for dir in ["Sources/Cairn", "Sources/CairnCore", "Sources/CairnUI"] {
                 let url = packageRoot.appendingPathComponent(dir)
-                let files = (try? FileManager.default.contentsOfDirectory(atPath: url.path)) ?? []
+                let files = FileManager.default.subpaths(atPath: url.path) ?? [] // CairnUI a des sous-dossiers
                 // Garde-fou : un packageRoot faux ferait passer le test sans rien lire.
                 try #require(files.contains { $0.hasSuffix(".swift") }, "aucune source Swift dans \(url.path)")
                 for f in files where f.hasSuffix(".swift") {
