@@ -189,7 +189,12 @@ public final class BackupService: @unchecked Sendable {
                 }
                 // Compactage (long sur un NAS) seulement après une sauvegarde réussie, pas après un arrêt ou un échec.
                 var succeeded = false
-                defer { session.close(compact: succeeded && !request.dryRun) }
+                defer {
+                    if !request.dryRun {
+                        progress(d.id, .finishing(L10n.tr(succeeded ? "backup.finish.compact" : "backup.finish.close")))
+                    }
+                    session.close(compact: succeeded && !request.dryRun)
+                }
                 // Montage du partage et de l'image (non interruptibles) : l'arrêt demandé entre-temps est pris ici.
                 if engine.isCancelled { throw BackupError.cancelled }
                 let versionsDir = BackupEngine.versionsDir(root: root)
@@ -219,12 +224,14 @@ public final class BackupService: @unchecked Sendable {
                     // Vérification mensuelle : échantillon de la nouvelle version, puis l'image disque (détachée).
                     if ds.lastVerification.map({ Date().timeIntervalSince($0) > Self.verificationInterval }) ?? true,
                        let v = outcome.version {
+                        progress(d.id, .finishing(L10n.tr("backup.finish.verify")))
                         let report = Integrity.verify(version: versionsDir.appendingPathComponent(v), full: false)
                         ds.lastVerification = Date()
                         damagedFiles = report.damaged
                         if !report.damaged.isEmpty, !ds.damagedVersions.contains(v) { ds.damagedVersions.append(v) }
                         log.write("\(d.id): verification \(report.checked) files, \(report.damaged.count) damaged")
                         report.damaged.prefix(50).forEach { log.write("\(d.id): damaged \(v)/\($0)") }
+                        progress(d.id, .finishing(L10n.tr("backup.finish.image")))
                         if let check = session.verifyImage() {
                             imageCheck = check
                             ds.lastImageCheck = Date()

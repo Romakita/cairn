@@ -102,6 +102,7 @@ final class BackupController {
         self.service = service
         model.isBackingUp = true
         model.backupProgress = nil
+        model.backupTargets = Set(destinations ?? config.destinations.map(\.id))
         var req = BackupService.Request()
         req.destinationIDs = destinations
         req.dryRun = dryRun
@@ -126,6 +127,7 @@ final class BackupController {
                 let stopped = model.isStoppingBackup
                 model.isBackingUp = false
                 model.backupProgress = nil
+                model.backupTargets = []
                 self.service = nil
                 model.runState = RunState.load(model.paths)
                 self.lastLog = log

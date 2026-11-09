@@ -59,6 +59,8 @@ final class AppModel: ObservableObject {
     private var menuBarTimer: Timer?
     private var servicesStarted = false
     @Published var backupProgress: (String, BackupProgress)?
+    /// Destinations de la sauvegarde en cours (vide sans sauvegarde).
+    @Published var backupTargets: Set<String> = []
     @Published var lastBackupResults: [BackupService.Result] = []
     @Published var newImagePassword: (String, String)?
     @Published var destinationWaiting: [String: Bool] = [:]

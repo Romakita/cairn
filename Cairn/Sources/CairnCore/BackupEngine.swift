@@ -56,6 +56,22 @@ public struct BackupProgress: Sendable {
     public var found = 0
     /// Étape de préparation en cours (inventaire, connexion, ouverture de l'image), avant le comptage.
     public var preparing: String?
+    /// Finalisation après la copie (empreintes, vérification, image) : étape, avancement de l'étape.
+    public var finishing: String?
+    public var stepDone: Int?
+    public var stepTotal: Int?
+    public var stepFraction: Double? {
+        guard let stepDone, let stepTotal, stepTotal > 0 else { return nil }
+        return min(Double(stepDone) / Double(stepTotal), 1)
+    }
+
+    /// Étape de finalisation, avec son avancement quand il est connu.
+    public static func finishing(_ step: String, done: Int? = nil, total: Int? = nil, current: String = "") -> BackupProgress {
+        var p = BackupProgress(part: "", files: 0, bytes: 0, current: current)
+        p.finishing = step; p.stepDone = done; p.stepTotal = total
+        return p
+    }
+
     /// Dossier dont rsync dresse la liste (aucun fichier encore traité pour lui), et depuis quand.
     public var listing: String?
     public var listingSince: Date?
@@ -77,7 +93,7 @@ public struct BackupProgress: Sendable {
 
     /// Avancement de 0 à 1 ; plafonné à 99 % tant que la sauvegarde n'est pas finie (l'estimation peut être courte).
     public var fraction: Double? {
-        guard !counting, preparing == nil, let expected, expected > 0 else { return nil }
+        guard !counting, preparing == nil, finishing == nil, let expected, expected > 0 else { return nil }
         return min(Double(processed) / Double(expected), 0.99)
     }
 }
@@ -321,7 +337,7 @@ public final class BackupEngine: @unchecked Sendable {
                                   filters: chunk.filters, deleteExcluded: chunk.filters.isEmpty) { n, m, cur in
                     seen = base + m
                     report(part.target, files: files + copied + n, current: cur, processed: done + base + m,
-                           listing: m == 0 ? chunk.label : nil, chunk: rank, chunks: ranks)
+                           listing: m == 0 ? chunk.label ?? (chunks.count > 1 ? "" : nil) : nil, chunk: rank, chunks: ranks)
                 }
                 names += r.0
                 // Code le plus grave : un échec (≠ 0, 23, 24) l'emporte sur un transfert partiel.
@@ -363,7 +379,14 @@ public final class BackupEngine: @unchecked Sendable {
         }
 
         // Empreintes (fichiers transférés hachés, autres repris de la version précédente) puis manifest.
-        try Integrity.writeChecksums(version: work, linkSources: sources)
+        // Finalisation : le battement ne doit plus renvoyer l'état de la copie.
+        heartbeat.cancel()
+        live.last = nil
+        progress(.finishing(L10n.tr("backup.finish.listing")))
+        try Integrity.writeChecksums(version: work, linkSources: sources) { done, total, file in
+            progress(.finishing(L10n.tr("backup.finish.checksums", Fmt.count(done), Fmt.count(total)), done: done, total: total, current: file))
+        }
+        progress(.finishing(L10n.tr("backup.finish.version")))
         var manifest: [String: Any] = manifestExtra
         manifest["format"] = 1
         manifest["date"] = ISO8601DateFormatter().string(from: now)

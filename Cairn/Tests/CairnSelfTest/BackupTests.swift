@@ -127,7 +127,7 @@ let backupTests: [TestCase] = [
             let v1 = try BackupEngine().run(parts: [part], root: dest, retention: .recommended, dryRun: false, machine: "m",
                                             now: date("2026-11-01T120000")) { first.all.append($0) }
             // Première sauvegarde : comptage pendant la copie ; 30 fichiers examinés, retenus pour la suivante.
-            try expectEqual(first.all.last?.processed, 30)
+            try expectEqual(first.all.last { $0.finishing == nil }?.processed, 30)
             try expectEqual(v1.filesByPart["folders/src"], 30)
             try expect(first.all.compactMap(\.fraction).allSatisfy { $0 <= 0.99 }, "plafonné à 99 %")
             // Suivante : le décompte précédent sert d'estimation, sans comptage ; les fichiers liés comptent aussi.
@@ -135,8 +135,10 @@ let backupTests: [TestCase] = [
             let v2 = try BackupEngine().run(parts: [part], root: dest, retention: .recommended, dryRun: false, machine: "m",
                                             now: date("2026-11-02T120000"), expectedFiles: v1.filesByPart) { next.all.append($0) }
             try expect(!next.all.contains { $0.counting }, "pas de comptage")
-            try expect(next.all.allSatisfy { $0.expected == 30 }, "total connu d'emblée")
-            try expectEqual(next.all.last?.processed, 30)
+            try expect(next.all.filter { $0.finishing == nil }.allSatisfy { $0.expected == 30 }, "total connu d'emblée")
+            // Après la copie : empreintes des nouveaux fichiers annoncées, avec leur avancement.
+            try expect(first.all.contains { $0.finishing != nil && $0.stepTotal == 30 }, "empreintes de 30 fichiers")
+            try expectEqual(next.all.last { $0.finishing == nil }?.processed, 30)
             try expectEqual(v2.filesTransferred, 0)
         }
     },

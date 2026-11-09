@@ -228,7 +228,6 @@
 "hub.activity.disk_critical" = "Alerte : %@ presque saturé";
 "hub.activity.check_ok" = "Vérification complète : tout est en ordre";
 "hub.activity.check_issues" = "Vérification complète : %lld points à regarder";
-"shell.toggle_sidebar" = "Afficher ou masquer la barre latérale";
 "menu.open" = "Ouvrir Cairn";
 "menu.quit" = "Quitter Cairn";
 "placeholder.soon" = "Cette section arrive dans une prochaine version.";
@@ -468,8 +467,17 @@
 "cli.backup.counting" = "%@ · comptage des fichiers…";
 "cli.backup.progress_percent" = "%1$@ · %2$@ · %3$lld %% (%4$@ / %5$@ fichiers)";
 "backup.progress.title" = "Sauvegarde en cours";
+"backup.progress.finishing_title" = "Finalisation de la sauvegarde…";
+"backup.finish.listing" = "Liste des fichiers copiés…";
+"backup.finish.checksums" = "Empreintes des nouveaux fichiers : %1$@ sur %2$@ (relus sur la destination)";
+"backup.finish.version" = "Enregistrement de la version et application de la rétention…";
+"backup.finish.verify" = "Contrôle d'un échantillon des fichiers copiés…";
+"backup.finish.image" = "Vérification de l'image disque (hdiutil verify)…";
+"backup.finish.compact" = "Fermeture et compactage de l'image disque (plusieurs minutes sur un NAS)…";
+"backup.finish.close" = "Fermeture de l'image disque…";
 "backup.worker.copy" = "Copie";
 "backup.worker.copy_chunk" = "Copie · dossier %1$lld sur %2$lld : %3$@";
+"backup.worker.root_files" = "fichiers à la racine";
 "backup.worker.listing" = "rsync dresse la liste des fichiers (%@) — long pour un gros dossier, rien d'anormal";
 "backup.worker.count" = "Worker %1$lld · %2$@ fichiers";
 "backup.worker.count_folder" = "Worker %1$lld · %2$@ · %3$@ fichiers";
