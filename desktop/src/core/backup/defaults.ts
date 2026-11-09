@@ -42,14 +42,19 @@ export function regenerableRules(profiles: readonly AIProfile[] = BUNDLED_PROFIL
 export function defaultBackupDependencies(
   overrides: Partial<BackupServiceDependencies> = {},
 ): BackupServiceDependencies {
+  // Le home vaut pour toutes les parties, IA comprise : un home remplacé (tests, --config) ne lit jamais le vrai `~`.
+  const home = overrides.home ?? os.homedir();
   return {
     regenerable: regenerableRules(),
-    home: os.homedir(),
+    home,
     secrets: keychainSecrets,
     retentionKeep: keepVersions,
     exportInventory: async (config, dir) => writeInventory(await collect(config), dir),
     aiParts: ({ config, staging, tools, warn }) =>
-      aiParts(tools ? { ...config, ai: config.ai.filter((a) => tools.includes(a.id)) } : config, staging, { warn }),
+      aiParts(tools ? { ...config, ai: config.ai.filter((a) => tools.includes(a.id)) } : config, staging, {
+        warn,
+        home,
+      }),
     openToolsLogLine: (config) => openToolsLogLine(config),
     ...overrides,
   };
