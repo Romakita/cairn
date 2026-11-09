@@ -1,7 +1,7 @@
 // Export de l'inventaire : `tools.toml`, `Brewfile` et JSON de `cairn tools --json` (port d'`InventoryExport`).
 // Formats identiques à la 0.8.0 (relus par `cairn restore` et par `brew bundle`).
-import { mkdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { mkdir, rename, writeFile } from "../fs-promises.ts";
 import { type JSONValue, prettyJSON } from "../json.ts";
 import { TOML, TOMLDocument, type TOMLValue } from "../toml.ts";
 import { type Inventory, type InventoryReason, retainedTools } from "./types.ts";

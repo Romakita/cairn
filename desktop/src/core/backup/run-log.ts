@@ -1,8 +1,8 @@
 // Journal d'une exécution : `~/.cairn/logs/<type>-<yyyyMMdd-HHmmss>.log`, lignes `<ISO 8601> <texte>`
 // (port de `RunLog`, Support.swift). Écrit en flux, dans l'ordre des appels ; jamais de secret.
-import { createWriteStream, type WriteStream } from "node:fs";
 import path from "node:path";
 import { formatLocalDate, isoDate } from "../dates.ts";
+import { createWriteStream, type WriteStream } from "../fs.ts";
 import type { CairnPaths } from "../paths.ts";
 
 export class RunLog {

@@ -34,6 +34,10 @@ Depuis la racine du dépôt, les mêmes commandes passent par `just desktop-*`.
 
 - **Node seulement** : `node:fs`, `node:child_process`… Jamais `Bun.*` ni `bun:*` (le lint l'interdit) : les tests
   tournent sous Bun, mais l'app sous Node.
+- **`fs` via `src/core/fs.ts` / `src/core/fs-promises.ts`**, jamais `node:fs` directement (le lint l'interdit dans
+  `src/core`, `src/cli` et `src/main`) : sous Electron, `node:fs` est patché pour l'asar et voit un fichier `*.asar`
+  de l'utilisateur comme un dossier (EISDIR, taille 0) ; ces modules donnent `original-fs` sous Electron, `node:fs`
+  ailleurs. Le worker de l'analyse (code en chaîne) fait le même choix. Test : `test/regressions/electron-fs.test.ts`.
 - **Pas de `__dirname` ni de `import.meta.dir`** : le bundler les fige au chemin des sources. Les ressources sont des
   imports JSON statiques ; les chemins d'exécution viennent de `CairnPaths` ou sont passés en paramètre.
 - **Aucun appel synchrone bloquant** (`execSync`, `spawnSync`, `readFileSync` sur un gros fichier) dans du code que le

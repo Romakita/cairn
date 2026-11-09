@@ -8,11 +8,11 @@
 // libuv attend le verrou à la fois : plusieurs attentes occuperaient tout le pool, et l'écriture du détenteur ne
 // pourrait plus se faire).
 import { randomBytes } from "node:crypto";
-import { close, constants, open } from "node:fs";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { isoDate, parseISODate } from "./dates.ts";
+import { close, constants, open } from "./fs.ts";
+import { mkdir, readFile, rename, rm, writeFile } from "./fs-promises.ts";
 import { compactJSON } from "./json.ts";
 import { native } from "./native.ts";
 

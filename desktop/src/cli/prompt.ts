@@ -1,10 +1,10 @@
 // Saisies interactives de la CLI : confirmation `[o/N]` (`CLI.confirm`) et mot de passe sans écho (`readpassphrase`).
 // La confirmation lit une ligne sur l'entrée standard ; le mot de passe est lu sur `/dev/tty` quand l'entrée standard
 // n'est pas un terminal (comme `readpassphrase`), pour qu'un script qui redirige stdin puisse quand même le demander.
-import { close, open } from "node:fs";
 import type { Readable, Writable } from "node:stream";
 import tty from "node:tty";
 import { promisify } from "node:util";
+import { close, open } from "../core/fs.ts";
 
 const openFd = promisify(open);
 const closeFd = promisify(close);

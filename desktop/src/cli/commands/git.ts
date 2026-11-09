@@ -2,9 +2,9 @@
 // SIMULATION par défaut : rien ne change sans `--apply`, qui demande confirmation (sauf `--yes`) et prend le verrou
 // d'opération `git-clean` (partagé avec la sauvegarde). Seuls les dépôts où quelque chose est supprimé sont compactés
 // (design.md, décision 12). La progression va sur stderr, seulement si c'est un terminal (🐞 ef55c5b).
-import { writeFile } from "node:fs/promises";
 import { folderExpandedPath } from "../../core/config.ts";
 import { Fmt } from "../../core/format.ts";
+import { writeFile } from "../../core/fs-promises.ts";
 import { applyCleanup } from "../../core/git/apply.ts";
 import { analyzeAll } from "../../core/git/pool.ts";
 import { tsv } from "../../core/git/report-tsv.ts";

@@ -1,6 +1,4 @@
 // Chargement, migration, enregistrement et surveillance de `config.toml` (port de ConfigStore.swift).
-import { type FSWatcher, watch as fsWatch } from "node:fs";
-import { chmod, copyFile, mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   applyConfig,
@@ -12,6 +10,8 @@ import {
   migrateConfig,
   newConfigDocument,
 } from "./config.ts";
+import { type FSWatcher, watch as fsWatch } from "./fs.ts";
+import { chmod, copyFile, mkdir, readFile, rename, rm, stat, writeFile } from "./fs-promises.ts";
 import { t } from "./l10n.ts";
 import { CairnPaths } from "./paths.ts";
 import { TOMLDocument, TOMLError } from "./toml.ts";

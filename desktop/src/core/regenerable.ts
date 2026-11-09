@@ -1,8 +1,8 @@
 // Classement « régénérable » : une seule source pour l'analyse du disque (port de `Scanner.alwaysRegenerable`,
 // `Scanner.conditional`, `Category`) et pour les exclusions de la sauvegarde (port de `BackupExclusions`).
 // Voir parity/behavior.md §3.1 : les tables sont reprises telles quelles.
-import { access, lstat, readdir } from "node:fs/promises";
 import path from "node:path";
+import { access, lstat, readdir } from "./fs-promises.ts";
 import { t } from "./l10n.ts";
 import { run } from "./process.ts";
 

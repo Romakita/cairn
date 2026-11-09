@@ -2,9 +2,9 @@
 // `<racine>/cairn/<machine>/versions/<yyyy-MM-ddTHHmmss>/`, `.incomplete-<nom>/`, lien `latest`.
 // Les noms et l'arborescence sont ceux de la 0.8.0 (parity/behavior.md §3.9) : une version écrite par l'une est
 // relue par l'autre.
-import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { formatLocalDate } from "../dates.ts";
+import { readdir, readFile, stat } from "../fs-promises.ts";
 import type { BackupPart } from "./types.ts";
 
 /** Format des noms de version (heure locale, `en_US_POSIX`, triable). */

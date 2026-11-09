@@ -10,13 +10,13 @@
 //   relance. Le format du zip et ce script restent ceux de la 0.8.0 (migration depuis l'app Swift).
 import { spawn } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { createReadStream, createWriteStream } from "node:fs";
-import { access, constants, mkdir, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { ReadableStream as WebReadableStream } from "node:stream/web";
+import { createReadStream, createWriteStream } from "./fs.ts";
+import { access, constants, mkdir, rm } from "./fs-promises.ts";
 import { t } from "./l10n.ts";
 import { arch as machineArch } from "./machine.ts";
 import { run } from "./process.ts";

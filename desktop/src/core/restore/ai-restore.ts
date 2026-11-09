@@ -2,6 +2,10 @@
 // récente gagne, l'autre est gardée en `.pre-restore`), bases SQLite restaurées si elles manquent et remplacées
 // seulement sur demande (`--replace-databases`, 01538a8), dossiers de projets de Claude Code renommés vers les nouveaux
 // chemins. `meta/` n'est jamais fusionné.
+import os from "node:os";
+import path from "node:path";
+import { type AIProfile, rootPath } from "../ai/profiles.ts";
+import { describeError } from "../backup/types.ts";
 import {
   copyFile,
   lstat,
@@ -15,11 +19,7 @@ import {
   stat,
   symlink,
   utimes,
-} from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
-import { type AIProfile, rootPath } from "../ai/profiles.ts";
-import { describeError } from "../backup/types.ts";
+} from "../fs-promises.ts";
 import { t } from "../l10n.ts";
 
 export interface AIRestoreReport {

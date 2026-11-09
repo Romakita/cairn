@@ -2,10 +2,10 @@
 // `state/operation.lock`, `flock` exclusif non bloquant, contenu `"<pid> <operation>\n"`, droits 600. Le système
 // le libère si le processus se termine, même brutalement. Même fichier et même `flock` que la 0.8.0 : l'app Swift
 // et la version TypeScript se voient mutuellement.
-import { close, constants, ftruncate, open, write } from "node:fs";
-import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
+import { close, constants, ftruncate, open, write } from "./fs.ts";
+import { mkdir, readFile } from "./fs-promises.ts";
 import { native } from "./native.ts";
 
 // Descripteurs numériques (pas de `FileHandle`) : un `FileHandle` perdu est fermé par le ramasse-miettes, ce qui

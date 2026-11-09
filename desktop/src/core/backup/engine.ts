@@ -2,9 +2,9 @@
 // sous-processus, versions par `--link-dest`, reprise des versions interrompues, comptage en parallèle de la copie.
 // Une copie se finalise à part (`finish`) : le service lance la copie vers la destination suivante pendant ce temps.
 import { randomUUID } from "node:crypto";
-import { mkdir, readdir, rename, rm, symlink, unlink } from "node:fs/promises";
 import path from "node:path";
 import type { Retention } from "../config.ts";
+import { mkdir, readdir, rename, rm, symlink, unlink } from "../fs-promises.ts";
 import { DeniedCounter, type PermissionDenied } from "../full-disk-access.ts";
 import { t } from "../l10n.ts";
 import { ProcessGroup } from "../process.ts";

@@ -2,11 +2,11 @@
 // `StorageMonitor.check`, MenuBarPanel.swift). Décisions pures + relevé qui lit seulement la capacité des volumes.
 // Fichiers : `state/volumes.json` (relevés, 30 jours) et `state/alerts.json` (anti-harcèlement), mêmes formats que la
 // 0.8.0 (dates ISO 8601 à la seconde, niveau entier).
-import { readdir, readFile, readlink, stat, statfs } from "node:fs/promises";
 import path from "node:path";
 import { writeAtomic } from "./analysis.ts";
 import type { AlertsConfig } from "./config.ts";
 import { isoDate, parseISODate } from "./dates.ts";
+import { readdir, readFile, readlink, stat, statfs } from "./fs-promises.ts";
 import { compactJSON, type JSONValue } from "./json.ts";
 import { native } from "./native.ts";
 import type { CairnPaths } from "./paths.ts";

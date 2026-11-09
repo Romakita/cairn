@@ -1,10 +1,10 @@
 // Vue IA et `cairn ai --json` (port d'`AIBackup.stats` et `lastBackup`) : tailles par catégorie, part non copiée,
 // conversations, dernière sauvegarde.
-import { readdir, stat } from "node:fs/promises";
 import os from "node:os";
 import { dateOfVersion, listVersions, readManifest, versionsDir } from "../backup/versions.ts";
 import type { CairnConfig } from "../config.ts";
 import { isoDate } from "../dates.ts";
+import { readdir, stat } from "../fs-promises.ts";
 import { type JSONValue, prettyJSON } from "../json.ts";
 import { expandTilde } from "../paths.ts";
 import { measure as scannerMeasure } from "../scanner.ts";

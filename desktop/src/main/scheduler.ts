@@ -1,9 +1,9 @@
 // Planificateur de l'app (port de BackupController.tick/notifyOverdue) : ne tourne que pendant que l'app est ouverte.
 // Tour toutes les 60 s, plus au réveil, au montage d'un volume (`fs.watch('/Volumes')`), au retour du réseau (+5 s)
 // et au changement d'alimentation. Veille : SIGSTOP sur les rsync, SIGCONT au réveil (via le service).
-import { type FSWatcher, watch } from "node:fs";
 import { net, powerMonitor } from "electron";
 import { Fmt } from "../core/format.ts";
+import { type FSWatcher, watch } from "../core/fs.ts";
 import { t } from "../core/l10n.ts";
 import { OperationLock } from "../core/lock.ts";
 import {

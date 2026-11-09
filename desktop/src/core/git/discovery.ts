@@ -1,9 +1,9 @@
 // Découverte des dépôts et dernière modification d'un dossier (port de `GitMaintenance.discover` et `lastModified`).
 // Parcours asynchrone (`fs/promises`), sans suivre les liens symboliques, avec la classification du scanner :
 // node_modules, build à côté d'un package.json, corbeille… ne sont pas parcourus (StorageWarningTests).
-import type { Dirent } from "node:fs";
-import { lstat, readdir } from "node:fs/promises";
 import path from "node:path";
+import type { Dirent } from "../fs.ts";
+import { lstat, readdir } from "../fs-promises.ts";
 import { expandTilde } from "../paths.ts";
 import type { Classify } from "./types.ts";
 

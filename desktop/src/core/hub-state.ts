@@ -1,11 +1,11 @@
 // État de la page d'accueil (port de `HubState` et `HubRecord`, HubState.swift) : état global, problèmes classés par
 // priorité et carte de chaque module. Décisions pures, à partir de données déjà disponibles (aucune analyse lancée) ;
 // les libellés sont produits par l'interface.
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { type AnalysisSummary, reclaimableBytes } from "./analysis.ts";
 import { defaultConfig, type ScheduleConfig } from "./config.ts";
 import { isoDate, parseISODate } from "./dates.ts";
+import { mkdir, readFile, rename, rm, writeFile } from "./fs-promises.ts";
 import type { FullDiskAccess } from "./full-disk-access.ts";
 import { selectedBranchByDefault, selectedWorktreeByDefault } from "./git/selection.ts";
 import type { GitOptions, RepoReport } from "./git/types.ts";

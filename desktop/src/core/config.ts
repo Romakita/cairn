@@ -1,6 +1,6 @@
 // Configuration de Cairn (`~/.cairn/config.toml`, schéma v1) : modèle, lecture validée, écriture sans perte et
 // migration v0 (port de Config.swift).
-import { existsSync } from "node:fs";
+import { existsSync } from "./fs.ts";
 import { t } from "./l10n.ts";
 import { expandTilde } from "./paths.ts";
 import {

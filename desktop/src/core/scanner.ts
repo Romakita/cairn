@@ -1,9 +1,9 @@
 // Analyse du disque en lecture seule (port de Scanner.swift, Model.swift et `Scanner.scanFolders`/`measure`
 // d'Analysis.swift). Les deux premiers niveaux sont listés ici (fs/promises), puis chaque sous-arbre est parcouru en
 // parallèle par un worker (scanner-worker.ts). Rien n'est jamais écrit sur le disque analysé.
-import type { Stats } from "node:fs";
-import { lstat, readdir, stat } from "node:fs/promises";
 import path from "node:path";
+import type { Stats } from "./fs.ts";
+import { lstat, readdir, stat } from "./fs-promises.ts";
 import { expandTilde } from "./paths.ts";
 import { CATEGORIES, type Category, categoryIndex, classify, isRegenerable } from "./regenerable.ts";
 import { type LinkRecord, type RawBigFile, type RawNode, ScanPool, type TreeResult } from "./scanner-worker.ts";

@@ -1,7 +1,7 @@
 // Lecteurs des sorties des gestionnaires de paquets (fonctions pures, testées sur des sorties enregistrées).
 // Port d'`InventoryParsers` : mêmes découpages que Swift (`split` sans éléments vides).
-import { readdir } from "node:fs/promises";
 import path from "node:path";
+import { readdir } from "../fs-promises.ts";
 import { asArray, asInlineTable, asString, TOMLDocument, type TOMLTable, type TOMLValue } from "../toml.ts";
 import { BUNDLED_RULES, commandsFor, type InventoryRules } from "./rules.ts";
 import { type CLITool, cliTool } from "./types.ts";

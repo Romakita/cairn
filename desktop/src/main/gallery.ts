@@ -1,9 +1,9 @@
 // Catalogue des composants : `cairn --gallery` (fenêtre) et `cairn --gallery-export <dossier>` (une image par story
 // et par thème + index.html, écrits uniquement dans ce dossier). Branché dans main.ts avant l'aiguillage CLI,
 // comme dans main.swift. La galerie n'utilise pas le preload : la fenêtre n'en charge aucun.
-import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { app, BrowserWindow } from "electron";
+import { mkdir, writeFile } from "../core/fs-promises.ts";
 import { t } from "../core/l10n.ts";
 import {
   CAPTURE_THEMES,

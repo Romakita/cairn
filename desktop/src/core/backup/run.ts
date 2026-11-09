@@ -9,11 +9,11 @@
 // - Injoignable : attente (`waitingSince`), pas d'échec (c459b58).
 // - Simulation : rien sur la destination, ni `runs.json` ni activité (3692993, e229e52).
 import { randomUUID } from "node:crypto";
-import { mkdir, rm, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { ActivityLog } from "../activity-log.ts";
 import { type CairnConfig, type DestinationConfig, folderExpandedPath } from "../config.ts";
+import { mkdir, rm, stat } from "../fs-promises.ts";
 import { noPermissionDenied, type PermissionDenied } from "../full-disk-access.ts";
 import { t } from "../l10n.ts";
 import { OperationLock } from "../lock.ts";

@@ -1,7 +1,6 @@
 // L'app (process principal) : possède l'état, l'assemble en `AppSnapshot` pour les fenêtres, et branche les services
 // (configuration, sauvegarde et planificateur, analyse et alertes, git, outils, destinations, mises à jour), la barre
 // des menus, les notifications, l'ouverture à la connexion et l'arrêt propre (design.md, décision 6).
-import { stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { app, BrowserWindow, clipboard, dialog, shell } from "electron";
@@ -11,6 +10,7 @@ import { type CairnConfig, type DestinationConfig, folderExpandedPath } from "..
 import { pruneLogs } from "../core/config-logs.ts";
 import { setSmbPassword } from "../core/config-secrets.ts";
 import { ConfigStore } from "../core/config-store.ts";
+import { stat } from "../core/fs-promises.ts";
 import { FULL_DISK_ACCESS_SETTINGS_URL, type FullDiskAccess, fullDiskAccess } from "../core/full-disk-access.ts";
 import { hubInputs, loadHubRecord, makeHubState, saveHubRecord, summarizeGit } from "../core/hub-state.ts";
 import { configureLanguage, currentLanguage, t } from "../core/l10n.ts";

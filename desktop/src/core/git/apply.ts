@@ -3,9 +3,9 @@
 // (46a9475). Le compactage (`gc`, `pruneNow`) ne tourne QUE sur les dépôts réellement nettoyés (design.md
 // décision 12 : la 0.8.0 lançait `git gc` sur tous les dépôts analysés). Tout passe sous le verrou `git-clean`,
 // partagé avec la sauvegarde : gc et prune ne doivent pas réécrire un `.git` en cours de copie.
-import { appendFile } from "node:fs/promises";
 import path from "node:path";
 import { formatLocalDate } from "../dates.ts";
+import { appendFile } from "../fs-promises.ts";
 import { type StatePaths, withOperationLock } from "../lock.ts";
 import { Git } from "./git.ts";
 import type { RepoPlan } from "./selection.ts";

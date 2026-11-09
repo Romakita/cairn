@@ -4,11 +4,11 @@
 // - smb : joignable si le port (445 par défaut) répond en moins de 3 s ; un partage déjà monté (type `smbfs`, hôte et
 //   partage comparés en minuscules) est réutilisé et jamais démonté ; sinon montage NetFS (sans interface, souple)
 //   avec le mot de passe du Trousseau, démonté à la fin.
-import { mkdir, stat } from "node:fs/promises";
 import { Socket } from "node:net";
 import path from "node:path";
 import type { DestinationConfig } from "../config.ts";
 import { smbAccount } from "../config-secrets.ts";
+import { mkdir, stat } from "../fs-promises.ts";
 import { native } from "../native.ts";
 import { expandTilde } from "../paths.ts";
 import { run } from "../process.ts";

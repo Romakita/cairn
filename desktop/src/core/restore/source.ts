@@ -2,11 +2,11 @@
 // héritée de scripts/backup.sh (`manifest/system.txt` + `home/`, `workspaces/`, `ai/`). Versions de toutes les machines
 // d'une destination montée et version proposée par défaut (46a9475 : la plus récente, ce Mac d'abord).
 // Lecture seule : rien n'est écrit, ni sur la destination ni ailleurs.
-import { readdir, readFile, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { isPartial, listVersions, MANIFEST_FILE, versionsDir } from "../backup/versions.ts";
 import { parseISODate } from "../dates.ts";
+import { readdir, readFile, stat } from "../fs-promises.ts";
 
 export type RestoreSourceKind = "cairn" | "legacy";
 

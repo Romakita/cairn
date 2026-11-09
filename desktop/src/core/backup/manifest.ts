@@ -1,9 +1,9 @@
 // `manifest.json` d'une version (port de `BackupEngine.finish`) : JSON indenté, clés triées, mêmes champs que la
 // 0.8.0 (parity/behavior.md §3.9). La restauration lit `parts[].kind/target/source`.
-import { writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { isoDate } from "../dates.ts";
+import { writeFile } from "../fs-promises.ts";
 import { type JSONValue, prettyJSON } from "../json.ts";
 import { run } from "../process.ts";
 import type { BackupPart } from "./types.ts";

@@ -6,9 +6,9 @@
 // - les champs facultatifs absents sont omis.
 // La lecture est plus tolérante que la 0.8.0 : un champ illisible est ignoré, pas tout le fichier.
 import { randomBytes } from "node:crypto";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { isoDate, parseISODate } from "../dates.ts";
+import { mkdir, readFile, rename, rm, writeFile } from "../fs-promises.ts";
 import { type JSONValue, prettyJSON } from "../json.ts";
 
 export const RUN_STATE_FILE = "runs.json";

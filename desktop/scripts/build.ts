@@ -17,6 +17,7 @@ async function bundle(options: Parameters<typeof Bun.build>[0]): Promise<void> {
   }
 }
 
+// `original-fs` (module intégré d'Electron, voir src/core/fs.ts) ne doit jamais être résolu par le bundler.
 const define = { "process.env.NODE_ENV": JSON.stringify(production ? "production" : "development") };
 
 await bundle({
@@ -24,7 +25,7 @@ await bundle({
   outdir: dist,
   target: "node",
   format: "cjs",
-  external: ["electron", "*.node"],
+  external: ["electron", "original-fs", "*.node"],
   naming: "[name].cjs",
   define,
 });
@@ -35,7 +36,7 @@ await bundle({
   outdir: dist,
   target: "node",
   format: "cjs",
-  external: ["electron", "*.node"],
+  external: ["electron", "original-fs", "*.node"],
   naming: "git-worker.cjs",
   define,
 });
@@ -45,7 +46,7 @@ await bundle({
   outdir: dist,
   target: "node",
   format: "cjs",
-  external: ["electron"],
+  external: ["electron", "original-fs"],
   naming: "[name].cjs",
   define,
 });

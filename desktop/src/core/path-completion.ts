@@ -1,7 +1,7 @@
 // Complétion des chemins relatifs à un dossier (le home) pour les champs de saisie (port de `PathCompletion`,
 // PathCompletion.swift). Lecture seule.
-import { readdir, stat } from "node:fs/promises";
 import path from "node:path";
+import { readdir, stat } from "./fs-promises.ts";
 
 const natural = new Intl.Collator("en", { numeric: true, sensitivity: "base" });
 const naturalCase = new Intl.Collator("en", { numeric: true, sensitivity: "case" });

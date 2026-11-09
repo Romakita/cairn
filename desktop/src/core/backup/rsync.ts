@@ -7,10 +7,10 @@
 // élément dont macOS refuse la lecture sont toutes comptées au fil de l'eau (nombre et premiers chemins), sans être
 // gardées dans les dernières lignes : elles ne masquent pas une autre erreur.
 import { randomUUID } from "node:crypto";
-import { constants } from "node:fs";
-import { access, lstat, mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { constants } from "../fs.ts";
+import { access, lstat, mkdir, readdir, rm, stat, writeFile } from "../fs-promises.ts";
 import { DeniedCounter, type PermissionDenied, permissionDenied } from "../full-disk-access.ts";
 import { type ProcessGroup, start } from "../process.ts";
 import type { BackupPart } from "./types.ts";
