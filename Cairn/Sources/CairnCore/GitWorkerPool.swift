@@ -34,7 +34,9 @@ final class GitWorkerPool: @unchecked Sendable {
         return r == 0 ? Int64(info.ri_resident_size) : 0
     }
 
-    func run(_ repos: [String], cancel: CancelToken? = nil, progress: @escaping (GitMaintenance.PoolProgress) -> Void) -> [RepoReport] {
+    /// `onReport` reçoit chaque rapport dès que son worker se termine (ordre d'arrivée), pour un affichage au fil de l'eau.
+    func run(_ repos: [String], cancel: CancelToken? = nil, progress: @escaping (GitMaintenance.PoolProgress) -> Void,
+             onReport: @escaping (RepoReport) -> Void = { _ in }) -> [RepoReport] {
         let optionsJSON = String(decoding: (try? JSONEncoder().encode(options)) ?? Data(), as: UTF8.self)
         let sem = DispatchSemaphore(value: parallel)
         let group = DispatchGroup()
@@ -60,6 +62,7 @@ final class GitWorkerPool: @unchecked Sendable {
             progress(self.lock.withLock { .init(done: self.done, total: repos.count, running: snapshot, failed: self.failed) })
         }
         monitor.resume()
+        progress(.init(done: 0, total: repos.count, running: [:], failed: [:]))
 
         for repo in repos {
             sem.wait()
@@ -89,6 +92,7 @@ final class GitWorkerPool: @unchecked Sendable {
                     else if self.failed[repo] == nil { self.failed[repo] = L10n.tr("git.worker.failed", Int(p.terminationStatus)) }
                     self.done += 1
                 }
+                if let report, cancel?.isCancelled != true { onReport(report) }
             }
         }
         group.wait()

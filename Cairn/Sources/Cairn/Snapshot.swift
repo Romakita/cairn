@@ -53,6 +53,7 @@ enum Snapshot {
                        dark: dark, to: "\(outDir)/menubar-\(suffix).png")
                 renderDestinationStates(model: model, outDir: outDir, suffix: suffix, size: size, dark: dark)
                 renderHubStates(model, sample: sample, dark: dark, suffix: suffix, outDir: outDir)
+                renderGitStates(model, sample: sample, dark: dark, suffix: suffix, outDir: outDir)
                 for step in OnboardingView.steps.indices {
                     render(OnboardingView(step: step).environmentObject(model).frame(width: size.width, height: size.height)
                             .background(Palette.content),
@@ -150,6 +151,30 @@ enum Snapshot {
         model.runState["syno"] = ds
         render(RootView().environmentObject(model), size: size, dark: dark, to: "\(outDir)/home-error-\(suffix).png")
         model.lastMessage = nil
+    }
+
+    /// Écran Git pendant l'analyse (rapports partiels, avancement) et une fois terminée. Analyse en lecture seule,
+    /// dans le processus, des premiers dépôts trouvés sous `sample`.
+    static func renderGitStates(_ model: AppModel, sample: String, dark: Bool, suffix: String, outDir: String) {
+        let reports = GitMaintenance.discover(in: [sample]).prefix(3).map { GitMaintenance.analyze(repo: $0, options: GitOptions()) }
+        model.config?.folders = [.init(path: sample)]
+        model.section = .git
+        model.isAnalyzingGit = true
+        var live = GitLiveAnalysis()
+        live.total = 12
+        model.gitLive = live
+        render(RootView().environmentObject(model), size: CGSize(width: 1280, height: 800), dark: dark, to: "\(outDir)/git-discovering-\(suffix).png")
+        live.done = reports.count
+        live.running = ["\(sample)/api", "\(sample)/web"]
+        for r in reports { live.add(r, options: GitOptions()) }
+        model.gitLive = live
+        render(RootView().environmentObject(model), size: CGSize(width: 1280, height: 800), dark: dark, to: "\(outDir)/git-live-\(suffix).png")
+        model.gitLive = nil
+        model.isAnalyzingGit = false
+        model.gitReports = reports
+        (model.selectedBranches, model.selectedWorktrees) = GitMaintenance.preselection(reports, options: GitOptions())
+        render(RootView().environmentObject(model), size: CGSize(width: 1280, height: 800), dark: dark, to: "\(outDir)/git-done-\(suffix).png")
+        model.gitReports = nil
     }
 
     static func render<V: View>(_ view: V, size: CGSize, dark: Bool, to path: String) {

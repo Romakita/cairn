@@ -372,6 +372,16 @@ public enum GitMaintenance {
         branches.filter { b in b.status != .unmerged && b.checkedOutInWorktree.map(paths.contains) == true }
     }
 
+    /// Présélection (branches, worktrees) : branches fusionnées/squashées, worktrees obsolètes sans travail en cours,
+    /// et la branche fusionnée de chaque worktree présélectionné. Par dépôt : on peut la calculer au fil de l'analyse.
+    public static func preselection(_ reports: [RepoReport], options: GitOptions) -> (branches: Set<String>, worktrees: Set<String>) {
+        let worktrees = Set(reports.flatMap(\.worktrees).filter { selectedByDefault($0, options: options) }.map(\.id))
+        let all = reports.flatMap(\.branches)
+        let branches = Set(all.filter { selectedByDefault($0, options: options) }.map(\.id))
+            .union(branchesFollowing(worktrees: worktrees, in: all).map(\.id))
+        return (branches, worktrees)
+    }
+
     /// Récapitulatif d'une sélection : taille des `.git`, branches supprimées / gardées, worktrees retirés / gardés.
     public struct Recap: Equatable, Sendable {
         public var gitBytes: Int64 = 0
@@ -423,14 +433,23 @@ public enum GitMaintenance {
     public static func analyzeAll(folders: [String], options: GitOptions, parallel: Int = 4,
                                   timeout: TimeInterval = 300, memoryLimit: Int64 = 1_500_000_000,
                                   cancel: CancelToken? = nil,
-                                  progress: @escaping (PoolProgress) -> Void = { _ in }) -> [RepoReport] {
+                                  progress: @escaping (PoolProgress) -> Void = { _ in },
+                                  onReport: @escaping (RepoReport) -> Void = { _ in }) -> [RepoReport] {
         var repos = discover(in: folders)
         if let only = options.only { repos = repos.filter { $0.contains(only) } }
         guard let exe = workerExecutable else {
-            return repos.compactMap { cancel?.isCancelled == true ? nil : analyze(repo: $0, options: options) }
+            var reports: [RepoReport] = []
+            for (i, repo) in repos.enumerated() where cancel?.isCancelled != true {
+                progress(.init(done: i, total: repos.count, running: [repo: 0], failed: [:]))
+                let report = analyze(repo: repo, options: options)
+                reports.append(report)
+                onReport(report)
+            }
+            progress(.init(done: reports.count, total: repos.count, running: [:], failed: [:]))
+            return reports
         }
         let pool = GitWorkerPool(executable: exe, options: options, parallel: parallel, timeout: timeout, memoryLimit: memoryLimit)
-        return pool.run(repos, cancel: cancel, progress: progress)
+        return pool.run(repos, cancel: cancel, progress: progress, onReport: onReport)
     }
 
     // MARK: Application

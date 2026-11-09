@@ -192,6 +192,38 @@ let gitTests: [TestCase] = [
             try expectEqual(limited.count + (p2?.failed.count ?? 0), p2?.total ?? -1)
         }
     },
+    TestCase("reports_stream_as_each_repo_finishes") {
+        // L'écran Git affiche chaque dépôt dès qu'il est analysé : chaque rapport passe par `onReport`, avec un
+        // avancement qui commence à 0, et la présélection calculée dépôt par dépôt égale celle de l'ensemble.
+        let exe = (CommandLine.arguments[0] as NSString).deletingLastPathComponent + "/Cairn"
+        try withTempDir { dir in
+            _ = try makeFixture(dir)
+            let root = dir.appendingPathComponent("work").path
+            for worker in [nil, exe] {
+                GitMaintenance.workerExecutable = worker
+                defer { GitMaintenance.workerExecutable = nil }
+                let lock = NSLock()
+                var streamed: [RepoReport] = []
+                var first: GitMaintenance.PoolProgress?
+                let all = GitMaintenance.analyzeAll(folders: [root], options: GitOptions(),
+                                                    progress: { p in lock.withLock { if first == nil { first = p } } },
+                                                    onReport: { r in lock.withLock { streamed.append(r) } })
+                try expect(!all.isEmpty)
+                try expectEqual(Set(streamed.map(\.path)), Set(all.map(\.path)))
+                try expectEqual(first?.done, 0)
+                try expectEqual(first?.total, all.count)
+                var b = Set<String>(), w = Set<String>()
+                for r in streamed {
+                    let one = GitMaintenance.preselection([r], options: GitOptions())
+                    b.formUnion(one.branches); w.formUnion(one.worktrees)
+                }
+                let whole = GitMaintenance.preselection(all, options: GitOptions())
+                try expectEqual(b, whole.branches)
+                try expectEqual(w, whole.worktrees)
+                try expect(whole.branches.contains { $0.hasSuffix("#feat-merged") }, "\(whole.branches)")
+            }
+        }
+    },
     TestCase("apply_skips_branch_moved_since_analysis") {
         try withTempDir { dir in
             let repo = try makeFixture(dir)
