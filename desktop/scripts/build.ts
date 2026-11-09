@@ -29,6 +29,17 @@ await bundle({
   define,
 });
 
+// Worker de l'analyse git (worker_threads) : fichier séparé, chargé par le pool avec son chemin dans dist/.
+await bundle({
+  entrypoints: [path.join(root, "src/core/git/worker.ts")],
+  outdir: dist,
+  target: "node",
+  format: "cjs",
+  external: ["electron", "*.node"],
+  naming: "git-worker.cjs",
+  define,
+});
+
 await bundle({
   entrypoints: [path.join(root, "src/preload/preload.ts")],
   outdir: dist,
