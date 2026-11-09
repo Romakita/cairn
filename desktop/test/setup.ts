@@ -1,8 +1,9 @@
 // Suite racine des tests : chaque process de test a son propre CAIRN_HOME, jamais le vrai ~/.cairn.
+
+import { afterEach } from "bun:test";
 import { existsSync, mkdtempSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach } from "bun:test";
 import { loadNative, type NativeBinding, setNative } from "../src/core/native.ts";
 
 process.env.CAIRN_HOME = mkdtempSync(path.join(os.tmpdir(), "cairn-test-"));

@@ -1,5 +1,7 @@
 import path from "node:path";
 import { app, BrowserWindow, net, protocol, session, shell } from "electron";
+import { APP_ORIGIN } from "../shared/contract.ts";
+import { CairnApp } from "./app.ts";
 
 const APP_SCHEME = "app";
 
@@ -9,7 +11,7 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 /** Dossier du build (dist/), dans l'app ou dans l'asar. `__dirname` serait figé au build par le bundler. */
-function distDir(): string {
+export function distDir(): string {
   return path.join(app.getAppPath(), "dist");
 }
 
@@ -30,19 +32,49 @@ export function serveRenderer(): void {
   });
 }
 
+/** Liens externes autorisés (`shell.openExternal`) : le dépôt et ses releases. */
+export function allowedExternalURL(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" && u.host === "github.com" && /^\/Romakita\/cairn(\/|$)/.test(u.pathname);
+  } catch {
+    return false;
+  }
+}
+
 /** Règles de sécurité communes à toutes les fenêtres. */
 function lockDownContents(): void {
   session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
   app.on("web-contents-created", (_event, contents) => {
     contents.on("will-navigate", (event) => event.preventDefault());
+    contents.on("will-attach-webview", (event) => event.preventDefault());
     contents.setWindowOpenHandler(({ url }) => {
-      if (url.startsWith("https://github.com/Romakita/cairn")) void shell.openExternal(url);
+      if (allowedExternalURL(url)) void shell.openExternal(url);
       return { action: "deny" };
     });
   });
 }
 
-export function createMainWindow(): BrowserWindow {
+/** Préférences de toutes les fenêtres de l'interface (fenêtre principale, panneau de la barre des menus). */
+export function windowSecurity(preload: string): Electron.WebPreferences {
+  return {
+    preload,
+    sandbox: true,
+    contextIsolation: true,
+    nodeIntegration: false,
+    nodeIntegrationInWorker: false,
+    webSecurity: true,
+    allowRunningInsecureContent: false,
+    webviewTag: false,
+    spellcheck: false,
+  };
+}
+
+export function preloadPath(): string {
+  return path.join(distDir(), "preload.cjs");
+}
+
+export function createMainWindow(hash = ""): BrowserWindow {
   const window = new BrowserWindow({
     width: 1180,
     height: 760,
@@ -53,24 +85,21 @@ export function createMainWindow(): BrowserWindow {
     trafficLightPosition: { x: 14, y: 12 },
     backgroundColor: "#00000000",
     vibrancy: "sidebar",
-    webPreferences: {
-      preload: path.join(distDir(), "preload.cjs"),
-      sandbox: true,
-      contextIsolation: true,
-      nodeIntegration: false,
-      nodeIntegrationInWorker: false,
-      webSecurity: true,
-      allowRunningInsecureContent: false,
-      spellcheck: false,
-    },
+    webPreferences: windowSecurity(preloadPath()),
   });
   window.once("ready-to-show", () => window.show());
-  void window.loadURL(`${APP_SCHEME}://cairn/index.html`);
+  void window.loadURL(`${APP_ORIGIN}/index.html${hash}`);
   return window;
 }
 
-/** Démarre l'interface (fenêtre principale). */
-export function startInterface(_args: readonly string[]): void {
+export interface InterfaceOptions {
+  args: readonly string[];
+  /** Échec du chargement du module natif (affiché, sans empêcher l'app de démarrer). */
+  nativeError: string | null;
+}
+
+/** Démarre l'interface (fenêtre principale, barre des menus, planificateur). */
+export function startInterface(options: InterfaceOptions): void {
   // Tests de bout en bout : un dossier de données par test, donc un verrou d'instance par test.
   const testUserData = process.env.CAIRN_E2E_USER_DATA;
   if (testUserData) app.setPath("userData", testUserData);
@@ -79,22 +108,12 @@ export function startInterface(_args: readonly string[]): void {
     return;
   }
   app.enableSandbox();
-  app.on("second-instance", () => {
-    const [window] = BrowserWindow.getAllWindows();
-    if (window) {
-      if (window.isMinimized()) window.restore();
-      window.focus();
-    }
-  });
-  void app.whenReady().then(() => {
+  void app.whenReady().then(async () => {
     // L'app est déclarée LSUIElement (pas de Dock en ligne de commande) : l'interface demande le Dock.
     app.setActivationPolicy("regular");
     lockDownContents();
     serveRenderer();
-    createMainWindow();
-    app.on("activate", () => {
-      if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
-    });
+    const cairn = new CairnApp({ nativeError: options.nativeError });
+    await cairn.start();
   });
-  app.on("window-all-closed", () => app.quit());
 }
