@@ -79,14 +79,14 @@ function progressPrinter(io: CliIO): (p: DestinationProgress) => void {
   const last = new Map<string, number>();
   const counted = new Set<string>();
   return (p) => {
-    if (p.phase === "counting") {
-      if (counted.has(p.destination)) return;
+    if (p.phase === "counting" && !counted.has(p.destination)) {
       counted.add(p.destination);
       io.err(t("cli.backup.counting", p.destination));
-      return;
     }
+    // La copie commence pendant le comptage : son pourcentage s'affiche dès qu'il existe, même si la phase reste
+    // « comptage » (une petite copie peut finir avant la fin du comptage).
     const c = p.copy;
-    if (p.phase !== "copying" || !c || c.percent === null) return;
+    if ((p.phase !== "counting" && p.phase !== "copying") || !c || c.percent === null) return;
     if (last.get(p.destination) === c.percent) return;
     last.set(p.destination, c.percent);
     io.err(

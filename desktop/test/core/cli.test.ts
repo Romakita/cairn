@@ -107,7 +107,7 @@ describe("cli", () => {
       expect((await run([...cmd, "--yes"])).code).toBe(Exit.ok);
       expect((await run([...cmd, "-y"])).code).toBe(Exit.ok);
     }
-  });
+  }, 30_000); // lance analyze, ai et tools : plusieurs secondes sur une machine chargée
 
   test("version", async () => {
     const r = await run(["--version"]);
@@ -492,7 +492,10 @@ describe("cli backup, verify, restore", () => {
       expect(real.out).toMatch(/^local: version \d{4}-\d{2}-\d{2}T\d{6} — 3 files, /);
       expect(real.out).toContain("  folders/src ");
       expect(real.err).toContain("local · counting files…");
-      expect(real.err).toMatch(/local · folders\/src · \d+ % \(/);
+      // Une copie de 3 fichiers peut finir en moins de 100 ms, entre deux envois de progression (10 par seconde) :
+      // la ligne de pourcentage est alors absente. Quand elle est là, elle a ce format.
+      const percentLines = real.err.split("\n").filter((line) => line.includes(" % ("));
+      for (const line of percentLines) expect(line).toMatch(/^local · folders\/src · \d+ % \(/);
     },
     60_000,
   );

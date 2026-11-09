@@ -34,10 +34,11 @@ function tokens(entry: CatalogEntry): string[] {
 }
 
 describe("localization", () => {
-  test("les deux catalogues ont les mêmes clés (934, dont 18 pluriels)", () => {
+  test("les deux catalogues ont les mêmes clés (934 de la 0.8.0, dont 18 pluriels, plus les textes des écrans)", () => {
     const en = Object.keys(catalog("en-US"));
     const fr = Object.keys(catalog("fr-FR"));
-    expect(en.length).toBe(934);
+    expect(Object.keys(enCatalog)).toHaveLength(934);
+    expect(Object.keys(enCatalog).filter((k) => !en.includes(k))).toEqual([]);
     expect(fr.filter((k) => !en.includes(k))).toEqual([]);
     expect(en.filter((k) => !fr.includes(k))).toEqual([]);
     expect(pluralKeys("en-US").sort()).toEqual(pluralKeys("fr-FR").sort());

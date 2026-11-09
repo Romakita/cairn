@@ -4,6 +4,7 @@ import { cliContextForApp, runCli } from "../cli/index.ts";
 import { parseGalleryArgs, runGallery } from "./gallery.ts";
 import { startInterface } from "./interface.ts";
 import { loadNativeModule } from "./native-loader.ts";
+import { relaunchFromRealPath } from "./relaunch.ts";
 
 // Arguments utiles : sans l'exécutable, et sans le dossier de l'app quand on lance `electron .` en développement.
 const args = process.argv.slice(app.isPackaged ? 1 : 2);
@@ -16,14 +17,23 @@ function write(stream: NodeJS.WriteStream, text: string): Promise<void> {
   });
 }
 
-// Module natif chargé avant l'aiguillage : la CLI (verrou, Trousseau) et l'interface en ont besoin. Un échec n'empêche
-// pas l'app de démarrer : le message est gardé et affiché, les opérations qui en dépendent échouent clairement.
-const nativeError = loadNativeModule();
-
 // Galerie des composants avant l'aiguillage CLI (comme main.swift) : `--gallery`, `--gallery-export <dossier>`.
 const gallery = parseGalleryArgs(args);
 
-if (gallery) {
+// Lancé par un lien (`~/.local/bin/cairn`) : relancé par le vrai chemin, sinon Chromium ne trouve pas ses helpers.
+const relaunched = relaunchFromRealPath({
+  packaged: app.isPackaged,
+  commandLine: !gallery && isCommandLine(args),
+  exit: (code) => app.exit(code),
+});
+
+// Module natif chargé avant l'aiguillage : la CLI (verrou, Trousseau) et l'interface en ont besoin. Un échec n'empêche
+// pas l'app de démarrer : le message est gardé et affiché, les opérations qui en dépendent échouent clairement.
+const nativeError = relaunched ? null : loadNativeModule();
+
+if (relaunched) {
+  // Le process relancé fait le travail ; celui-ci s'arrête (app.exit déjà appelé).
+} else if (gallery) {
   runGallery(gallery);
 } else if (isCommandLine(args)) {
   // Même exécutable que l'interface : pas de fenêtre, pas de Dock (LSUIElement), pas de verrou d'instance.

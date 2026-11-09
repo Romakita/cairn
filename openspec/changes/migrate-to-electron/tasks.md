@@ -28,85 +28,85 @@ Références : `parity/behavior.md` (B), `parity/ui.md` (U), `parity/platform.md
 
 ## 4. Analyse du disque et alertes
 
-- [ ] 4.1 Porter le classement régénérable (`Scanner.alwaysRegenerable` + `BackupExclusions`, une seule source pour les deux) ; porter les tests de classement
-- [ ] 4.2 Porter le parcours en lecture seule (blocs alloués, un seul comptage par lien physique entre dossiers, points de montage non franchis, workers, annulation en moins de 2 s) ; vérifier que `cairn analyze` donne les mêmes totaux que la 0.8.0, à 1 % près de `du -sk`
-- [ ] 4.3 Porter gros objets, projets, résumé persistant et suppression (corbeille par défaut) ; porter les tests
-- [ ] 4.4 Porter les alertes disque (seuils, prévision, anti-harcèlement, relevé aussi après une sauvegarde) ; porter `StorageAlertsTests`
+- [x] 4.1 Porter le classement régénérable (`Scanner.alwaysRegenerable` + `BackupExclusions`, une seule source pour les deux) ; porter les tests de classement
+- [x] 4.2 Porter le parcours en lecture seule (blocs alloués, un seul comptage par lien physique entre dossiers, points de montage non franchis, workers, annulation en moins de 2 s) ; vérifier que `cairn analyze` donne les mêmes totaux que la 0.8.0, à 1 % près de `du -sk`
+- [x] 4.3 Porter gros objets, projets, résumé persistant et suppression (corbeille par défaut) ; porter les tests
+- [x] 4.4 Porter les alertes disque (seuils, prévision, anti-harcèlement, relevé aussi après une sauvegarde) ; porter `StorageAlertsTests`
 
 ## 5. Maintenance git
 
-- [ ] 5.1 Porter découverte, branche principale, branches « gone », `mergeStatus` (avec le pipe patch-id en flux) et worktrees ; porter les tests et les régressions 01538a8, 46a9475 et StorageWarningTests
-- [ ] 5.2 Écrire le pool de `worker_threads` (4, 300 s, 1,5 Go, rapports au fil de l'eau) ; vérifier les régressions 8171ca8, b23d23f et a7d22bf (sauvegarde et analyse git simultanées qui se terminent toutes les deux)
-- [ ] 5.3 Porter l'application (SHA revérifié, journal, compactage seulement sur les dépôts nettoyés, verrou `git-clean`) et le TSV ; tester `git gc` absent des dépôts non nettoyés
+- [x] 5.1 Porter découverte, branche principale, branches « gone », `mergeStatus` (avec le pipe patch-id en flux) et worktrees ; porter les tests et les régressions 01538a8, 46a9475 et StorageWarningTests
+- [x] 5.2 Écrire le pool de `worker_threads` (4, 300 s, 1,5 Go, rapports au fil de l'eau) ; vérifier les régressions 8171ca8, b23d23f et a7d22bf (sauvegarde et analyse git simultanées qui se terminent toutes les deux)
+- [x] 5.3 Porter l'application (SHA revérifié, journal, compactage seulement sur les dépôts nettoyés, verrou `git-clean`) et le TSV ; tester `git gc` absent des dépôts non nettoyés
 
 ## 6. Inventaire des outils et outils IA
 
-- [ ] 6.1 Porter l'inventaire (sources, statuts, exclusions, export `tools.toml` + `Brewfile`) ; porter les tests et comparer `cairn tools --json` avec la 0.8.0
-- [ ] 6.2 Porter les profils IA (fichiers JSON copiés tels quels), catégories, `meta/profile.json` et outils ouverts ; porter les tests
-- [ ] 6.3 Porter le snapshot SQLite (`sqlite3 .backup`, 5 essais, repli `immutable` si `isCleanWAL`, `quick_check`) ; vérifier les régressions 8d202b6 et 65c88bb
-- [ ] 6.4 Retirer les identifiants hors destination chiffrée (spec `ai-tools`) ; tester les deux scénarios de la spec
+- [x] 6.1 Porter l'inventaire (sources, statuts, exclusions, export `tools.toml` + `Brewfile`) ; porter les tests et comparer `cairn tools --json` avec la 0.8.0
+- [x] 6.2 Porter les profils IA (fichiers JSON copiés tels quels), catégories, `meta/profile.json` et outils ouverts ; porter les tests
+- [x] 6.3 Porter le snapshot SQLite (`sqlite3 .backup`, 5 essais, repli `immutable` si `isCleanWAL`, `quick_check`) ; vérifier les régressions 8d202b6 et 65c88bb
+- [x] 6.4 Retirer les identifiants hors destination chiffrée (spec `ai-tools`) ; tester les deux scénarios de la spec
 
 ## 7. Moteur de sauvegarde
 
-- [ ] 7.1 Porter les fournisseurs local et SMB, l'image sparsebundle (hdiutil, mot de passe sur stdin) et la joignabilité ; vérifier sur une destination de test locale et SMB
-- [ ] 7.2 Porter les parties, versions, reprise, `latest`, versions partielles et manifest ; vérifier qu'une version écrite est relue par la 0.8.0 (`cairn restore --from` de la 0.8.0, en simulation)
-- [ ] 7.3 Porter rsync (options exactes de P §2.1, GNU ou openrsync, copie par dossier, passe finale) et les 4 compteurs ; tester la régression 0fa14ea
-- [ ] 7.4 Écrire le modèle de progression de la spec `backup` (phases par destination, compteurs visibles pendant tout le comptage, dossier n sur N, pourcentage plafonné, étapes de finalisation) ; tester chaque scénario de la spec
-- [ ] 7.5 Porter la finalisation en arrière-plan (empreintes en flux, échantillon, `hdiutil verify` mensuel, compactage) et l'arrêt par destination ; tester les régressions eb1fc60, 75bde76, bfbbb61 et 593f593 (mémoire stable sur 512 Mo)
-- [ ] 7.6 Porter la rétention (paliers, semaines ISO en UTC ; suppression manuelle sous verrou), l'intégrité et `damagedVersions` ; porter les tests
-- [ ] 7.7 Porter la planification (`BackupSchedule.decide`, retard, alimentation) ; tester les régressions c459b58, 7cc955d et 46a9475 avec une horloge simulée
-- [ ] 7.8 Porter la vérification de destination (`DestinationProbe`, liste des partages SMB, navigateur de dossiers) et la suppression de destination ; tester les régressions 156f978, 76e40ec et 0547a02
-- [ ] 7.9 Porter la simulation (aucune écriture, comparaison à la version de base) ; tester les régressions e229e52 et 3692993
+- [x] 7.1 Porter les fournisseurs local et SMB, l'image sparsebundle (hdiutil, mot de passe sur stdin) et la joignabilité ; vérifier sur une destination de test locale et SMB
+- [x] 7.2 Porter les parties, versions, reprise, `latest`, versions partielles et manifest ; vérifier qu'une version écrite est relue par la 0.8.0 (`cairn restore --from` de la 0.8.0, en simulation)
+- [x] 7.3 Porter rsync (options exactes de P §2.1, GNU ou openrsync, copie par dossier, passe finale) et les 4 compteurs ; tester la régression 0fa14ea
+- [x] 7.4 Écrire le modèle de progression de la spec `backup` (phases par destination, compteurs visibles pendant tout le comptage, dossier n sur N, pourcentage plafonné, étapes de finalisation) ; tester chaque scénario de la spec
+- [x] 7.5 Porter la finalisation en arrière-plan (empreintes en flux, échantillon, `hdiutil verify` mensuel, compactage) et l'arrêt par destination ; tester les régressions eb1fc60, 75bde76, bfbbb61 et 593f593 (mémoire stable sur 512 Mo)
+- [x] 7.6 Porter la rétention (paliers, semaines ISO en UTC ; suppression manuelle sous verrou), l'intégrité et `damagedVersions` ; porter les tests
+- [x] 7.7 Porter la planification (`BackupSchedule.decide`, retard, alimentation) ; tester les régressions c459b58, 7cc955d et 46a9475 avec une horloge simulée
+- [x] 7.8 Porter la vérification de destination (`DestinationProbe`, liste des partages SMB, navigateur de dossiers) et la suppression de destination ; tester les régressions 156f978, 76e40ec et 0547a02
+- [x] 7.9 Porter la simulation (aucune écriture, comparaison à la version de base) ; tester les régressions e229e52 et 3692993
 
 ## 8. Restauration
 
-- [ ] 8.1 Porter les sources (Cairn et anciennes sauvegardes), le choix de version, le plan et la copie (`.pre-restore`, droits des secrets) ; porter `RestoreTests` et `RestoreWarningTests`
-- [ ] 8.2 Porter la fusion IA, la réécriture des projets Claude Code et l'attente des outils ouverts ; tester la régression 01538a8
-- [ ] 8.3 Porter la réinstallation des outils (ordre de la spec `restore`, go et `~/.local/bin` en manuel, Terminal pour CLT et Homebrew, `command -v -- "$1"`) ; tester les scénarios de la spec
+- [x] 8.1 Porter les sources (Cairn et anciennes sauvegardes), le choix de version, le plan et la copie (`.pre-restore`, droits des secrets) ; porter `RestoreTests` et `RestoreWarningTests`
+- [x] 8.2 Porter la fusion IA, la réécriture des projets Claude Code et l'attente des outils ouverts ; tester la régression 01538a8
+- [x] 8.3 Porter la réinstallation des outils (ordre de la spec `restore`, go et `~/.local/bin` en manuel, Terminal pour CLT et Homebrew, `command -v -- "$1"`) ; tester les scénarios de la spec
 
 ## 9. Ligne de commande
 
-- [ ] 9.1 Porter les commandes, options, codes de retour, `--json` à clés triées, confirmations `[o/N]`, saisie de mot de passe sans écho et progression sur TTY (P §1) ; vérifier par un test d'or qui compare la sortie `--json` et le code de retour de chaque commande à ceux de la 0.8.0 sur un `CAIRN_HOME` d'exemple
+- [x] 9.1 Porter les commandes, options, codes de retour, `--json` à clés triées, confirmations `[o/N]`, saisie de mot de passe sans écho et progression sur TTY (P §1) ; vérifier par un test d'or qui compare la sortie `--json` et le code de retour de chaque commande à ceux de la 0.8.0 sur un `CAIRN_HOME` d'exemple
 - [ ] 9.2 Vérifier les modes simulation sur la vraie machine : `just backup-dry`, `just git-clean`, `just restore`, `just check` lancés avec le nouvel exécutable
 
 ## 10. Process principal
 
-- [ ] 10.1 Écrire le contrat IPC typé, la validation par schéma, le store d'état poussé à l'interface et la revérification des confirmations destructives ; tester qu'un appel aux arguments invalides est refusé
-- [ ] 10.2 Brancher le planificateur (tick de 60 s, réveil, montage d'un volume, réseau), `powerMonitor`, `powerSaveBlocker`, SIGSTOP/SIGCONT et l'arrêt propre à la fermeture ; tester avec Playwright Electron
+- [x] 10.1 Écrire le contrat IPC typé, la validation par schéma, le store d'état poussé à l'interface et la revérification des confirmations destructives ; tester qu'un appel aux arguments invalides est refusé
+- [x] 10.2 Brancher le planificateur (tick de 60 s, réveil, montage d'un volume, réseau), `powerMonitor`, `powerSaveBlocker`, SIGSTOP/SIGCONT et l'arrêt propre à la fermeture ; tester avec Playwright Electron
 - [ ] 10.3 Brancher les notifications avec leurs actions (journal, Nettoyer, Rappeler plus tard), l'ouverture à la connexion et le mode accessoire ; vérifier à la main dans l'app empaquetée
-- [ ] 10.4 Porter l'updater (API GitHub, semver, SHA-256 en flux, identifiant et version, script de remplacement, refus pendant une sauvegarde) ; tester avec `CAIRN_UPDATE_URL` sur un faux flux, et la régression 0f7a1ce
+- [x] 10.4 Porter l'updater (API GitHub, semver, SHA-256 en flux, identifiant et version, script de remplacement, refus pendant une sauvegarde) ; tester avec `CAIRN_UPDATE_URL` sur un faux flux, et la régression 0f7a1ce
 
 ## 11. Design system et galerie
 
-- [ ] 11.1 Générer `tokens.css` (clair et sombre) depuis U §1 ; vérifier que la galerie en clair et en sombre reprend les valeurs de la 0.8.0
-- [ ] 11.2 Écrire la bibliothèque `ui/` (les 43 composants de U §2, dont l'infobulle, le menu, PillPicker, TabBar, la case et l'interrupteur, le tableau, la feuille) en appliquant les règles de U §2.7 ; vérifier chaque composant dans la galerie
+- [x] 11.1 Générer `tokens.css` (clair et sombre) depuis U §1 ; vérifier que la galerie en clair et en sombre reprend les valeurs de la 0.8.0
+- [x] 11.2 Écrire la bibliothèque `ui/` (les 43 composants de U §2, dont l'infobulle, le menu, PillPicker, TabBar, la case et l'interrupteur, le tableau, la feuille) en appliquant les règles de U §2.7 ; vérifier chaque composant dans la galerie
 - [ ] 11.3 Écrire l'API d'exemple (`fixtures/`, états scénarisés), `bun run dev:web` et `bun run shots` ; vérifier qu'une capture par écran, par état et par thème est produite sans accès au disque
-- [ ] 11.4 Porter `--gallery` et `--gallery-export <dir>` (spec `interface-design`) ; vérifier que l'export n'écrit que dans le dossier demandé
+- [x] 11.4 Porter `--gallery` et `--gallery-export <dir>` (spec `interface-design`) ; vérifier que l'export n'écrit que dans le dossier demandé
 - [ ] 11.5 Écrire `desktop/DESIGN.md` (jetons, composants, règles, vocabulaire) à jour avec le code
 
 ## 12. Écrans
 
 Chaque tâche est vérifiée par ses captures en clair et en sombre (11.3), ses tests Playwright et la correction des problèmes de U §4 qui la concernent.
 
-- [ ] 12.1 Cadre de l'app : barre du haut compacte, rail, sidebar, indicateur d'état, navigation (lien « Ajouter une destination » corrigé)
-- [ ] 12.2 Accueil (hub) : cartes de module, problèmes par priorité, « Tout vérifier », activité, mini-graphique sur 7 jours
-- [ ] 12.3 Analyse : 4 onglets, explorateur, nettoyable avec présélection, gros objets, projets, suppression confirmée
-- [ ] 12.4 Sauvegardes : destinations, historique, rétention, actions désactivées avec leur raison ; progression conforme à la spec `backup`, sur l'API d'exemple à deux destinations
-- [ ] 12.5 Formulaire et feuilles de destination : ajout vérifié, SMB avec l'hôte seul, navigateur de dossiers, modification, suppression
-- [ ] 12.6 Git : rapports au fil de l'eau, menus de ligne, confirmations, dépôts à risque
-- [ ] 12.7 Outils IA et outils CLI : catégories, identifiants désactivés avec leur raison, statuts, exclusions, export
-- [ ] 12.8 Restauration : choix de la source et de la version, plan, simulation, application, réinstallation des outils
-- [ ] 12.9 Réglages, assistant de premier lancement (rien n'est écrit avant « Terminer ») et mise à jour
-- [ ] 12.10 Barre des menus : Tray avec icône par état, panneau, actions rapides sans suppression directe
+- [x] 12.1 Cadre de l'app : barre du haut compacte, rail, sidebar, indicateur d'état, navigation (lien « Ajouter une destination » corrigé)
+- [x] 12.2 Accueil (hub) : cartes de module, problèmes par priorité, « Tout vérifier », activité, mini-graphique sur 7 jours
+- [x] 12.3 Analyse : 4 onglets, explorateur, nettoyable avec présélection, gros objets, projets, suppression confirmée
+- [x] 12.4 Sauvegardes : destinations, historique, rétention, actions désactivées avec leur raison ; progression conforme à la spec `backup`, sur l'API d'exemple à deux destinations
+- [x] 12.5 Formulaire et feuilles de destination : ajout vérifié, SMB avec l'hôte seul, navigateur de dossiers, modification, suppression
+- [x] 12.6 Git : rapports au fil de l'eau, menus de ligne, confirmations, dépôts à risque
+- [x] 12.7 Outils IA et outils CLI : catégories, identifiants désactivés avec leur raison, statuts, exclusions, export
+- [x] 12.8 Restauration : choix de la source et de la version, plan, simulation, application, réinstallation des outils
+- [x] 12.9 Réglages, assistant de premier lancement (rien n'est écrit avant « Terminer ») et mise à jour
+- [x] 12.10 Barre des menus : Tray avec icône par état, panneau, actions rapides sans suppression directe
 - [ ] 12.11 Vérifier qu'aucun texte n'est en dur et qu'aucun jargon de la spec `interface-design` n'apparaît, par un test sur les catalogues et les sources
 
 ## 13. Packaging, CI et release
 
-- [ ] 13.1 Configurer electron-builder (fuses fermées, `afterPack` ad hoc, `minimumSystemVersion 14.0`, Info.plist en/fr) et produire le zip avec `ditto` (`Cairn.app` à la racine) et son `.sha256` ; vérifier que la fuse RunAsNode est fermée (scénario « Exécutable détourné »)
-- [ ] 13.2 Adapter `smoke-test-app.sh` (copie hors du dépôt, version, aide en fr et en en, `ai --json`, `tools --json`, lancement de l'interface) ; le faire passer sur le zip
-- [ ] 13.3 Adapter `ci.yml` (setup-bun figé, lint, `bun test`, build, test de fumée, tests de bout en bout Playwright), en gardant le job Swift jusqu'à la tâche 15 ; vérifier une CI verte sur la PR
-- [ ] 13.4 Adapter `bump-version.sh`, `release-prepare.sh`, `.releaserc.json` (`package.json` comme source de version) et le pied de la note de release (lien `cairn`, quarantaine, autorisations) ; vérifier avec `semantic-release --dry-run`
-- [ ] 13.5 Vérifier que l'app 0.8.0 installe le zip construit par un faux flux `CAIRN_UPDATE_URL`, puis relance la nouvelle app avec la configuration existante (spec `app-packaging`)
+- [x] 13.1 Configurer electron-builder (fuses fermées, `afterPack` ad hoc, `minimumSystemVersion 14.0`, Info.plist en/fr) et produire le zip avec `ditto` (`Cairn.app` à la racine) et son `.sha256` ; vérifier que la fuse RunAsNode est fermée (scénario « Exécutable détourné »)
+- [x] 13.2 Adapter `smoke-test-app.sh` (copie hors du dépôt, version, aide en fr et en en, `ai --json`, `tools --json`, lancement de l'interface) ; le faire passer sur le zip
+- [x] 13.3 Adapter `ci.yml` (setup-bun figé, lint, `bun test`, build, test de fumée, tests de bout en bout Playwright), en gardant le job Swift jusqu'à la tâche 15 ; vérifier une CI verte sur la PR
+- [x] 13.4 Adapter `bump-version.sh`, `release-prepare.sh`, `.releaserc.json` (`package.json` comme source de version) et le pied de la note de release (lien `cairn`, quarantaine, autorisations) ; vérifier avec `semantic-release --dry-run`
+- [x] 13.5 Vérifier que l'app 0.8.0 installe le zip construit par un faux flux `CAIRN_UPDATE_URL`, puis relance la nouvelle app avec la configuration existante (spec `app-packaging`)
 
 ## 14. Validation de bout en bout sur la vraie machine
 
