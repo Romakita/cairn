@@ -12,7 +12,8 @@
     "home.destination.failed": "Failed",
     "home.destination.never": "Never backed up",
     "home.destination.unreachable": "Unreachable",
-    "home.folder.unavailable": "Unavailable"
+    "home.folder.unavailable": "Unavailable",
+    "home.issue.full_disk_access": "Cairn doesn't have Full Disk Access: protected folders aren't backed up"
   },
   "fr": {
     "home.backup_blocked.config": "Corrigez config.toml avant de sauvegarder : sa planification est en pause.",
@@ -27,6 +28,7 @@
     "home.destination.failed": "Échec",
     "home.destination.never": "Jamais sauvegardée",
     "home.destination.unreachable": "Injoignable",
-    "home.folder.unavailable": "Indisponible"
+    "home.folder.unavailable": "Indisponible",
+    "home.issue.full_disk_access": "Cairn n'a pas l'Accès complet au disque : les dossiers protégés ne sont pas sauvegardés"
   }
 }

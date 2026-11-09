@@ -1,5 +1,18 @@
 # Spec Delta
 
+## ADDED Requirements
+
+### Requirement: Accès complet au disque
+Cairn SHALL détecter s'il a l'Accès complet au disque de macOS. Sans cet accès, l'app MUST l'indiquer par un bandeau sur l'accueil et l'écran Sauvegardes, avec un bouton qui ouvre le réglage système concerné, et `cairn backup` MUST l'écrire sur la sortie d'erreur avant de commencer. Les éléments sautés parce que macOS en refuse la lecture MUST être comptés et signalés dans le résultat, le journal et la notification, jamais passés sous silence.
+
+#### Scenario: Accès refusé
+- **WHEN** Cairn n'a pas l'Accès complet au disque
+- **THEN** l'accueil et l'écran Sauvegardes affichent un bandeau qui explique que Documents, Téléchargements et d'autres dossiers protégés ne seront pas sauvegardés, avec un bouton « Ouvrir les réglages »
+
+#### Scenario: Dossiers protégés sautés
+- **WHEN** une sauvegarde se termine alors que macOS a refusé la lecture de certains éléments
+- **THEN** le résultat indique le nombre d'éléments non lus à cause des autorisations et en cite quelques-uns, et la notification le mentionne
+
 ## MODIFIED Requirements
 
 ### Requirement: Simulation, progression et journal

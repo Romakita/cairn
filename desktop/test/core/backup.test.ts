@@ -261,8 +261,10 @@ describe("backup", () => {
           dryRun: false,
           machine: "m",
         });
-        // Fichier illisible : code 23 (avertissement), avec la ligne d'erreur de rsync qui nomme le fichier.
-        expect(r.warnings.some((w) => w.includes("locked.bin") && w.includes("Permission denied"))).toBe(true);
+        // Fichier illisible : code 23 (avertissement). Un refus de lecture n'est jamais perdu : il est compté et
+        // nommé à part (`permissionDenied`, Accès complet au disque), sans doubler l'avertissement générique.
+        expect(r.permissionDenied).toEqual({ count: 1, examples: [locked] });
+        expect(r.warnings.some((w) => w.includes("locked.bin"))).toBe(false);
       } finally {
         chmodSync(locked, 0o600);
       }
@@ -353,7 +355,8 @@ describe("backup", () => {
           dryRun: false,
           machine: "m",
         });
-        expect(c.warnings.length).toBeGreaterThan(0); // transfert partiel signalé
+        // Transfert partiel signalé : le dossier illisible est compté parmi les éléments refusés.
+        expect(c.permissionDenied).toEqual({ count: 1, examples: [locked] });
         expect(existsSync(path.join(work, "folders/src/gone/z.txt"))).toBe(true); // rien d'effacé après un échec
       } finally {
         chmodSync(locked, 0o700);

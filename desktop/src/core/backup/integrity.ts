@@ -95,26 +95,26 @@ export async function versionFiles(version: string): Promise<VersionFile[]> {
   }
   const out: VersionFile[] = [];
   const walk = async (dir: string, prefix: string): Promise<void> => {
-    let handle: Awaited<ReturnType<typeof opendir>>;
     try {
-      handle = await opendir(dir);
-    } catch {
-      return; // dossier illisible : ignoré, comme l'énumérateur de la 0.8.0
-    }
-    for await (const entry of handle) {
-      const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        await walk(full, rel);
-      } else if (entry.isFile()) {
-        if (OWN_FILES.has(rel) || rel.includes("/.cairn-partial/")) continue;
-        try {
-          const s = await stat(full, { bigint: true });
-          out.push({ rel, size: Number(s.size), mtime: Number(s.mtimeNs / 1_000_000_000n) });
-        } catch {
-          // disparu entre la liste et le stat
+      // L'erreur peut venir de l'ouverture ou de la première entrée (Bun lit le dossier en différé). `walk` et `stat`
+      // ne lèvent jamais : seule la lecture de ce dossier est attrapée ici.
+      for await (const entry of await opendir(dir)) {
+        const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          await walk(full, rel);
+        } else if (entry.isFile()) {
+          if (OWN_FILES.has(rel) || rel.includes("/.cairn-partial/")) continue;
+          try {
+            const s = await stat(full, { bigint: true });
+            out.push({ rel, size: Number(s.size), mtime: Number(s.mtimeNs / 1_000_000_000n) });
+          } catch {
+            // disparu entre la liste et le stat
+          }
         }
       }
+    } catch {
+      // dossier illisible (copié sans droit de lecture) : ignoré, comme l'énumérateur de la 0.8.0
     }
   };
   await walk(root, "");

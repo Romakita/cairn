@@ -107,6 +107,7 @@ export function createFixtureApi(options: FixtureOptions): FixtureApi {
                 deletedVersions: [],
                 damagedFiles: [],
                 imageCheck: null,
+                permissionDenied: { count: 0, examples: [] },
                 log: state.backup.log,
               },
             }
@@ -143,6 +144,7 @@ export function createFixtureApi(options: FixtureOptions): FixtureApi {
             stopped: p.result?.status === "stopped",
             damagedFiles: [],
             imageCheck: null,
+            permissionDenied: p.result?.permissionDenied ?? { count: 0, examples: [] },
             log: p.result?.log ?? null,
             version: p.result?.version ?? null,
             filesTransferred: p.result?.filesTransferred ?? 0,
@@ -877,6 +879,19 @@ export function createFixtureApi(options: FixtureOptions): FixtureApi {
       record("openExternal", args);
       if (!/^https:\/\/github\.com\/Romakita\/cairn(\/|$)/.test(args.url))
         throw new CairnApiError("forbidden", "URL not allowed");
+    },
+    async openPrivacySettings() {
+      record("openPrivacySettings");
+      // Démonstration : l'utilisateur accorde l'accès dans Réglages Système puis revient dans l'app.
+      update((s) => {
+        const causes = s.hub.causes.filter((c) => c.kind !== "fullDiskAccess");
+        const overall = causes.length === 0 ? "ok" : s.hub.overall;
+        return {
+          ...s,
+          access: { ...s.access, fullDisk: "granted" },
+          hub: { ...s.hub, causes, topIssue: causes[0] ?? null, overall },
+        };
+      });
     },
     async copyText(args) {
       record("copyText", args);

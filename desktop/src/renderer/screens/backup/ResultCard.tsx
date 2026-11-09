@@ -1,5 +1,6 @@
 // Résultat d'une destination (dernière sauvegarde ou simulation) : état, version, fichiers et octets transférés,
-// avertissements, fichiers abîmés, contrôle de l'image, erreur ; bouton du journal.
+// avertissements, éléments que macOS n'a pas laissé lire, fichiers abîmés, contrôle de l'image, erreur ; bouton du
+// journal (dans le bandeau des éléments refusés quand il y en a : le journal en garde la liste).
 import { CircleCheck, CircleX, FileText, OctagonPause, X } from "lucide-react";
 import { Fmt } from "../../../core/format.ts";
 import { t } from "../../../core/l10n.ts";
@@ -13,6 +14,8 @@ import { partVolumes, type ShownResult } from "./model.ts";
 import styles from "./ResultCard.module.css";
 
 const MAX_DAMAGED = 10;
+/** Chemins refusés montrés dans la carte (le journal en garde dix). */
+const MAX_DENIED = 5;
 
 export interface ResultCardProps {
   result: ShownResult;
@@ -54,7 +57,7 @@ export function ResultCard({ result: r, label, onDismiss }: ResultCardProps) {
           <h3 className={styles.title}>{title}</h3>
           <span className={styles.subtitle}>{r.version ? t("backup.ui.result.version", label, r.version) : label}</span>
         </div>
-        {r.log && (
+        {r.log && r.permissionDenied.count === 0 && (
           <Button icon={FileText} onClick={() => r.log && void api.openTarget({ kind: "log", file: r.log })}>
             {t("backup.view_log")}
           </Button>
@@ -94,6 +97,7 @@ export function ResultCard({ result: r, label, onDismiss }: ResultCardProps) {
           </ul>
         </Banner>
       )}
+      {r.permissionDenied.count > 0 && <DeniedBanner result={r} />}
       {r.damagedFiles.length > 0 && (
         <Banner tone="warning">
           <span>{t("backup.notify.damaged_body", r.damagedFiles.length)}</span>
@@ -108,5 +112,39 @@ export function ResultCard({ result: r, label, onDismiss }: ResultCardProps) {
         <Banner tone="danger">{t("backup.image_check.failed", r.imageCheck.output)}</Banner>
       )}
     </section>
+  );
+}
+
+/** Éléments sautés parce que macOS en a refusé la lecture : nombre, quelques chemins, lien vers le journal. */
+function DeniedBanner({ result: r }: { result: ShownResult }) {
+  const api = useApi();
+  const { count, examples } = r.permissionDenied;
+  const shown = examples.slice(0, MAX_DENIED);
+  const more = count - shown.length;
+  return (
+    <Banner
+      tone="warning"
+      action={
+        r.log && (
+          <Button
+            variant="outline"
+            icon={FileText}
+            onClick={() => r.log && void api.openTarget({ kind: "log", file: r.log })}
+          >
+            {t("backup.view_log")}
+          </Button>
+        )
+      }
+    >
+      <span>{t("backup.ui.result.denied", count)}</span>
+      <ul className={styles.mono}>
+        {shown.map((p) => (
+          <li key={p}>
+            <MiddleText text={p} />
+          </li>
+        ))}
+      </ul>
+      {more > 0 && <span className={styles.more}>{t("backup.ui.result.denied_more", Fmt.count(more))}</span>}
+    </Banner>
   );
 }

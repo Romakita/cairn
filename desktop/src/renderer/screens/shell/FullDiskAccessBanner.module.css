@@ -1,0 +1,9 @@
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.help {
+  font: var(--text-caption);
+}

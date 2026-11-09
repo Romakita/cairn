@@ -3,12 +3,15 @@
 //   rsync -a [-H] --out-format=%i|%n --partial-dir=.cairn-partial --delete [--delete-excluded] [-n]
 //         [--exclude-from=F] [filtres] [arguments en plus] [-r --files-from=F] [--link-dest=BASE] SRC/ DEST/
 // La sortie est lue ligne à ligne, rien n'est accumulé (593f593) ; seules les 20 dernières lignes de stderr sont
-// gardées (process.ts). Les tailles des fichiers transférés sont relevées au fil de l'eau.
+// gardées (process.ts). Les tailles des fichiers transférés sont relevées au fil de l'eau. Les lignes de stderr d'un
+// élément dont macOS refuse la lecture sont toutes comptées au fil de l'eau (nombre et premiers chemins), sans être
+// gardées dans les dernières lignes : elles ne masquent pas une autre erreur.
 import { randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import { access, lstat, mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { DeniedCounter, type PermissionDenied, permissionDenied } from "../full-disk-access.ts";
 import { type ProcessGroup, start } from "../process.ts";
 import type { BackupPart } from "./types.ts";
 
@@ -153,8 +156,10 @@ export interface RsyncResult {
   bytes: number;
   /** Code de sortie (`-1` si rsync a été tué par un signal). */
   status: number;
-  /** 20 dernières lignes de stderr. */
+  /** 20 dernières lignes de stderr, hors éléments refusés. */
   errors: string;
+  /** Éléments dont macOS a refusé la lecture (EPERM ou EACCES). */
+  denied: PermissionDenied;
   cancelled: boolean;
 }
 
@@ -272,8 +277,15 @@ export async function runRsync(request: RsyncRequest, run: RsyncRun): Promise<Rs
     let transferred = 0;
     let examined = 0;
     let lastReport = 0;
+    const denied = new DeniedCounter();
     const proc = start(run.binary.path, args, {
       group: run.group,
+      onStderrLine: (line) => {
+        const item = permissionDenied(line);
+        if (item === null) return true;
+        denied.add(item);
+        return false;
+      },
       onLine: (line) => {
         const out = parseOutLine(line);
         if (!out) return;
@@ -298,6 +310,7 @@ export async function runRsync(request: RsyncRequest, run: RsyncRun): Promise<Rs
       bytes: meter?.total ?? 0,
       status: result.code ?? -1,
       errors: result.stderrTail.join("\n"),
+      denied: denied.value(),
       cancelled: result.cancelled,
     };
   } finally {
@@ -323,4 +336,9 @@ export function worstStatus(current: number, next: number): number {
 /** 23 et 24 : transfert partiel (fichier illisible ou disparu pendant la copie), un avertissement. */
 export function isPartialTransfer(status: number): boolean {
   return status === 23 || status === 24;
+}
+
+/** Ligne de synthèse de rsync GNU pour le code 23 (`rsync error: some files/attrs were not transferred …`). */
+export function isPartialSummary(line: string): boolean {
+  return /^rsync error: some files(?:\/attrs)? were not transferred/.test(line);
 }

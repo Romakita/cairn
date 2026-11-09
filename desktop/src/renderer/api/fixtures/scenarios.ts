@@ -30,6 +30,7 @@ export const SCENARIO_IDS = [
   "backup-new-image",
   "messages",
   "backup-simulated",
+  "no-full-disk-access",
 ] as const;
 export type ScenarioId = (typeof SCENARIO_IDS)[number];
 
@@ -188,6 +189,7 @@ function backupFailed(): AppSnapshot {
           stopped: false,
           damagedFiles: [],
           imageCheck: null,
+          permissionDenied: { count: 0, examples: [] },
           log: "/Users/demo/.cairn/logs/backup-20261109-090000.log",
           version: null,
           filesTransferred: 0,
@@ -201,6 +203,7 @@ function backupFailed(): AppSnapshot {
           stopped: false,
           damagedFiles: [],
           imageCheck: null,
+          permissionDenied: { count: 0, examples: [] },
           log: "/Users/demo/.cairn/logs/backup-20261109-090000.log",
           version: null,
           filesTransferred: 0,
@@ -455,6 +458,56 @@ function withMessages(): AppSnapshot {
   };
 }
 
+/**
+ * Sans l'Accès complet au disque : bandeau sur l'accueil et l'écran Sauvegardes, problème de l'accueil, et dernière
+ * sauvegarde vers le NAS réussie avec 21 éléments que macOS n'a pas laissé lire.
+ */
+function noFullDiskAccess(): AppSnapshot {
+  const s = normalSnapshot();
+  const home = "/Users/demo";
+  const examples = [
+    `${home}/Documents`,
+    `${home}/Downloads`,
+    `${home}/Desktop`,
+    `${home}/Pictures/Photos Library.photoslibrary`,
+    `${home}/.Trash`,
+    `${home}/Library/Mail`,
+    `${home}/Library/Messages`,
+    `${home}/Library/Safari`,
+    `${home}/Library/Preferences/com.apple.madrid.plist`,
+    `${home}/Library/Containers/com.apple.Notes`,
+  ];
+  const log = "/Users/demo/.cairn/logs/backup-20261109-090000.log";
+  const issue = { kind: "fullDiskAccess" as const, subject: "" };
+  return {
+    ...s,
+    access: { fullDisk: "denied" },
+    backup: {
+      ...s.backup,
+      startedAt: daysAgo(0, 1).getTime(),
+      finishedAt: daysAgo(0, 1).getTime() + 412_000,
+      log,
+      lastResults: [
+        {
+          destination: "nas",
+          error: null,
+          waiting: false,
+          stopped: false,
+          damagedFiles: [],
+          imageCheck: null,
+          permissionDenied: { count: 21, examples },
+          log,
+          version: "2026-11-09T090000",
+          filesTransferred: 1_958,
+          bytesTransferred: 74_400_000,
+          bytesByPart: {},
+        },
+      ],
+    },
+    hub: { ...s.hub, overall: "attention", causes: [issue], topIssue: issue },
+  };
+}
+
 export const SCENARIOS: Readonly<Record<ScenarioId, Scenario>> = {
   empty: { id: "empty", description: "First launch: no config.toml, onboarding", build: empty },
   normal: { id: "normal", description: "Two destinations backed up yesterday, recent analysis", build: normalSnapshot },
@@ -519,6 +572,11 @@ export const SCENARIOS: Readonly<Record<ScenarioId, Scenario>> = {
     },
     backupRunning: true,
     backupDryRun: true,
+  },
+  "no-full-disk-access": {
+    id: "no-full-disk-access",
+    description: "No Full Disk Access: banner, home issue, last backup skipped 21 protected items",
+    build: noFullDiskAccess,
   },
   messages: {
     id: "messages",

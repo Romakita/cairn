@@ -1,11 +1,17 @@
 {
   "en": {
+    "shell.full_disk.help": "Add Cairn in System Settings › Privacy & Security › Full Disk Access, then come back here.",
+    "shell.full_disk.open": "Open Settings",
+    "shell.full_disk.text": "Cairn doesn't have Full Disk Access: Documents, Downloads and other protected folders won't be backed up.",
     "shell.loading": "Loading…",
     "shell.sections": "Sections",
     "shell.update.notes": "Release notes",
     "shell.update.versions": "Current {1} → new {2}"
   },
   "fr": {
+    "shell.full_disk.help": "Ajoutez Cairn dans Réglages Système › Confidentialité et sécurité › Accès complet au disque, puis revenez ici.",
+    "shell.full_disk.open": "Ouvrir les réglages",
+    "shell.full_disk.text": "Cairn n'a pas l'Accès complet au disque : Documents, Téléchargements et d'autres dossiers protégés ne seront pas sauvegardés.",
     "shell.loading": "Chargement…",
     "shell.sections": "Sections",
     "shell.update.notes": "Notes de version",

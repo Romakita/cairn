@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readdir, rename, rm, symlink, unlink } from "node:fs/promises";
 import path from "node:path";
 import type { Retention } from "../config.ts";
+import { DeniedCounter, type PermissionDenied } from "../full-disk-access.ts";
 import { t } from "../l10n.ts";
 import { ProcessGroup } from "../process.ts";
 import { countFiles } from "./count.ts";
@@ -14,6 +15,7 @@ import { DestinationTracker } from "./progress.ts";
 import {
   copyChunks,
   detectRsync,
+  isPartialSummary,
   isPartialTransfer,
   type RsyncBinary,
   runRsync,
@@ -106,6 +108,8 @@ export interface CopyResult {
   files: number;
   bytes: number;
   warnings: string[];
+  /** Éléments que macOS n'a pas laissé lire (toutes les parties). */
+  permissionDenied: PermissionDenied;
 }
 
 export interface BackupOutcome {
@@ -118,6 +122,8 @@ export interface BackupOutcome {
   filesTransferred: number;
   bytesTransferred: number;
   warnings: string[];
+  /** Éléments que macOS n'a pas laissé lire : sautés, la sauvegarde réussit avec un avertissement. */
+  permissionDenied: PermissionDenied;
   deletedVersions: string[];
   /** Durée en secondes. */
   duration: number;
@@ -258,6 +264,7 @@ export class BackupEngine {
     let processed = 0;
     let bytes = 0;
     const warnings = [...(params.warnings ?? [])];
+    const denied = new DeniedCounter();
     try {
       for (const [index, part] of parts.entries()) {
         if (this.cancelled) throw BackupError.cancelled();
@@ -274,6 +281,7 @@ export class BackupEngine {
         let status = 0;
         let allSucceeded = true;
         const errorLines: string[] = [];
+        const partDenied = denied.count;
         for (const [i, chunk] of chunks.entries()) {
           if (this.cancelled) throw BackupError.cancelled();
           const baseSeen = seen;
@@ -328,6 +336,7 @@ export class BackupEngine {
           status = worstStatus(status, r.status);
           if (r.status !== 0) allSucceeded = false;
           if (r.errors) errorLines.push(r.errors);
+          denied.merge(r.denied);
         }
         const errors = errorLines.join("\n");
         // Reprise copiée par morceaux (sans --delete-excluded) : une passe qui ne copie rien retire ce qui a disparu de
@@ -355,7 +364,12 @@ export class BackupEngine {
         processed += seen;
         if (this.cancelled) throw BackupError.cancelled();
         if (isPartialTransfer(status)) {
-          warnings.push(t("backup.warning.partial", part.target, status) + (errors ? `\n${errors}` : ""));
+          // Transfert partiel entièrement expliqué par des refus de macOS : compté à part (`permissionDenied`).
+          // (rsync GNU ajoute sa ligne de synthèse « some files/attrs were not transferred ».)
+          const other = errors.split("\n").filter((l) => l !== "" && !isPartialSummary(l));
+          const onlyDenied = other.length === 0 && denied.count > partDenied;
+          if (!onlyDenied)
+            warnings.push(t("backup.warning.partial", part.target, status) + (errors ? `\n${errors}` : ""));
         } else if (status !== 0) {
           throw BackupError.rsyncFailed(part.target, status, errors);
         }
@@ -392,6 +406,7 @@ export class BackupEngine {
       files,
       bytes,
       warnings,
+      permissionDenied: denied.value(),
     };
   }
 
@@ -412,6 +427,7 @@ export class BackupEngine {
       filesTransferred: c.files,
       bytesTransferred: c.bytes,
       warnings: c.warnings,
+      permissionDenied: c.permissionDenied,
       deletedVersions: deleted,
       duration: (Date.now() - c.start) / 1000,
     });

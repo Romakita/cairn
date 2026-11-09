@@ -1,5 +1,10 @@
 {
   "en": {
+    "backup.notify.permission_body": {
+      "one": "macOS denied access to {1} item (Documents, Downloads…). Give Cairn Full Disk Access in System Settings.",
+      "other": "macOS denied access to {1} items (Documents, Downloads…). Give Cairn Full Disk Access in System Settings."
+    },
+    "backup.notify.permission_title": "Some items weren't backed up to {1}",
     "backup.ui.badge.damaged": "Damaged",
     "backup.ui.badge.encrypted": "Encrypted",
     "backup.ui.badge.not_checked": "Not checked",
@@ -47,6 +52,12 @@
     "backup.ui.phase.preparing": "Preparing",
     "backup.ui.phases": "Backup steps",
     "backup.ui.progress_of": "Backup to {1}",
+    "backup.ui.result.by_part": "Volume to copy by part",
+    "backup.ui.result.denied": {
+      "one": "{1} item couldn't be read: macOS denied access, so it wasn't backed up.",
+      "other": "{1} items couldn't be read: macOS denied access, so they weren't backed up."
+    },
+    "backup.ui.result.denied_more": "…and {1} more, listed in the log.",
     "backup.ui.result.to_copy": "{1} to copy · {2} files",
     "backup.ui.result.version": "{1} · version {2}",
     "backup.ui.retention.confirm_text": "The new retention keeps fewer versions. These backups will be deleted from the destination:",
@@ -84,9 +95,15 @@
     },
     "backup.ui.verify.running": "Checking a sample of the latest version…",
     "backup.ui.verify_full.help": "Rereads every file of every version. Long, changes nothing.",
-    "backup.ui.result.by_part": "Volume to copy by part"
+    "cli.backup.full_disk_denied": "Warning: no Full Disk Access. Documents, Downloads and other protected folders won't be backed up. Add the app running cairn (Terminal, iTerm…) in System Settings › Privacy & Security › Full Disk Access.",
+    "cli.backup.permission_denied": "{1}: {2} item(s) not backed up: macOS denied access (Full Disk Access needed)"
   },
   "fr": {
+    "backup.notify.permission_body": {
+      "one": "macOS a refusé l'accès à {1} élément (Documents, Téléchargements…). Donnez à Cairn l'Accès complet au disque dans Réglages Système.",
+      "other": "macOS a refusé l'accès à {1} éléments (Documents, Téléchargements…). Donnez à Cairn l'Accès complet au disque dans Réglages Système."
+    },
+    "backup.notify.permission_title": "Des éléments n'ont pas été sauvegardés sur {1}",
     "backup.ui.badge.damaged": "Abîmée",
     "backup.ui.badge.encrypted": "Chiffrée",
     "backup.ui.badge.not_checked": "Non vérifiée",
@@ -134,6 +151,12 @@
     "backup.ui.phase.preparing": "Préparation",
     "backup.ui.phases": "Étapes de la sauvegarde",
     "backup.ui.progress_of": "Sauvegarde vers {1}",
+    "backup.ui.result.by_part": "Volume à copier par partie",
+    "backup.ui.result.denied": {
+      "one": "{1} élément n'a pas pu être lu : macOS en a refusé l'accès, il n'a pas été sauvegardé.",
+      "other": "{1} éléments n'ont pas pu être lus : macOS en a refusé l'accès, ils n'ont pas été sauvegardés."
+    },
+    "backup.ui.result.denied_more": "…et {1} autres, listés dans le journal.",
     "backup.ui.result.to_copy": "{1} à copier · {2} fichiers",
     "backup.ui.result.version": "{1} · version {2}",
     "backup.ui.retention.confirm_text": "La nouvelle rétention garde moins de versions. Ces sauvegardes seront supprimées de la destination :",
@@ -171,6 +194,7 @@
     },
     "backup.ui.verify.running": "Contrôle d’un échantillon de la dernière version…",
     "backup.ui.verify_full.help": "Relit chaque fichier de chaque version. Long, ne modifie rien.",
-    "backup.ui.result.by_part": "Volume à copier par partie"
+    "cli.backup.full_disk_denied": "Attention : pas d'Accès complet au disque. Documents, Téléchargements et d'autres dossiers protégés ne seront pas sauvegardés. Ajoutez l'app qui lance cairn (Terminal, iTerm…) dans Réglages Système › Confidentialité et sécurité › Accès complet au disque.",
+    "cli.backup.permission_denied": "{1} : {2} élément(s) non sauvegardé(s) : macOS en a refusé l'accès (Accès complet au disque nécessaire)"
   }
 }

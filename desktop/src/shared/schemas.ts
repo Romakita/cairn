@@ -291,6 +291,7 @@ export const ARG_SCHEMAS = {
     z.strictObject({ kind: z.literal("path"), path: absolutePath }),
   ]),
   openExternal: z.strictObject({ url: z.url({ protocol: /^https$/ }).max(2048) }),
+  openPrivacySettings: none,
   copyText: z.strictObject({ text: z.string().max(100_000) }),
   chooseFolder: z.strictObject({ buttonLabel: text(64).optional(), defaultPath: absolutePath.optional() }),
   openWindow: z.strictObject({

@@ -100,6 +100,8 @@ Chaque tâche est vérifiée par ses captures en clair et en sombre (11.3), ses 
 - [x] 12.10 Barre des menus : Tray avec icône par état, panneau, actions rapides sans suppression directe
 - [x] 12.11 Vérifier qu'aucun texte n'est en dur et qu'aucun jargon de la spec `interface-design` n'apparaît, par un test sur les catalogues et les sources
 
+- [x] 12.12 Détecter l'Accès complet au disque (spec `backup`, « Accès complet au disque ») : état dans le snapshot, bandeau sur l'accueil et l'écran Sauvegardes avec bouton vers le réglage système, avertissement de `cairn backup`, éléments refusés comptés dans le résultat, le journal et la notification ; vérifier par des tests et des captures
+
 ## 13. Packaging, CI et release
 
 - [x] 13.1 Configurer electron-builder (fuses fermées, `afterPack` ad hoc, `minimumSystemVersion 14.0`, Info.plist en/fr) et produire le zip avec `ditto` (`Cairn.app` à la racine) et son `.sha256` ; vérifier que la fuse RunAsNode est fermée (scénario « Exécutable détourné »)

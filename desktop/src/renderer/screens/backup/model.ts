@@ -208,6 +208,8 @@ export interface ShownResult {
   bytesTransferred: number;
   damagedFiles: string[];
   imageCheck: { ok: boolean; output: string } | null;
+  /** Éléments que macOS n'a pas laissé lire : nombre total et premiers chemins. */
+  permissionDenied: { count: number; examples: string[] };
   log: string | null;
   /** Volume par partie (`folders/<nom>`, `home`, `ai/<outil>/<catégorie>`, `tools`) ; vide s'il est inconnu. */
   bytesByPart: Record<string, number>;
@@ -225,6 +227,7 @@ function fromLast(r: BackupResultView, dryRun: boolean): ShownResult {
     bytesTransferred: r.bytesTransferred,
     damagedFiles: r.damagedFiles,
     imageCheck: r.imageCheck ? { ok: r.imageCheck.ok, output: r.imageCheck.output } : null,
+    permissionDenied: r.permissionDenied,
     log: r.log,
     bytesByPart: r.bytesByPart,
   };

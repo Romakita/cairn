@@ -30,6 +30,8 @@ export const shots: ScreenShot[] = [
   { name: "backup.running-done", hash: "#/app/backup", scenario: "backup-running", at: 40 },
   { name: "backup.simulated", hash: "#/app/backup", scenario: "backup-simulated", at: 40 },
   { name: "backup.simulated-fr", hash: "#/app/backup", scenario: "backup-simulated", at: 40, lang: "fr" },
+  { name: "backup.no-full-disk-access", hash: "#/app/backup", scenario: "no-full-disk-access" },
+  { name: "backup.no-full-disk-access-fr", hash: "#/app/backup", scenario: "no-full-disk-access", lang: "fr" },
   { name: "backup.failed", hash: "#/app/backup", scenario: "backup-failed" },
   { name: "backup.failed-disk", hash: "#/app/backup/disk", scenario: "backup-failed" },
   {

@@ -63,6 +63,11 @@ export interface ProcessOptions {
   stderr?: "tail" | "ignore";
   /** Nombre de lignes de stderr gardées (défaut 20). */
   stderrLines?: number;
+  /**
+   * Chaque ligne de stderr, au fil de l'eau (rien n'est gardé de plus). Renvoie `false` pour ne pas la garder dans
+   * `stderrTail` (ligne déjà prise en compte par l'appelant).
+   */
+  onStderrLine?: (line: string) => boolean | undefined;
   /** Délai d'expiration en millisecondes : SIGTERM puis SIGKILL après `killGraceMs`. */
   timeoutMs?: number;
   killGraceMs?: number;
@@ -237,6 +242,7 @@ export class RunningProcess {
       if (child.stderr) {
         const rl = createInterface({ input: child.stderr, crlfDelay: Number.POSITIVE_INFINITY });
         rl.on("line", (line) => {
+          if (o.onStderrLine?.(line) === false) return;
           tail.push(line);
           if (tail.length > max) tail.shift();
         });
