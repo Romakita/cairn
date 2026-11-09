@@ -86,3 +86,33 @@ release-notes:
 # Construit l'archive de release en local (build/Cairn-<version>-<arch>.zip), sans installer
 release-build:
     Cairn/build-app.sh --no-install --zip
+
+# --- App Electron (desktop/), en cours de migration ---
+
+# Lance l'app Electron en développement
+desktop-start:
+    cd desktop && bun run start
+
+# Tests du core et de la CLI (bun test ; FILTRE optionnel)
+desktop-test *filter:
+    cd desktop && bun test ./test/core ./test/regressions ./test/tooling ${1:+--test-name-pattern "$1"}
+
+# Tests de bout en bout sur la vraie app Electron (Playwright)
+desktop-e2e:
+    cd desktop && bun run test:e2e
+
+# Lint (Biome + règles du design system) et vérification des types
+desktop-lint:
+    cd desktop && bun run lint && bun run typecheck
+
+# Interface seule dans le navigateur, avec les données d'exemple
+desktop-dev-web:
+    cd desktop && bun run dev:web
+
+# Captures de chaque écran en clair et en sombre (dossier desktop/shots)
+desktop-shots:
+    cd desktop && bun run shots
+
+# Construit dist/ (main, preload, interface)
+desktop-build:
+    cd desktop && bun run build
