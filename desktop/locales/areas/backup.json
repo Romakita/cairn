@@ -83,7 +83,8 @@
       "other": "{1} damaged files"
     },
     "backup.ui.verify.running": "Checking a sample of the latest version…",
-    "backup.ui.verify_full.help": "Rereads every file of every version. Long, changes nothing."
+    "backup.ui.verify_full.help": "Rereads every file of every version. Long, changes nothing.",
+    "backup.ui.result.by_part": "Volume to copy by part"
   },
   "fr": {
     "backup.ui.badge.damaged": "Abîmée",
@@ -169,6 +170,7 @@
       "other": "{1} fichiers abîmés"
     },
     "backup.ui.verify.running": "Contrôle d’un échantillon de la dernière version…",
-    "backup.ui.verify_full.help": "Relit chaque fichier de chaque version. Long, ne modifie rien."
+    "backup.ui.verify_full.help": "Relit chaque fichier de chaque version. Long, ne modifie rien.",
+    "backup.ui.result.by_part": "Volume à copier par partie"
   }
 }

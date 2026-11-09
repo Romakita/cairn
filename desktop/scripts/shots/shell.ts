@@ -5,6 +5,8 @@ export const shots: ScreenShot[] = [
   { name: "shell.home", hash: "#/app/home" },
   { name: "shell.status-error", hash: "#/app/home", scenario: "backup-failed" },
   { name: "shell.backing-up", hash: "#/app/home", scenario: "backup-running", at: 20 },
+  { name: "shell.messages", hash: "#/app/home", scenario: "messages" },
+  { name: "shell.messages-fr", hash: "#/app/home", scenario: "messages", lang: "fr" },
   {
     name: "shell.rail-tooltip",
     hash: "#/app/home",

@@ -132,6 +132,7 @@ export function Shell() {
             {messages.map((m) => (
               <MessageBar
                 key={m.id}
+                level={m.level}
                 closeLabel={t("action.close")}
                 onClose={() => void api.dismissMessage({ id: m.id })}
               >

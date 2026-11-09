@@ -10,20 +10,32 @@
     "ai.page.not_detected": "This tool is not installed on this Mac.",
     "ai.page.nothing_checked": "Check at least one category of a detected tool.",
     "ai.page.simulate.help": "Shows what would be copied, without writing anything",
-    "ai.page.subtitle": { "format": "{1} · last backup: {2}", "plurals": { "1": { "one": "{1} tool detected", "other": "{1} tools detected" } } },
+    "ai.page.subtitle": {
+      "format": "{1} · last backup: {2}",
+      "plurals": {
+        "1": {
+          "one": "{1} tool detected",
+          "other": "{1} tools detected"
+        }
+      }
+    },
     "tools.collecting.text": "Cairn reads Homebrew, mise, npm, uv, pipx, cargo, go and ~/.local/bin. Nothing is installed or removed.",
     "tools.empty.text": "No command-line tool was found by the supported package managers.",
     "tools.empty.title": "No tool found",
     "tools.filter.count": "{1} {2}",
     "tools.keep": "Keep {1} in the export",
     "tools.keep.missing": "Not installed on this Mac: nothing to export.",
-    "tools.missing_note": { "one": "{1} tool used by your files is not installed.", "other": "{1} tools used by your files are not installed." },
+    "tools.missing_note": {
+      "one": "{1} tool used by your files is not installed.",
+      "other": "{1} tools used by your files are not installed."
+    },
     "tools.no_match": "No tool matches this search.",
     "tools.no_reason": "No recent use found",
     "tools.search": "Search a tool",
     "tools.subtitle": "Tools installed by package managers, and why they are used",
     "tools.unavailable.loading": "Wait for the list of tools.",
-    "tools.unavailable.nothing_kept": "No tool is kept: check at least one."
+    "tools.unavailable.nothing_kept": "No tool is kept: check at least one.",
+    "ai.page.not_copied": "Extensions reinstalled on restore, not copied: {1}"
   },
   "fr": {
     "ai.page.categories": "Ce qu'il faut sauvegarder pour {1}",
@@ -36,19 +48,31 @@
     "ai.page.not_detected": "Cet outil n'est pas installé sur ce Mac.",
     "ai.page.nothing_checked": "Cochez au moins une catégorie d'un outil détecté.",
     "ai.page.simulate.help": "Montre ce qui serait copié, sans rien écrire",
-    "ai.page.subtitle": { "format": "{1} · dernière sauvegarde : {2}", "plurals": { "1": { "one": "{1} outil détecté", "other": "{1} outils détectés" } } },
+    "ai.page.subtitle": {
+      "format": "{1} · dernière sauvegarde : {2}",
+      "plurals": {
+        "1": {
+          "one": "{1} outil détecté",
+          "other": "{1} outils détectés"
+        }
+      }
+    },
     "tools.collecting.text": "Cairn lit Homebrew, mise, npm, uv, pipx, cargo, go et ~/.local/bin. Rien n'est installé ni supprimé.",
     "tools.empty.text": "Aucun outil en ligne de commande trouvé par les gestionnaires de paquets pris en charge.",
     "tools.empty.title": "Aucun outil trouvé",
     "tools.filter.count": "{1} {2}",
     "tools.keep": "Garder {1} dans l'export",
     "tools.keep.missing": "Pas installé sur ce Mac : rien à exporter.",
-    "tools.missing_note": { "one": "{1} outil utilisé par vos fichiers n'est pas installé.", "other": "{1} outils utilisés par vos fichiers ne sont pas installés." },
+    "tools.missing_note": {
+      "one": "{1} outil utilisé par vos fichiers n'est pas installé.",
+      "other": "{1} outils utilisés par vos fichiers ne sont pas installés."
+    },
     "tools.no_match": "Aucun outil ne correspond à cette recherche.",
     "tools.no_reason": "Aucune utilisation récente",
     "tools.search": "Chercher un outil",
     "tools.subtitle": "Outils installés par les gestionnaires de paquets, et pourquoi ils servent",
     "tools.unavailable.loading": "Attendez la liste des outils.",
-    "tools.unavailable.nothing_kept": "Aucun outil retenu : cochez-en au moins un."
+    "tools.unavailable.nothing_kept": "Aucun outil retenu : cochez-en au moins un.",
+    "ai.page.not_copied": "Extensions réinstallées à la restauration, non copiées : {1}"
   }
 }

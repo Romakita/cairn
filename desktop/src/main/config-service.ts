@@ -1,24 +1,45 @@
 // `config.toml` dans l'app : chargement, rechargement à chaud (dernière configuration valide gardée, planification
 // bloquée tant que le fichier est invalide), enregistrement par patchs typés (refusé si le fichier sur disque est
 // invalide : ConfigWarningTests), et assistant du premier lancement.
+import { BUNDLED_PROFILES, profileName } from "../core/ai/profiles.ts";
 import { type CairnConfig, type ConfigIssue, defaultConfig } from "../core/config.ts";
 import { type ConfigStore, type FileWatcher, ConfigStore as Store } from "../core/config-store.ts";
 import { makeConfig, type OnboardingDraft } from "../core/onboarding.ts";
 import { applyPatches } from "../shared/config-patch.ts";
 import type { ConfigPatch, ConfigView, IssueView, OnboardingDraftWire } from "../shared/contract.ts";
 import { ApiError } from "./errors.ts";
+import { offeredCategories } from "./tools.ts";
 
 function issueView(i: ConfigIssue): IssueView {
   return { severity: i.severity, key: i.key, line: i.line, message: i.message, description: i.description };
 }
 
 /** Brouillon reçu de l'interface → brouillon du core (les catégories redeviennent des ensembles). */
+/** Brouillon du core ; `notifications` (autorisation demandée par le main) ne va pas dans `config.toml`. */
 export function draftFromWire(d: OnboardingDraftWire): OnboardingDraft {
-  return { ...d, ai: d.ai.map((a) => ({ ...a, categories: new Set(a.categories) })) };
+  const { notifications: _n, ...rest } = d;
+  return {
+    ...rest,
+    ai: d.ai.map((a) => ({ id: a.id, detected: a.detected, categories: new Set(a.categories) })),
+  };
 }
 
-export function draftToWire(d: OnboardingDraft): OnboardingDraftWire {
-  return { ...d, ai: d.ai.map((a) => ({ ...a, categories: [...a.categories].sort() })) };
+/** Brouillon pour l'interface, avec le nom et les catégories proposées de chaque outil IA (profils embarqués). */
+export function draftToWire(d: OnboardingDraft, notifications = true): OnboardingDraftWire {
+  return {
+    ...d,
+    ai: d.ai.map((a) => {
+      const profile = BUNDLED_PROFILES.find((p) => p.id === a.id);
+      return {
+        id: a.id,
+        name: profileName(a.id),
+        detected: a.detected,
+        categories: [...a.categories].sort(),
+        offeredCategories: profile ? offeredCategories(profile) : [...a.categories].sort(),
+      };
+    }),
+    notifications,
+  };
 }
 
 export class ConfigService {

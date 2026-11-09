@@ -1,6 +1,6 @@
 // Inventaire des outils et outils IA dans l'app : relevés à la demande (lecture seule) et exports choisis par
 // l'utilisateur (dossier ou fichier désigné par une boîte de dialogue du main, jamais par l'interface).
-import { writeFile } from "node:fs/promises";
+import { stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { dialog } from "electron";
 import {
@@ -11,11 +11,24 @@ import {
   lastBackup,
   type ToolStats,
 } from "../core/ai/index.ts";
+import type { AIProfile } from "../core/ai/profiles.ts";
 import { collect, writeInventory } from "../core/inventory/index.ts";
 import type { Inventory } from "../core/inventory/types.ts";
+import { expandTilde } from "../core/paths.ts";
 import type { AIToolView, AIView, InventoryView } from "../shared/contract.ts";
-import { errorMessage } from "./errors.ts";
+import { ApiError, errorMessage } from "./errors.ts";
 import type { Host } from "./host.ts";
+
+/** Ordre d'affichage des catégories IA. */
+const CATEGORY_ORDER = ["conversations", "config", "memories", "credentials"];
+
+/** Catégories proposées : celles du profil qui désignent des fichiers (les identifiants au Trousseau n'en ont pas). */
+export function offeredCategories(profile: AIProfile): string[] {
+  return Object.entries(profile.categories)
+    .filter(([, paths]) => paths.length > 0)
+    .map(([c]) => c)
+    .sort((a, b) => (CATEGORY_ORDER.indexOf(a) + 1 || 99) - (CATEGORY_ORDER.indexOf(b) + 1 || 99));
+}
 
 export class ToolsService {
   private inventory: InventoryView = { status: "idle", inventory: null, error: null };
@@ -39,10 +52,19 @@ export class ToolsService {
     this.host.changed();
   }
 
-  /** Exporte `tools.toml` et `Brewfile` dans un dossier choisi. */
-  async exportInventory(): Promise<{ dir: string } | null> {
-    const r = await dialog.showOpenDialog({ properties: ["openDirectory", "createDirectory"] });
-    const dir = r.canceled ? undefined : r.filePaths[0];
+  /** Exporte `tools.toml` et `Brewfile` dans `target` (dossier existant) ou dans un dossier choisi. */
+  async exportInventory(target?: string): Promise<{ dir: string } | null> {
+    let dir = target ? expandTilde(target) : undefined;
+    if (dir) {
+      const isDir = await stat(dir).then(
+        (s) => s.isDirectory(),
+        () => false,
+      );
+      if (!isDir) throw new ApiError("notFound", dir);
+    } else {
+      const r = await dialog.showOpenDialog({ properties: ["openDirectory", "createDirectory"] });
+      dir = r.canceled ? undefined : r.filePaths[0];
+    }
     if (!dir) return null;
     const inv: Inventory = this.inventory.inventory ?? (await collect(this.host.config()));
     await writeInventory(inv, dir);
@@ -97,6 +119,11 @@ export class ToolsService {
       id: s.profile.id,
       name: displayName(s.profile),
       detected: s.detected,
+      root: s.profile.root,
+      offeredCategories: offeredCategories(s.profile),
+      credentialsInKeychain: s.profile.credentials_in_keychain,
+      exclude: s.profile.exclude,
+      notCopiedBytes: s.notCopiedBytes,
       bytesByCategory: s.bytesByCategory,
       totalBytes: s.totalBytes,
       conversations: s.conversations,

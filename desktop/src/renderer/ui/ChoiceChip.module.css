@@ -15,8 +15,8 @@
     color var(--duration-state) var(--ease-out);
 }
 
-.chip:not([data-on]):hover,
-:global([data-simulate="hover"]) .chip:not([data-on]) {
+.chip:not([data-on]):not([aria-disabled]):hover,
+:global([data-simulate="hover"]) .chip:not([data-on]):not([aria-disabled]) {
   background: var(--color-row-hover);
 }
 
@@ -24,4 +24,8 @@
   box-shadow: none;
   background: var(--color-primary);
   color: var(--color-primary-text);
+}
+
+.chip[aria-disabled="true"] {
+  opacity: var(--opacity-disabled);
 }

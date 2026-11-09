@@ -39,7 +39,7 @@ import {
 } from "../../ui/index.ts";
 import { Column, Muted, Row, Simulate, Stateful, Surface, Title } from "../helpers.tsx";
 import { fileMenu, SAMPLE_FILES_ROWS, type SampleFile } from "../sample-data.ts";
-import { s } from "../sample-text.ts";
+import { SAMPLE_BRANCHES, s } from "../sample-text.ts";
 import { bool, num, type Story, text } from "../story.ts";
 
 const RAIL = [
@@ -152,6 +152,11 @@ export const navigation = (): Story[] => [
             options={[
               { value: "chat", label: s("gallery.sample.option_a") },
               { value: "work", label: s("gallery.sample.option_b") },
+              {
+                value: "later",
+                label: s("gallery.sample.tab_files"),
+                disabledReason: s("gallery.sample.reason_backup_running"),
+              },
             ]}
             value={value}
             onChange={set}
@@ -165,20 +170,32 @@ export const navigation = (): Story[] => [
     group: "navigation",
     component: "TabBar",
     render: () => (
-      <Stateful initial={0}>
-        {(value, set) => (
-          <TabBar
-            label={s("gallery.sample.options")}
-            options={[
-              { value: 0, label: s("gallery.sample.tab_overview") },
-              { value: 1, label: s("gallery.sample.tab_projects") },
-              { value: 2, label: s("gallery.sample.tab_files") },
-            ]}
-            value={value}
-            onChange={set}
-          />
-        )}
-      </Stateful>
+      <Column gap={10}>
+        <Stateful initial={0}>
+          {(value, set) => (
+            <TabBar
+              label={s("gallery.sample.options")}
+              options={[
+                { value: 0, label: s("gallery.sample.tab_overview") },
+                { value: 1, label: s("gallery.sample.tab_projects") },
+                { value: 2, label: s("gallery.sample.tab_files") },
+              ]}
+              value={value}
+              onChange={set}
+            />
+          )}
+        </Stateful>
+        <TabBar
+          label={s("gallery.sample.options")}
+          disabledReason={s("gallery.sample.reason_backup_running")}
+          options={[
+            { value: 0, label: s("gallery.sample.tab_overview") },
+            { value: 1, label: s("gallery.sample.tab_projects") },
+          ]}
+          value={0}
+          onChange={() => {}}
+        />
+      </Column>
     ),
   },
 ];
@@ -205,9 +222,9 @@ function SheetStory() {
         footer={footer(() => {})}
       >
         <Column gap={4}>
-          <span>feat/in-app-updates</span>
-          <span>fix/ai-wal-database-backup</span>
-          <span>ci/semver-release</span>
+          {SAMPLE_BRANCHES.map((b) => (
+            <span key={b}>{b}</span>
+          ))}
         </Column>
       </Sheet>
       <Row>

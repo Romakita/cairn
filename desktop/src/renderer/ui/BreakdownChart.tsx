@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { Fmt } from "../../core/format.ts";
 import styles from "./BreakdownChart.module.css";
 
 export interface BreakdownItem {
@@ -41,13 +42,6 @@ function sector(start: number, end: number): string {
     `A ${INNER} ${INNER} 0 ${large} 0 ${point(INNER, s)}`,
     "Z",
   ].join(" ");
-}
-
-function percent(value: number, total: number): string {
-  const locale = typeof document === "undefined" ? undefined : document.documentElement.lang || undefined;
-  return new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 1 }).format(
-    value / Math.max(total, 1),
-  );
 }
 
 /** Anneau de répartition par catégorie (rayon intérieur 60 %), total au centre, légende détaillée. */
@@ -95,7 +89,7 @@ export function BreakdownChart({ items, total, caption, label }: BreakdownChartP
             <span className={styles.dot} style={{ "--part-color": item.color } as CSSProperties} />
             <span className={styles.name}>{item.label}</span>
             <span className={styles.value}>{item.valueLabel}</span>
-            <span className={styles.percent}>{percent(item.value, sum)}</span>
+            <span className={styles.percent}>{Fmt.percent(item.value, Math.max(sum, 1))}</span>
           </li>
         ))}
       </ul>

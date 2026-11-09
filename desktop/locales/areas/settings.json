@@ -43,7 +43,11 @@
     "settings.stepper.decrease": "Decrease",
     "settings.stepper.increase": "Increase",
     "settings.time.invalid": "Enter a time as HH:MM, for example 12:30.",
-    "settings.time.text": "Backups start at this time, or as soon as the Mac wakes up."
+    "settings.time.text": "Backups start at this time, or as soon as the Mac wakes up.",
+    "onboarding.ui.notifications_ready": "Cairn notifications are on",
+    "settings.ui.battery": "On battery, wait below {1}",
+    "settings.ui.alerts.low": "Almost full below {1} or {2}",
+    "settings.ui.alerts.critical": "Critical below {1} or {2}"
   },
   "fr": {
     "onboarding.need_time": "Indiquez l'heure de sauvegarde au format HH:MM.",
@@ -89,6 +93,10 @@
     "settings.stepper.decrease": "Diminuer",
     "settings.stepper.increase": "Augmenter",
     "settings.time.invalid": "Indiquez une heure au format HH:MM, par exemple 12:30.",
-    "settings.time.text": "Les sauvegardes démarrent à cette heure, ou dès le réveil du Mac."
+    "settings.time.text": "Les sauvegardes démarrent à cette heure, ou dès le réveil du Mac.",
+    "onboarding.ui.notifications_ready": "Les notifications de Cairn sont activées",
+    "settings.ui.battery": "Sur batterie, attendre sous {1}",
+    "settings.ui.alerts.low": "Presque plein sous {1} ou {2}",
+    "settings.ui.alerts.critical": "Critique sous {1} ou {2}"
   }
 }

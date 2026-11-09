@@ -155,7 +155,7 @@ export class DestinationsService {
   }
 
   /** Exécute un plan après confirmation (les mots de passe du Trousseau ne sont jamais supprimés). */
-  async remove(planId: string): Promise<Confirmed> {
+  async remove(planId: string, confirmed = false): Promise<Confirmed> {
     const entry = this.removals.get(planId);
     if (!entry) throw new ApiError("notFound", "unknown or expired removal plan");
     const { plan } = entry;
@@ -171,14 +171,16 @@ export class DestinationsService {
           ? "config.toml"
           : "runs.json",
     );
-    const ok = await this.host.confirm({
-      message: t("destination.delete.title", label),
-      detail: [t("destination.delete.text"), itemList(items), bytes > 0 ? t("confirm.irreversible") : ""]
-        .filter((x) => x !== "")
-        .join("\n\n"),
-      confirm: bytes > 0 ? t("destination.delete.confirm_all", Fmt.bytes(bytes)) : t("destination.delete.confirm"),
-      destructive: bytes > 0,
-    });
+    const ok =
+      confirmed ||
+      (await this.host.confirm({
+        message: t("destination.delete.title", label),
+        detail: [t("destination.delete.text"), itemList(items), bytes > 0 ? t("confirm.irreversible") : ""]
+          .filter((x) => x !== "")
+          .join("\n\n"),
+        confirm: bytes > 0 ? t("destination.delete.confirm_all", Fmt.bytes(bytes)) : t("destination.delete.confirm"),
+        destructive: bytes > 0,
+      }));
     if (!ok) return { cancelled: true };
     this.removals.delete(planId);
     await removeDestination(plan, {
@@ -224,7 +226,7 @@ export class DestinationsService {
    * verrou d'opération, puis compactage de l'image). Une destination illisible avec une rétention plus courte est
    * refusée.
    */
-  async applyRetention(planId: string): Promise<Confirmed<{ deleted: string[]; failed: string[] }>> {
+  async applyRetention(planId: string, confirmed = false): Promise<Confirmed<{ deleted: string[]; failed: string[] }>> {
     const entry = this.retentions.get(planId);
     if (!entry) throw new ApiError("notFound", "unknown or expired retention plan");
     const { view, retention } = entry.plan;
@@ -232,12 +234,14 @@ export class DestinationsService {
     const d = this.destination(view.destination);
     let deleted: { deleted: string[]; failed: string[] } = { deleted: [], failed: [] };
     if (view.decision === "confirm" && view.excess) {
-      const ok = await this.host.confirm({
-        message: t("backup.retention.confirm_title", view.excess.names.length, Fmt.bytes(view.excess.bytes)),
-        detail: [itemList(view.excess.names), t("confirm.irreversible")].join("\n\n"),
-        confirm: t("action.delete"),
-        destructive: true,
-      });
+      const ok =
+        confirmed ||
+        (await this.host.confirm({
+          message: t("backup.retention.confirm_title", view.excess.names.length, Fmt.bytes(view.excess.bytes)),
+          detail: [itemList(view.excess.names), t("confirm.irreversible")].join("\n\n"),
+          confirm: t("action.delete"),
+          destructive: true,
+        }));
       if (!ok) return { cancelled: true };
       const machine = await this.host.machine();
       deleted = await deleteExcessVersions({ stateDir: this.host.paths.state }, view.excess.names, async () => {

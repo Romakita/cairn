@@ -29,13 +29,27 @@
   pointer-events: none;
 }
 
+.total,
+.caption {
+  /* Dans le trou de l'anneau (diamètre intérieur 102) : jamais sur les secteurs. */
+  max-width: 84px;
+  text-align: center;
+}
+
 .total {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font: var(--text-card-title);
   font-variant-numeric: tabular-nums;
   color: var(--color-text);
 }
 
 .caption {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   font: var(--text-meta);
   color: var(--color-text-secondary);
 }

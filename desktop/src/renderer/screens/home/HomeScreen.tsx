@@ -41,15 +41,12 @@ import {
 export function HomeScreen({ navigate }: ScreenProps) {
   const snapshot = useSnapshot();
   const api = useApi();
-  const [checkRequested, setCheckRequested] = useState(false);
   const [checkPending, setCheckPending] = useState(false);
   if (!snapshot) return <div data-testid="screen-home" />;
 
-  // « Tout vérifier » = analyse + git + joignabilité : en cours tant que l'analyse ou git tournent après la demande.
-  const busy = snapshot.analysis.running || snapshot.git.running;
-  const checking = checkPending || (checkRequested && busy);
+  // « Tout vérifier » = analyse + git + joignabilité, suivi par le main (`hub.checking`).
+  const checking = checkPending || snapshot.hub.checking;
   const startCheck = async () => {
-    setCheckRequested(true);
     setCheckPending(true);
     try {
       await api.checkAll();
@@ -59,7 +56,6 @@ export function HomeScreen({ navigate }: ScreenProps) {
   };
   const stopCheck = async () => {
     await api.cancelCheckAll();
-    setCheckRequested(false);
   };
 
   const top = snapshot.hub.topIssue;
@@ -182,12 +178,6 @@ function HomeSidebar({ snapshot, navigate }: { snapshot: AppSnapshot; navigate: 
 
 // MARK: En-tête
 
-/** Dernière vérification connue : fin de la dernière analyse ou du dernier passage git. */
-function lastChecked(snapshot: AppSnapshot): number | null {
-  const dates = [snapshot.analysis.finishedAt, snapshot.git.finishedAt].filter((d): d is number => d !== null);
-  return dates.length > 0 ? Math.max(...dates) : null;
-}
-
 function HubHeader({
   snapshot,
   checking,
@@ -203,7 +193,7 @@ function HubHeader({
   const icon = hub.overall === "ok" ? CircleCheck : hub.overall === "attention" ? TriangleAlert : OctagonX;
   const shown = hub.causes.slice(0, 3);
   const more = hub.causes.length - shown.length;
-  const checked = lastChecked(snapshot);
+  const checked = hub.lastCheck;
   return (
     <section className={styles.header} aria-labelledby="hub-title">
       <span className={styles.statusCircle} data-level={hub.overall}>
@@ -301,6 +291,7 @@ function ModuleCard({
   const detail = busy && m !== "backup" ? t("hub.progress.running") : detailText(state.detail);
   const failed = state.figure.kind === "failed";
   const reason = state.action === "backupNow" ? backupNowBlocker(snapshot) : undefined;
+  const volume = m === "storage" ? snapshot.storage.volumes[0] : undefined;
   return (
     <article
       className={styles.card}
@@ -321,6 +312,11 @@ function ModuleCard({
           {figureText(state.figure)}
         </span>
         <span className={styles.detail}>{detail ?? " "}</span>
+        {volume && (
+          <span className={styles.detail}>
+            {t("home.used_of", Fmt.bytes(volume.total - volume.free), Fmt.bytes(volume.total))}
+          </span>
+        )}
       </div>
       <div className={styles.chart}>
         <ModuleChart module={m} snapshot={snapshot} />
@@ -341,6 +337,18 @@ function ModuleCard({
 function ModuleChart({ module, snapshot }: { module: HubModule; snapshot: AppSnapshot }) {
   switch (module) {
     case "storage": {
+      // Jauge « X utilisés sur Y » du volume principal ; à défaut, part récupérable de la dernière analyse.
+      const volume = snapshot.storage.volumes[0];
+      if (volume && volume.total > 0) {
+        const used = volume.total - volume.free;
+        return (
+          <FillBar
+            value={used / volume.total}
+            color="var(--tint)"
+            label={t("home.used_of", Fmt.bytes(used), Fmt.bytes(volume.total))}
+          />
+        );
+      }
       const summary = snapshot.analysis.summary;
       if (!summary || summary.totalBytes <= 0) return <FillBar value={0} label={t("home.chart.reclaimable")} />;
       const reclaimable = Object.values(summary.reclaimableByType).reduce((a, b) => a + b, 0);

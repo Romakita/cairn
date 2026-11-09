@@ -17,6 +17,17 @@ import {
 } from "../../../shared/contract.ts";
 import { simulatedProgress, simulationFinished } from "./backup-simulation.ts";
 import { destinationView, FIXTURE_NOW, GB, node, sampleInventory } from "./base.ts";
+
+/** Volume par partie d'une sauvegarde simulée (`bytesByPart`). */
+const SIMULATED_PARTS: Record<string, number> = {
+  "folders/workspaces": 61_200_000,
+  "folders/Projects": 8_400_000,
+  home: 3_100_000,
+  "ai/claude-code/conversations": 1_300_000,
+  "ai/codex/conversations": 380_000,
+  tools: 20_000,
+};
+
 import { fixturePlan, RESTORE_SECONDS, restoreProgressAt } from "./restore.ts";
 import { SCENARIOS, type ScenarioId } from "./scenarios.ts";
 
@@ -50,12 +61,16 @@ export function createFixtureApi(options: FixtureOptions): FixtureApi {
   let state: AppSnapshot = { ...scenario.build(), language };
   let clock = options.startAt ?? 0;
   let backupStart: number | null = scenario.backupRunning ? 0 : null;
-  let backupDryRun = false;
+  let backupDryRun = scenario.backupDryRun ?? false;
   let backupTargets: string[] | null = null;
+  /** Carte Sauvegarde de l'accueil avant le lancement (rendue telle quelle après une simulation). */
+  let backupFigure: AppSnapshot["hub"]["modules"][number]["figure"] | null = null;
+  let tokens = 0;
   let analysisStart: number | null = scenario.analysisRunning ? 0 : null;
   let gitStart: number | null = null;
   let restoreStart: number | null = null;
   let restorePlan: RestorePlanView | null = null;
+  let volumeCreated = false;
   const restorePlans = new Map<string, RestorePlanView>();
   const retentionPlans = new Map<string, { destination: string; retention: Retention }>();
   const stopped = new Set<string>();
@@ -114,8 +129,27 @@ export function createFixtureApi(options: FixtureOptions): FixtureApi {
     if (finished) {
       backupStart = null;
       stopped.clear();
+      const previous = backupFigure;
+      backupFigure = null;
       state = {
         ...state,
+        backup: {
+          ...state.backup,
+          // Résultats de la dernière exécution, avec le volume par partie (à copier, en simulation).
+          lastResults: progress.map((p) => ({
+            destination: p.destination,
+            error: p.result?.error ?? null,
+            waiting: false,
+            stopped: p.result?.status === "stopped",
+            damagedFiles: [],
+            imageCheck: null,
+            log: p.result?.log ?? null,
+            version: p.result?.version ?? null,
+            filesTransferred: p.result?.filesTransferred ?? 0,
+            bytesTransferred: p.result?.bytesTransferred ?? 0,
+            bytesByPart: p.result?.status === "succeeded" ? SIMULATED_PARTS : {},
+          })),
+        },
         destinations: state.destinations.map((d) => ({
           ...d,
           unavailable: { simulate: null, verify: null, verifyFull: null, backup: null },
@@ -128,7 +162,10 @@ export function createFixtureApi(options: FixtureOptions): FixtureApi {
           ...state.hub,
           modules: state.hub.modules.map((m) =>
             m.module === "backup" && m.figure.kind === "backingUp"
-              ? { ...m, figure: { kind: "lastBackup", date: FIXTURE_NOW } }
+              ? {
+                  ...m,
+                  figure: backupDryRun && previous ? previous : { kind: "lastBackup" as const, date: FIXTURE_NOW },
+                }
               : m,
           ),
         },
@@ -214,6 +251,10 @@ export function createFixtureApi(options: FixtureOptions): FixtureApi {
     stepBackup();
     stepAnalysis();
     stepGit();
+    // « Tout vérifier » fini quand l'analyse et git le sont (comme `checkAll` du main).
+    if (state.hub.checking && analysisStart === null && gitStart === null) {
+      state = { ...state, hub: { ...state.hub, checking: false, lastCheck: Date.now() } };
+    }
   }
 
   step();
@@ -291,9 +332,17 @@ export function createFixtureApi(options: FixtureOptions): FixtureApi {
       backupDryRun = args.dryRun ?? false;
       backupTargets = args.destinations ?? null;
       stopped.clear();
+      backupFigure = state.hub.modules.find((m) => m.module === "backup")?.figure ?? null;
       state = {
         ...state,
         backup: { ...state.backup, dryRun: backupDryRun, startedAt: Date.now(), lastError: null, lastResults: null },
+        // Carte Sauvegarde de l'accueil « en cours », comme le main (`isBackingUp`).
+        hub: {
+          ...state.hub,
+          modules: state.hub.modules.map((m) =>
+            m.module === "backup" ? { ...m, figure: { kind: "backingUp" as const } } : m,
+          ),
+        },
       };
       step();
       publish();
@@ -380,9 +429,11 @@ export function createFixtureApi(options: FixtureOptions): FixtureApi {
     },
     async checkAll() {
       record("checkAll");
+      if (state.hub.checking) throw new CairnApiError("busy", t("hub.checking"));
       if (!state.analysis.running) {
         analysisStart = clock;
         gitStart = clock;
+        state = { ...state, hub: { ...state.hub, checking: true } };
         step();
         publish();
       }
@@ -393,6 +444,7 @@ export function createFixtureApi(options: FixtureOptions): FixtureApi {
       gitStart = null;
       update((s) => ({
         ...s,
+        hub: { ...s.hub, checking: false },
         analysis: { ...s.analysis, running: false, progress: null },
         git: { ...s.git, running: false, progress: null },
       }));
@@ -440,7 +492,17 @@ export function createFixtureApi(options: FixtureOptions): FixtureApi {
     },
     async gitCompact(args) {
       record("gitCompact", args);
-      return { cancelled: false };
+      const report = state.git.reports.find((r) => r.path === args.repo);
+      const before = report?.gitBytes ?? 0;
+      const after = Math.round(before * (args.pruneNow ? 0.55 : 0.7));
+      update((s) => ({
+        ...s,
+        git: {
+          ...s.git,
+          reports: s.git.reports.map((r) => (r.path === args.repo ? { ...r, gitBytes: after, looseBytes: 0 } : r)),
+        },
+      }));
+      return { cancelled: false, value: { repo: args.repo, before, after } };
     },
     async gitTrashRepo(args) {
       record("gitTrashRepo", args);
@@ -460,9 +522,9 @@ export function createFixtureApi(options: FixtureOptions): FixtureApi {
         }));
       }, 300);
     },
-    async toolsExport() {
-      record("toolsExport");
-      return { dir: "/Users/demo/Desktop" };
+    async toolsExport(args) {
+      record("toolsExport", args);
+      return { dir: args.dir ?? "/Users/demo/Desktop" };
     },
     async aiRefresh() {
       record("aiRefresh");
@@ -527,9 +589,27 @@ export function createFixtureApi(options: FixtureOptions): FixtureApi {
           { path: ".docker", selected: false },
         ],
         ai: [
-          { id: "claude-code", detected: true, categories: ["config", "conversations", "memories"] },
-          { id: "claude-desktop", detected: false, categories: [] },
-          { id: "codex", detected: true, categories: ["config", "conversations"] },
+          {
+            id: "claude-code",
+            name: "Claude Code",
+            detected: true,
+            categories: ["config", "conversations", "memories"],
+            offeredCategories: ["conversations", "config", "memories"],
+          },
+          {
+            id: "claude-desktop",
+            name: "Claude Desktop",
+            detected: false,
+            categories: [],
+            offeredCategories: ["conversations", "config"],
+          },
+          {
+            id: "codex",
+            name: "Codex",
+            detected: true,
+            categories: ["config", "conversations"],
+            offeredCategories: ["conversations", "config", "memories", "credentials"],
+          },
         ],
         destination: { kind: "later" },
         encrypted: true,
@@ -538,6 +618,7 @@ export function createFixtureApi(options: FixtureOptions): FixtureApi {
         weekday: "monday",
         background: false,
         language: "auto",
+        notifications: true,
       };
     },
     async onboardingFinish(args) {
@@ -712,7 +793,16 @@ export function createFixtureApi(options: FixtureOptions): FixtureApi {
       const source = args.source;
       if (source.kind === "destination" && !state.destinations.some((d) => d.id === source.destination))
         throw new CairnApiError("notFound", t("cli.backup.no_destination"));
-      const plan = fixturePlan(state, args, scenario.newMac === true, t, `restore-${calls.length}`);
+      const raw = fixturePlan(state, args, scenario.newMac === true, t, `restore-${calls.length}`);
+      // Volume « workspaces » créé depuis l'écran : plus de cible absente.
+      const plan =
+        volumeCreated && raw.details
+          ? {
+              ...raw,
+              details: { ...raw.details, folders: raw.details.folders.map((f) => ({ ...f, targetMissing: false })) },
+              warnings: raw.warnings.filter((w) => !w.includes("/Volumes/workspaces")),
+            }
+          : raw;
       if (plan.simulated) restorePlans.set(plan.planId, plan);
       update((s) => ({ ...s, restore: { ...s.restore, plan } }));
       return plan;
@@ -729,6 +819,30 @@ export function createFixtureApi(options: FixtureOptions): FixtureApi {
       step();
       publish();
       return { cancelled: false };
+    },
+
+    async createWorkspacesVolume(args) {
+      record("createWorkspacesVolume", args);
+      // Le volume existe désormais : les cibles sous /Volumes/workspaces ne manquent plus.
+      update((s) => ({
+        ...s,
+        messages: [
+          ...s.messages,
+          {
+            id: s.messages.length + 100,
+            level: "success",
+            text: t("restore.ui.volume_created", "workspaces"),
+            date: Date.now(),
+          },
+        ],
+      }));
+      volumeCreated = true;
+      return { cancelled: false };
+    },
+    async prepareConfirmation(args) {
+      record("prepareConfirmation", args);
+      tokens += 1;
+      return { token: `00000000-0000-4000-8000-${String(tokens).padStart(12, "0")}`, expiresIn: 120_000 };
     },
 
     async checkUpdates() {

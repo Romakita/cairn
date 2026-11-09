@@ -86,15 +86,6 @@
   gap: var(--space-3);
 }
 
-.disabledChip {
-  display: inline-flex;
-  opacity: 0.4;
-}
-
-.disabledChip > * {
-  pointer-events: none;
-}
-
 .note,
 .warning {
   display: flex;

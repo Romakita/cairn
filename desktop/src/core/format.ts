@@ -39,16 +39,21 @@ function bytes(b: number): string {
   return `${fractionDigits(language, v, 0, maxDigits)} ${units[i]}`;
 }
 
-/** Part de `total` à une décimale (« 12,3 % », « 12.3% ») ; « – » si le total est nul, « <0,1 % » si la part est infime. */
-function percent(part: number, total: number): string {
+/**
+ * Part de `total` à une décimale (« 12,3 % », « 12.3% ») ou à `digits` décimales (0 : avancement, seuils) ; « – » si
+ * le total est nul, « <0,1 % » (« <1 % » sans décimale) si la part est infime.
+ */
+function percent(part: number, total: number, digits = 1): string {
   if (!(total > 0)) return "–";
   const p = part / total;
-  if (p > 0 && p < 0.001) return `<${number(0.1, 1)} %`;
-  return numberFormat(currentLanguage(), {
+  const format = numberFormat(currentLanguage(), {
     style: "percent",
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  }).format(p);
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+  const smallest = 10 ** -(digits + 2);
+  if (p > 0 && p < smallest) return `<${number(smallest * 100, digits)} %`;
+  return format.format(p);
 }
 
 /** Entier avec séparateur de milliers (« 1 234 567 », « 1,234,567 »). */

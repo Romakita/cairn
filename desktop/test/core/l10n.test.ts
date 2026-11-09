@@ -42,7 +42,8 @@ describe("localization", () => {
     expect(fr.filter((k) => !en.includes(k))).toEqual([]);
     expect(en.filter((k) => !fr.includes(k))).toEqual([]);
     expect(pluralKeys("en-US").sort()).toEqual(pluralKeys("fr-FR").sort());
-    expect(pluralKeys("en-US")).toHaveLength(18);
+    // 18 pluriels dans les catalogues de la 0.8.0 ; les zones des écrans en ajoutent d'autres.
+    expect(pluralKeys("en-US").filter((k) => k in enCatalog)).toHaveLength(18);
   });
 
   test("chaque paire a les mêmes jetons", () => {

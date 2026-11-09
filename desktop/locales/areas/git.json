@@ -6,7 +6,6 @@
       "one": "{1} with work not pushed",
       "other": "{1} with work not pushed"
     },
-    "git.page.compacted": "{1} compacted.",
     "git.page.empty_title": "No repository analyzed yet",
     "git.page.failed": {
       "one": "{1} repository could not be analyzed",
@@ -21,6 +20,8 @@
     "git.page.missing_folder": "Its folder no longer exists.",
     "git.page.no_folder": "Add a tracked folder in Settings first.",
     "git.page.no_repo": "No git repository in the tracked folders.",
+    "git.page.option.at_risk": "Also propose worktrees with work in progress",
+    "git.page.option.at_risk.text": "Changes not committed or not pushed are lost if you delete them.",
     "git.page.option.days": {
       "one": "{1} day",
       "other": "{1} days"
@@ -31,7 +32,13 @@
     "git.page.option.more": "More days",
     "git.page.option.stale": "Inactive worktree after",
     "git.page.option.stale.text": "A worktree without changes for this long is marked inactive.",
+    "git.page.option.unmerged": "Also propose branches never merged",
+    "git.page.option.unmerged.text": "Their commits are lost if you delete them.",
+    "git.page.option.worktrees_only": "Worktrees only",
+    "git.page.option.worktrees_only.text": "Branches are left out of the analysis.",
     "git.page.options": "Options…",
+    "git.page.options.next": "Next analysis",
+    "git.page.options.saved": "Saved settings",
     "git.page.options.text": "Saved in config.toml and used by the next analysis.",
     "git.page.options.title": "Analysis options",
     "git.page.reclaimable_detail": "By deleting the listed branches",
@@ -50,7 +57,6 @@
       "one": "{1} avec du travail non poussé",
       "other": "{1} avec du travail non poussé"
     },
-    "git.page.compacted": "{1} compacté.",
     "git.page.empty_title": "Aucun dépôt analysé",
     "git.page.failed": {
       "one": "{1} dépôt n'a pas pu être analysé",
@@ -65,6 +71,8 @@
     "git.page.missing_folder": "Son dossier n'existe plus.",
     "git.page.no_folder": "Ajoutez d'abord un dossier suivi dans les Réglages.",
     "git.page.no_repo": "Aucun dépôt git dans les dossiers suivis.",
+    "git.page.option.at_risk": "Proposer aussi les worktrees avec du travail en cours",
+    "git.page.option.at_risk.text": "Les modifications non enregistrées ou non poussées sont perdues si vous les supprimez.",
     "git.page.option.days": {
       "one": "{1} jour",
       "other": "{1} jours"
@@ -75,7 +83,13 @@
     "git.page.option.more": "Plus de jours",
     "git.page.option.stale": "Worktree inactif après",
     "git.page.option.stale.text": "Un worktree sans modification depuis ce délai est marqué inactif.",
+    "git.page.option.unmerged": "Proposer aussi les branches jamais fusionnées",
+    "git.page.option.unmerged.text": "Leurs commits sont perdus si vous les supprimez.",
+    "git.page.option.worktrees_only": "Seulement les worktrees",
+    "git.page.option.worktrees_only.text": "Les branches ne sont pas analysées.",
     "git.page.options": "Options…",
+    "git.page.options.next": "Prochaine analyse",
+    "git.page.options.saved": "Réglages enregistrés",
     "git.page.options.text": "Enregistrées dans config.toml et appliquées à la prochaine analyse.",
     "git.page.options.title": "Options de l'analyse",
     "git.page.reclaimable_detail": "En supprimant les branches listées",

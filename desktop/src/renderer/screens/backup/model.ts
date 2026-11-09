@@ -209,6 +209,8 @@ export interface ShownResult {
   damagedFiles: string[];
   imageCheck: { ok: boolean; output: string } | null;
   log: string | null;
+  /** Volume par partie (`folders/<nom>`, `home`, `ai/<outil>/<catégorie>`, `tools`) ; vide s'il est inconnu. */
+  bytesByPart: Record<string, number>;
 }
 
 function fromLast(r: BackupResultView, dryRun: boolean): ShownResult {
@@ -224,13 +226,14 @@ function fromLast(r: BackupResultView, dryRun: boolean): ShownResult {
     damagedFiles: r.damagedFiles,
     imageCheck: r.imageCheck ? { ok: r.imageCheck.ok, output: r.imageCheck.output } : null,
     log: r.log,
+    bytesByPart: r.bytesByPart,
   };
 }
 
 export function resultFor(snapshot: AppSnapshot, id: string): ShownResult | null {
   const p = snapshot.backup.destinations.find((x) => x.destination === id);
-  if (p?.result) return { destination: id, dryRun: p.dryRun, ...p.result };
   const last = snapshot.backup.lastResults?.find((r) => r.destination === id);
+  if (p?.result) return { destination: id, dryRun: p.dryRun, ...p.result, bytesByPart: last?.bytesByPart ?? {} };
   return last ? fromLast(last, snapshot.backup.dryRun) : null;
 }
 
@@ -263,4 +266,31 @@ export function retentionCoverage(r: Retention): string {
 /** Le home sauvegardé contient des secrets (~/.ssh, ~/.aws…). */
 export function homeHasSecrets(include: readonly string[]): boolean {
   return include.some((p) => /^\.(ssh|aws|gnupg|kube|docker|netrc)(\/|$)/.test(p.replace(/^~\//, "")));
+}
+
+/** Volume par partie regroupé pour l'affichage : un dossier, le home, un outil IA, les outils CLI ; du plus gros au
+ *  plus petit. `aiName` donne le nom d'un outil IA. */
+export function partVolumes(
+  bytesByPart: Record<string, number>,
+  aiName: (id: string) => string,
+): { key: string; label: string; bytes: number }[] {
+  const groups = new Map<string, { label: string; bytes: number }>();
+  for (const [part, bytes] of Object.entries(bytesByPart)) {
+    const [head, name] = part.split("/");
+    const key = head === "ai" || head === "folders" ? `${head}/${name ?? ""}` : (head ?? part);
+    const label =
+      head === "folders"
+        ? (name ?? part)
+        : head === "ai"
+          ? aiName(name ?? "")
+          : head === "home"
+            ? t("restore.ui.part.home")
+            : head === "tools"
+              ? t("restore.part.tools")
+              : part;
+    const g = groups.get(key) ?? { label, bytes: 0 };
+    g.bytes += bytes;
+    groups.set(key, g);
+  }
+  return [...groups.entries()].map(([key, g]) => ({ key, ...g })).sort((a, b) => b.bytes - a.bytes);
 }

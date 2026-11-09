@@ -10,6 +10,7 @@ import { Badge } from "../../ui/Badge.tsx";
 import { Banner } from "../../ui/Banner.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { CairnLogo } from "../../ui/CairnLogo.tsx";
+import { FillBar } from "../../ui/FillBar.tsx";
 import { IconButton } from "../../ui/IconButton.tsx";
 import { IconTile } from "../../ui/IconTile.tsx";
 import { MoreButton } from "../../ui/MoreButton.tsx";
@@ -58,7 +59,7 @@ export function MenuBarPanel() {
           <Banner key={a.volume} tone={a.level === 2 ? "danger" : "warning"}>
             <strong>{t(a.level === 2 ? "alerts.critical_title" : "alerts.low_title", a.volume)}</strong>
             <br />
-            {t("alerts.body", Fmt.bytes(a.available), Fmt.number(a.percentFree, 1))}
+            {t("menubar.alert_body", Fmt.bytes(a.available), Fmt.percent(a.percentFree, 100))}
             {a.daysToFull !== null && ` ${t("alerts.forecast", a.daysToFull)}`}
             <span className={styles.alertAction}>
               <Button variant="outline" onClick={() => void api.snoozeAlert({ volume: a.volume })}>
@@ -122,6 +123,9 @@ function StorageTile({ snapshot }: { snapshot: AppSnapshot }) {
   const color = alert ? (alert.level === 2 ? "var(--status-error)" : "var(--status-attention)") : undefined;
   const r = reclaimable(snapshot);
   const freeText = free !== null ? Fmt.bytes(free) : "–";
+  const volume = snapshot.storage.volumes[0];
+  const used = volume ? volume.total - volume.free : 0;
+  const usedText = volume ? t("home.used_of", Fmt.bytes(used), Fmt.bytes(volume.total)) : null;
   return (
     <section className={styles.tile} aria-label={t("hub.module.storage")}>
       <div className={styles.storage}>
@@ -134,6 +138,12 @@ function StorageTile({ snapshot }: { snapshot: AppSnapshot }) {
           <div className={styles.freeBlock}>
             <span className={styles.bigValue}>{freeText}</span>
             <span className={styles.caption}>{t("home.free")}</span>
+            {volume && usedText && (
+              <>
+                <FillBar value={volume.total > 0 ? used / volume.total : 0} label={usedText} />
+                <span className={styles.small}>{usedText}</span>
+              </>
+            )}
           </div>
         )}
         <div className={styles.reclaim}>
@@ -154,7 +164,7 @@ function nextBackupText(snapshot: AppSnapshot): string | null {
   const nexts = snapshot.destinations.map((d) => d.nextBackup).filter((n): n is number => n !== null);
   if (nexts.length === 0) return null;
   const next = Math.min(...nexts);
-  if (next <= Date.now()) return t("menu.next_backup_due");
+  if (next <= Date.now()) return t("menubar.next_backup_due");
   return t("menu.next_backup", isToday(next) ? timeOfDay(next) : Fmt.date(toDate(next)));
 }
 
@@ -166,7 +176,7 @@ function BackupTile({ snapshot }: { snapshot: AppSnapshot }) {
   const title = backup.running
     ? t("status.backing_up")
     : last !== null
-      ? t("menu.backed_up", relativeDate(last))
+      ? t("menubar.backed_up", relativeDate(last))
       : t("home.no_backup");
   const lines = [
     destinations.length === 0 ? t("home.no_destination") : null,

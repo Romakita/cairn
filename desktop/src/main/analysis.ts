@@ -20,7 +20,7 @@ import { t } from "../core/l10n.ts";
 import { isRegenerable } from "../core/regenerable.ts";
 import { type FolderScan, type Node, ScanContext, type ScanProgress, scanFolders } from "../core/scanner.ts";
 import { AlertLevel, checkStorage, type StorageAlert, snoozeVolume, volumeInfo } from "../core/storage-alerts.ts";
-import type { AnalysisView, NodeView, RemovalOutcome, StorageView } from "../shared/contract.ts";
+import type { AnalysisView, NodeView, RemovalOutcome, StorageView, VolumeView } from "../shared/contract.ts";
 import { itemList } from "./confirm.ts";
 import { ApiError } from "./errors.ts";
 import type { Host } from "./host.ts";
@@ -182,24 +182,29 @@ export class AnalysisService {
 
   // MARK: Suppression
 
-  /** Corbeille (par défaut) ou suppression définitive, après confirmation par le main. */
-  async remove(nodeIds: readonly number[], permanently: boolean): Promise<RemovalOutcome> {
+  /**
+   * Corbeille (par défaut) ou suppression définitive, après confirmation : la feuille de l'interface (`confirmed`)
+   * ou, à défaut, la boîte du main.
+   */
+  async remove(nodeIds: readonly number[], permanently: boolean, confirmed = false): Promise<RemovalOutcome> {
     if (this.ctx) throw new ApiError("busy", t("hub.checking"));
     const nodes = [...new Set(nodeIds)].map((id) => this.node(id));
     // Un élément dont un parent est aussi choisi est déjà compris.
     const chosen = nodes.filter((n) => !nodes.some((o) => o !== n && n.path.startsWith(`${o.path}/`)));
     const bytes = chosen.reduce((sum, n) => sum + n.size, 0);
-    const ok = await this.host.confirm({
-      message: permanently
-        ? t("confirm.delete.title", chosen.length, Fmt.bytes(bytes))
-        : t("confirm.trash.title", chosen.length, Fmt.bytes(bytes)),
-      detail: [
-        itemList(chosen.map((n) => n.path)),
-        permanently ? t("confirm.irreversible") : t("confirm.trash_note"),
-      ].join("\n\n"),
-      confirm: permanently ? t("action.delete") : t("action.trash"),
-      destructive: permanently,
-    });
+    const ok =
+      confirmed ||
+      (await this.host.confirm({
+        message: permanently
+          ? t("confirm.delete.title", chosen.length, Fmt.bytes(bytes))
+          : t("confirm.trash.title", chosen.length, Fmt.bytes(bytes)),
+        detail: [
+          itemList(chosen.map((n) => n.path)),
+          permanently ? t("confirm.irreversible") : t("confirm.trash_note"),
+        ].join("\n\n"),
+        confirm: permanently ? t("action.delete") : t("action.trash"),
+        destructive: permanently,
+      }));
     if (!ok) return { cancelled: true, removed: 0, freed: 0, failures: [] };
     const result = await removeNodes(chosen, { permanently, trash: (file) => shell.trashItem(file) });
     // Gros fichiers retirés de chaque analyse concernée (plusieurs dossiers suivis possibles).
@@ -267,6 +272,7 @@ function findByPath(root: Node, target: string): Node | null {
 export class StorageService {
   private alerts: StorageAlert[] = [];
   private freeBytes: number | null = null;
+  private volumes: VolumeView[] = [];
   private lastCheck: number | null = null;
   private timer: NodeJS.Timeout | null = null;
   private checking: Promise<void> | null = null;
@@ -305,9 +311,14 @@ export class StorageService {
       const result = await checkStorage({ paths: this.host.paths, folders, alerts: config.alerts });
       this.alerts = result.active;
       for (const a of result.notify) this.notify(a);
-      const first = config.folders[0];
-      const info = first ? await volumeInfo(folderExpandedPath(first)).catch(() => null) : null;
-      this.freeBytes = info?.availableImportant ?? null;
+      const volumes: VolumeView[] = [];
+      for (const f of config.folders) {
+        const info = await volumeInfo(folderExpandedPath(f)).catch(() => null);
+        if (info && !volumes.some((v) => v.volume === info.name))
+          volumes.push({ volume: info.name, free: info.availableImportant, total: info.total });
+      }
+      this.volumes = volumes;
+      this.freeBytes = volumes[0]?.free ?? null;
     } catch {
       // relevé impossible : on garde le précédent
     }
@@ -341,6 +352,6 @@ export class StorageService {
   }
 
   view(): StorageView {
-    return { alerts: this.alerts, freeBytes: this.freeBytes, lastCheck: this.lastCheck };
+    return { alerts: this.alerts, freeBytes: this.freeBytes, volumes: this.volumes, lastCheck: this.lastCheck };
   }
 }

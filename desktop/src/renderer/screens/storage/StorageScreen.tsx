@@ -5,6 +5,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Fmt } from "../../../core/format.ts";
 import { t } from "../../../core/l10n.ts";
 import type { AppSnapshot, Route } from "../../../shared/contract.ts";
+import { confirmedCall } from "../../api/confirm.ts";
 import { useApi, useSnapshot } from "../../api/hooks.ts";
 import { Banner } from "../../ui/Banner.tsx";
 import { Button } from "../../ui/Button.tsx";
@@ -75,7 +76,10 @@ function StorageContent({ snapshot, route, request, navigate }: ScreenProps & { 
     if (!removal) return;
     setRemoving(true);
     try {
-      const outcome = await api.removeNodes({ nodeIds: removal.map((i) => i.nodeId), permanently });
+      const outcome = await confirmedCall(api, "removeNodes", {
+        nodeIds: removal.map((i) => i.nodeId),
+        permanently,
+      });
       if (!outcome.cancelled) {
         const gone = new Set(removal.map((i) => i.nodeId));
         setSelection((s) => new Set([...s].filter((id) => !gone.has(id))));
@@ -168,7 +172,7 @@ function StorageContent({ snapshot, route, request, navigate }: ScreenProps & { 
           <strong>
             {alert.level === 2 ? t("alerts.critical_title", alert.volume) : t("alerts.low_title", alert.volume)}
           </strong>{" "}
-          {t("alerts.body", Fmt.bytes(alert.available), Fmt.number(alert.percentFree, 1))}
+          {t("menubar.alert_body", Fmt.bytes(alert.available), Fmt.percent(alert.percentFree, 100))}
           {alert.daysToFull !== null && ` ${t("alerts.forecast", alert.daysToFull)}`}
         </Banner>
       )}

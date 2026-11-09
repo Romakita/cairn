@@ -34,7 +34,13 @@
     "restore.ui.step.summary": "Summary",
     "restore.ui.step.version": "Version",
     "restore.ui.steps": "Restore steps",
-    "restore.ui.this_mac": "this Mac"
+    "restore.ui.this_mac": "this Mac",
+    "restore.ui.confirm.title": "Restore to this Mac?",
+    "restore.ui.confirm.total": "To copy: {1}",
+    "restore.ui.volume.title": "Create the “workspaces” volume?",
+    "restore.ui.volume.text": "Cairn adds an APFS volume named “workspaces” to the startup disk. It shares the disk's free space with your other volumes. You can delete it later in Disk Utility.",
+    "restore.ui.volume.busy": "Creating the volume…",
+    "restore.ui.volume_created": "The “{1}” volume was created."
   },
   "fr": {
     "restore.ui.again": "Restaurer autre chose",
@@ -71,6 +77,12 @@
     "restore.ui.step.summary": "Récapitulatif",
     "restore.ui.step.version": "Version",
     "restore.ui.steps": "Étapes de la restauration",
-    "restore.ui.this_mac": "ce Mac"
+    "restore.ui.this_mac": "ce Mac",
+    "restore.ui.confirm.title": "Restaurer sur ce Mac ?",
+    "restore.ui.confirm.total": "À copier : {1}",
+    "restore.ui.volume.title": "Créer le volume « workspaces » ?",
+    "restore.ui.volume.text": "Cairn ajoute un volume APFS nommé « workspaces » au disque de démarrage. Il partage l'espace libre du disque avec vos autres volumes. Vous pourrez le supprimer plus tard dans Utilitaire de disque.",
+    "restore.ui.volume.busy": "Création du volume…",
+    "restore.ui.volume_created": "Le volume « {1} » a été créé."
   }
 }

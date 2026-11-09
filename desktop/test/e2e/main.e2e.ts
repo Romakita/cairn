@@ -162,6 +162,32 @@ test("un appel IPC aux arguments invalides est refusé avant d'atteindre le core
   await app.close();
 });
 
+test("une seule confirmation : le jeton de la feuille évite la boîte du main, sans jeton elle décide", async () => {
+  const { home } = await configuredHome();
+  // La boîte native répond « Annuler » : seul un jeton valide laisse l'action se faire.
+  const app = await launch(home, { CAIRN_E2E_CONFIRM: "no" });
+  const window = await mainWindow(app);
+  const result = await window.evaluate(async () => {
+    const api = (window as unknown as WithCairn).cairn;
+    const without = await api.removeDestination({
+      planId: (await api.planDestinationRemoval({ id: "local", includeBackups: false })).planId,
+    });
+    const plan = await api.planDestinationRemoval({ id: "local", includeBackups: false });
+    // Jeton préparé pour d'autres arguments : refusé, la boîte du main répond « Annuler ».
+    const other = await api.prepareConfirmation({ method: "removeDestination", args: { planId: "autre-plan" } });
+    const wrong = await api.removeDestination({ planId: plan.planId, confirmation: other.token });
+    const good = await api.prepareConfirmation({ method: "removeDestination", args: { planId: plan.planId } });
+    const confirmed = await api.removeDestination({ planId: plan.planId, confirmation: good.token });
+    const snapshot = await api.getSnapshot();
+    return { without, wrong, confirmed, destinations: snapshot.destinations.length };
+  });
+  expect(result.without).toEqual({ cancelled: true });
+  expect(result.wrong).toEqual({ cancelled: true });
+  expect(result.confirmed).toEqual({ cancelled: false });
+  expect(result.destinations).toBe(0);
+  await app.close();
+});
+
 test("startBackup en simulation : progression poussée puis fin, rien d'écrit sur la destination", async () => {
   const { home, dest } = await configuredHome(30);
   const app = await launch(home);

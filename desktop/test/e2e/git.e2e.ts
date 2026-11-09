@@ -87,8 +87,12 @@ test("dépôt à risque mis à la corbeille après la case dédiée ; compactage
     .click();
   await page.getByRole("menuitem", { name: "Compact (git gc)…" }).click();
   sheet = page.getByRole("dialog");
+  // Élaguer tout de suite : case à cocher, décochée par défaut.
+  const prune = sheet.getByRole("checkbox", { name: "Also free the space of deleted branches now" });
+  await expect(prune).toHaveAttribute("aria-checked", "false");
+  await prune.click();
   await sheet.getByRole("button", { name: "Compact" }).click();
-  await expect(page.getByText("cairn compacted.")).toBeVisible();
+  await expect(page.getByText(/^cairn compacted: \.git went from .+ to .+\.$/)).toBeVisible();
   await page.close();
 });
 

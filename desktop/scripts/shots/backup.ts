@@ -28,6 +28,8 @@ export const shots: ScreenShot[] = [
   { name: "backup.running-24s", hash: "#/app/backup", scenario: "backup-running", at: 24 },
   { name: "backup.running-33s", hash: "#/app/backup", scenario: "backup-running", at: 33 },
   { name: "backup.running-done", hash: "#/app/backup", scenario: "backup-running", at: 40 },
+  { name: "backup.simulated", hash: "#/app/backup", scenario: "backup-simulated", at: 40 },
+  { name: "backup.simulated-fr", hash: "#/app/backup", scenario: "backup-simulated", at: 40, lang: "fr" },
   { name: "backup.failed", hash: "#/app/backup", scenario: "backup-failed" },
   { name: "backup.failed-disk", hash: "#/app/backup/disk", scenario: "backup-failed" },
   {

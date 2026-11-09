@@ -28,6 +28,8 @@ export const SCENARIO_IDS = [
   "unencrypted-destination",
   "restore",
   "backup-new-image",
+  "messages",
+  "backup-simulated",
 ] as const;
 export type ScenarioId = (typeof SCENARIO_IDS)[number];
 
@@ -38,6 +40,8 @@ export interface Scenario {
   build(): AppSnapshot;
   /** Une sauvegarde simulée tourne dès l'ouverture. */
   backupRunning?: boolean;
+  /** Cette sauvegarde est une simulation (`dryRun`) : rien n'est copié, le volume par partie est montré à la fin. */
+  backupDryRun?: boolean;
   /** Une analyse simulée tourne dès l'ouverture. */
   analysisRunning?: boolean;
   /** Mac neuf : la restauration demande le mot de passe de l'image et trouve les versions de l'ancien Mac. */
@@ -65,10 +69,12 @@ function empty(): AppSnapshot {
       summary: null,
       stale: true,
     },
-    storage: { alerts: [], freeBytes: null, lastCheck: null },
+    storage: { alerts: [], freeBytes: null, volumes: [], lastCheck: null },
     git: { ...s.git, reports: [], startedAt: null, finishedAt: null },
     ai: { status: "idle", tools: [], credentialsBlock: null, error: null },
     hub: {
+      lastCheck: null,
+      checking: false,
       overall: "ok",
       causes: [],
       topIssue: null,
@@ -186,6 +192,7 @@ function backupFailed(): AppSnapshot {
           version: null,
           filesTransferred: 0,
           bytesTransferred: 0,
+          bytesByPart: {},
         },
         {
           destination: "disk",
@@ -198,6 +205,7 @@ function backupFailed(): AppSnapshot {
           version: null,
           filesTransferred: 0,
           bytesTransferred: 0,
+          bytesByPart: {},
         },
       ],
     },
@@ -242,7 +250,12 @@ function diskCritical(): AppSnapshot {
   const alert = diskAlert(2, 3.1 * GB, 1.3);
   return {
     ...s,
-    storage: { alerts: [alert], freeBytes: alert.available, lastCheck: FIXTURE_NOW.getTime() },
+    storage: {
+      alerts: [alert],
+      freeBytes: alert.available,
+      volumes: [{ volume: "workspaces", free: alert.available, total: 238 * GB }, ...s.storage.volumes.slice(1)],
+      lastCheck: FIXTURE_NOW.getTime(),
+    },
     hub: {
       ...s.hub,
       overall: "attention",
@@ -428,6 +441,20 @@ function backupNewImage(): AppSnapshot {
   };
 }
 
+/** Messages brefs du main (barre de messages) : succès, avertissement et erreur. */
+function withMessages(): AppSnapshot {
+  const s = normalSnapshot();
+  const at = FIXTURE_NOW.getTime();
+  return {
+    ...s,
+    messages: [
+      { id: 1, level: "success", text: t("git.trashed", "/Volumes/workspaces/old-prototype"), date: at - 60_000 },
+      { id: 2, level: "warning", text: t("onboarding.keychain_error", "errSecAuthFailed"), date: at - 30_000 },
+      { id: 3, level: "error", text: t("cli.busy"), date: at },
+    ],
+  };
+}
+
 export const SCENARIOS: Readonly<Record<ScenarioId, Scenario>> = {
   empty: { id: "empty", description: "First launch: no config.toml, onboarding", build: empty },
   normal: { id: "normal", description: "Two destinations backed up yesterday, recent analysis", build: normalSnapshot },
@@ -479,6 +506,24 @@ export const SCENARIOS: Readonly<Record<ScenarioId, Scenario>> = {
     id: "backup-new-image",
     description: "First backup to a new encrypted image: its password is shown once",
     build: backupNewImage,
+  },
+  "backup-simulated": {
+    id: "backup-simulated",
+    description: "Simulation to two destinations (use at=40 for the result: volume to copy by part)",
+    build: () => {
+      const s = backupRunning();
+      return {
+        ...s,
+        backup: { ...s.backup, dryRun: true, destinations: s.backup.destinations.map((d) => ({ ...d, dryRun: true })) },
+      };
+    },
+    backupRunning: true,
+    backupDryRun: true,
+  },
+  messages: {
+    id: "messages",
+    description: "Short messages from the app: a repository moved to the Trash, a Keychain warning, an error",
+    build: withMessages,
   },
 };
 
