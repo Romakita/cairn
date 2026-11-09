@@ -18,10 +18,11 @@
     "typecheck": "tsc --noEmit -p .",
     "dev:web": "bun scripts/dev-web.ts",
     "shots": "bun scripts/shots.ts",
-    "dist": "bun run build && electron-builder --mac --publish never && bun scripts/zip.ts",
+    "dist": "bun run build:native && bun scripts/build.ts --production && electron-builder --mac --arm64 --publish never -c.buildVersion=$(git rev-list --count HEAD) && bun scripts/zip.ts",
     "postinstall": "node node_modules/electron/install.js",
     "build:native": "bun scripts/build-native.ts",
-    "shots:screens": "bun scripts/screen-shots.ts"
+    "shots:screens": "bun scripts/screen-shots.ts",
+    "smoke": "scripts/smoke-test-app.sh"
   },
   "dependencies": {
     "lucide-react": "1.70.0",
