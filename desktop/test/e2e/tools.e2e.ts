@@ -52,6 +52,6 @@ test("exclure un outil puis exporter la liste retenue", async () => {
   await page.getByRole("checkbox", { name: "Keep ripgrep in the export" }).click();
   await expect(page.getByText("7 of 9 tools kept").first()).toBeVisible();
   await page.getByRole("button", { name: "Export…" }).click();
-  await expect(page.getByText("7 tools exported to /Users/demo/Desktop")).toBeVisible();
+  await expect(page.getByText("7 tools exported to /Users/demo/Projects")).toBeVisible();
   await page.close();
 });

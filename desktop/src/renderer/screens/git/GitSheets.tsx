@@ -1,6 +1,6 @@
 // Confirmations de l'écran Git (feuille de 520) : suppression d'une branche ou d'un worktree, compactage, mise à la
 // corbeille d'un dépôt. Une branche non fusionnée, un worktree ou un dépôt à risque demandent une case dédiée.
-// Le main redemande la confirmation avant d'agir.
+// Confirmer ici suffit : l'écran passe un jeton de confirmation au main, qui ne redemande pas.
 import { TriangleAlert } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { Fmt } from "../../../core/format.ts";
@@ -21,12 +21,18 @@ export type GitAction =
   | { kind: "compact"; report: RepoReport }
   | { kind: "trash"; report: RepoReport };
 
+export interface GitConfirmOptions {
+  /** Supprimer aussi la branche du worktree. */
+  withBranch: boolean;
+  /** Compactage : élaguer tout de suite les objets des branches supprimées. */
+  pruneNow: boolean;
+}
+
 export interface GitSheetProps {
   action: GitAction | null;
   busy: boolean;
   onCancel: () => void;
-  /** `withBranch` : supprimer aussi la branche du worktree. */
-  onConfirm: (action: GitAction, options: { withBranch: boolean }) => void;
+  onConfirm: (action: GitAction, options: GitConfirmOptions) => void;
 }
 
 function Risk({ children, ack, onAck }: { children: ReactNode; ack: boolean; onAck: (v: boolean) => void }) {
@@ -55,10 +61,12 @@ function Detail({ label, value, mono = false }: { label: string; value: string; 
 export function GitSheet({ action, busy, onCancel, onConfirm }: GitSheetProps) {
   const [ack, setAck] = useState(false);
   const [withBranch, setWithBranch] = useState(false);
+  const [pruneNow, setPruneNow] = useState(false);
   // biome-ignore lint/correctness/useExhaustiveDependencies: cases remises à zéro à chaque nouvelle feuille.
   useEffect(() => {
     setAck(false);
     setWithBranch(false);
+    setPruneNow(false);
   }, [action]);
   if (!action) return null;
 
@@ -136,9 +144,15 @@ export function GitSheet({ action, busy, onCancel, onConfirm }: GitSheetProps) {
       confirmLabel = t("git.compact.confirm");
       danger = false;
       body = (
-        <div className={styles.details}>
-          <Detail label={t("col.repo")} value={r.path} mono />
-        </div>
+        <>
+          <div className={styles.details}>
+            <Detail label={t("col.repo")} value={r.path} mono />
+          </div>
+          <Checkbox checked={pruneNow} onChange={setPruneNow}>
+            {t("git.compact.prune_now")}
+          </Checkbox>
+          <p className={styles.note}>{t("git.compact.prune_now.detail")}</p>
+        </>
       );
       break;
     }
@@ -187,7 +201,7 @@ export function GitSheet({ action, busy, onCancel, onConfirm }: GitSheetProps) {
             loading={busy}
             disabledReason={blocked}
             autoFocus={!needsAck}
-            onClick={() => onConfirm(action, { withBranch })}
+            onClick={() => onConfirm(action, { withBranch, pruneNow: action.kind === "compact" && pruneNow })}
           >
             {confirmLabel}
           </Button>

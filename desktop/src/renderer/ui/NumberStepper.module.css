@@ -17,3 +17,7 @@
   color: var(--color-text);
   border-radius: var(--radius-row);
 }
+
+.root[data-disabled] .value {
+  opacity: var(--opacity-disabled);
+}

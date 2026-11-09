@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Fmt } from "../../../core/format.ts";
 import { t } from "../../../core/l10n.ts";
 import type { DestinationView, RemovalPlanView } from "../../../shared/contract.ts";
+import { confirmedCall } from "../../api/confirm.ts";
 import { useApi } from "../../api/hooks.ts";
 import { Banner } from "../../ui/Banner.tsx";
 import { Button } from "../../ui/Button.tsx";
@@ -60,7 +61,7 @@ export function RemoveSheet({ destination: d, busyReason, onClose, onRemoved }: 
     setRemoving(true);
     setError(null);
     try {
-      const r = await api.removeDestination({ planId: plan.planId });
+      const r = await confirmedCall(api, "removeDestination", { planId: plan.planId });
       if (!r.cancelled) onRemoved();
     } catch (e) {
       setError(t("destination.delete.error.removal", errorText(e)));

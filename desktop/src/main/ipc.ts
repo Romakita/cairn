@@ -1,6 +1,8 @@
 // Canaux IPC : un `ipcMain.handle("cairn:<méthode>")` par méthode du contrat. Avant d'atteindre le service :
 // 1. l'appel doit venir d'une page de l'app (`app://cairn`, cadre principal) ;
-// 2. les arguments doivent passer le schéma zod de la méthode (objets stricts, tailles bornées).
+// 2. les arguments doivent passer le schéma zod de la méthode (objets stricts, tailles bornées) ;
+// 3. pour une méthode destructive, le jeton `confirmation` est consommé ici : le gestionnaire reçoit `confirmed` (la
+//    feuille de l'interface a confirmé cette action précise) et ses arguments sans le jeton.
 // La réponse est une enveloppe `{ ok, value | error }` que le preload déballe.
 import { type IpcMainInvokeEvent, ipcMain } from "electron";
 import {
@@ -13,11 +15,18 @@ import {
   type MethodResult,
 } from "../shared/contract.ts";
 import { validateArgs } from "../shared/schemas.ts";
+import { type ConfirmationTokens, isConfirmedMethod } from "./confirmation-tokens.ts";
 import { describeApiError } from "./errors.ts";
+
+export interface CallContext {
+  /** Méthode destructive : un jeton valide de `prepareConfirmation` accompagnait l'appel (pas de boîte native). */
+  confirmed: boolean;
+}
 
 export type Handler<M extends MethodName> = (
   args: MethodArgs<M>,
   event: IpcMainInvokeEvent,
+  context: CallContext,
 ) => MethodResult<M> | Promise<MethodResult<M>>;
 
 export type Handlers = { [M in MethodName]: Handler<M> };
@@ -46,24 +55,32 @@ function refuse<T>(method: string, code: "forbidden" | "invalidArguments", messa
 async function dispatch<M extends MethodName>(
   method: M,
   handler: Handler<M>,
+  tokens: ConfirmationTokens,
   event: IpcMainInvokeEvent,
   raw: unknown,
 ): Promise<Envelope<MethodResult<M>>> {
   if (!trustedSender(event)) return refuse(method, "forbidden", `refused ${method}: untrusted sender`);
   const parsed = validateArgs(method, raw);
   if (!parsed.ok) return refuse(method, "invalidArguments", parsed.message);
+  let args = parsed.value;
+  let confirmed = false;
+  if (isConfirmedMethod(method)) {
+    const { confirmation, ...rest } = parsed.value as Record<string, unknown>;
+    confirmed = tokens.consume(confirmation as string | undefined, event.sender.id, method, rest);
+    args = rest as MethodArgs<M>;
+  }
   try {
-    return { ok: true, value: await handler(parsed.value, event) };
+    return { ok: true, value: await handler(args, event, { confirmed }) };
   } catch (error) {
     return { ok: false, error: describeApiError(error) };
   }
 }
 
 /** Enregistre un gestionnaire par méthode ; renvoie la fonction qui les retire. */
-export function registerHandlers(handlers: Handlers): () => void {
+export function registerHandlers(handlers: Handlers, tokens: ConfirmationTokens): () => void {
   for (const name of METHOD_NAMES) {
     const handler = handlers[name] as Handler<typeof name>;
-    ipcMain.handle(`${CHANNEL_PREFIX}${name}`, (event, raw: unknown) => dispatch(name, handler, event, raw));
+    ipcMain.handle(`${CHANNEL_PREFIX}${name}`, (event, raw: unknown) => dispatch(name, handler, tokens, event, raw));
   }
   return () => {
     for (const name of METHOD_NAMES) ipcMain.removeHandler(`${CHANNEL_PREFIX}${name}`);

@@ -249,7 +249,12 @@ export function DestinationPage({ snapshot, destination: d, onEdit, onRemove, na
         p.result ? (
           <ResultCard
             key={p.destination}
-            result={{ destination: p.destination, dryRun: p.dryRun, ...p.result }}
+            result={{
+              destination: p.destination,
+              dryRun: p.dryRun,
+              ...p.result,
+              bytesByPart: snapshot.backup.lastResults?.find((r) => r.destination === p.destination)?.bytesByPart ?? {},
+            }}
             label={labelOf(snapshot, p.destination)}
           />
         ) : (

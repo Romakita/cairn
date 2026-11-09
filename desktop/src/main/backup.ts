@@ -45,6 +45,7 @@ function resultView(r: BackupResult): BackupResultView {
     version: outcome?.version ?? null,
     filesTransferred: outcome?.filesTransferred ?? 0,
     bytesTransferred: outcome?.bytesTransferred ?? 0,
+    bytesByPart: outcome?.bytesByPart ?? {},
   };
 }
 

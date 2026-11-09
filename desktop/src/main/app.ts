@@ -35,6 +35,7 @@ import { AnalysisService, StorageService } from "./analysis.ts";
 import { BackupController } from "./backup.ts";
 import { ConfigService, draftToWire } from "./config-service.ts";
 import { type Confirmer, confirmWithDialog } from "./confirm.ts";
+import { ConfirmationTokens } from "./confirmation-tokens.ts";
 import { DestinationsService } from "./destinations.ts";
 import { ApiError, errorMessage } from "./errors.ts";
 import { GitService } from "./git.ts";
@@ -64,6 +65,8 @@ export class CairnApp implements Host {
   readonly gitWorkerFile = path.join(distDir(), "git-worker.cjs");
   readonly activity = new ActivityLog({ stateDir: this.paths.state });
   readonly confirm: Confirmer = confirmWithDialog;
+  /** Jetons émis quand une feuille de l'interface a confirmé une action destructive (une seule confirmation). */
+  readonly confirmations = new ConfirmationTokens();
   readonly notifier = new Notifier((action) => this.notificationAction(action));
 
   private readonly publisher = new SnapshotPublisher(() => this.snapshot());
@@ -169,7 +172,7 @@ export class CairnApp implements Host {
 
   async start(): Promise<void> {
     await this.paths.ensure().catch(() => {});
-    this.unregister = registerHandlers(this.handlers());
+    this.unregister = registerHandlers(this.handlers(), this.confirmations);
     await this.configs.load();
     await this.configs.watch();
     if (this.options.nativeError) this.message("error", this.options.nativeError);
@@ -408,7 +411,11 @@ export class CairnApp implements Host {
       git: this.git.view(),
       inventory: this.tools.inventoryView(),
       ai: this.tools.aiView(),
-      hub: this.hubState(),
+      hub: {
+        ...this.hubState(),
+        lastCheck: this.lastHubCheck?.getTime() ?? null,
+        checking: this.checkingAll,
+      },
       backupDays: backupDays(this.recentActivity, { now }),
       activity,
       updates: this.updates.view(),
@@ -538,7 +545,7 @@ export class CairnApp implements Host {
       },
       cancelScan: () => this.analysis.cancel(),
       analysisChildren: (args) => this.analysis.children(args.nodeId),
-      removeNodes: (args) => this.analysis.remove(args.nodeIds, args.permanently ?? false),
+      removeNodes: (args, _event, ctx) => this.analysis.remove(args.nodeIds, args.permanently ?? false, ctx.confirmed),
       checkStorage: () => this.checkStorage(),
       snoozeAlert: (args) => this.storage.snooze(args.volume),
       checkAll: () => {
@@ -552,14 +559,14 @@ export class CairnApp implements Host {
         void run.catch((e) => this.message("error", errorMessage(e)));
       },
       gitCancel: () => this.git.cancel(),
-      gitApply: (args) => this.git.apply(args.selections),
-      gitCompact: (args) => this.git.compact(args.repo),
-      gitTrashRepo: (args) => this.git.trashRepo(args.repo),
+      gitApply: (args, _event, ctx) => this.git.apply(args.selections, ctx.confirmed),
+      gitCompact: (args, _event, ctx) => this.git.compact(args.repo, args.pruneNow ?? false, ctx.confirmed),
+      gitTrashRepo: (args, _event, ctx) => this.git.trashRepo(args.repo, ctx.confirmed),
 
       toolsRefresh: () => {
         void this.tools.refreshInventory();
       },
-      toolsExport: () => this.tools.exportInventory(),
+      toolsExport: (args) => this.tools.exportInventory(args.dir),
       aiRefresh: () => {
         void this.tools.refreshAI(this.backup.states);
       },
@@ -571,6 +578,12 @@ export class CairnApp implements Host {
       onboardingDetect: async () => draftToWire(await detectDraft()),
       onboardingFinish: async (args) => {
         const config = await this.configs.finishOnboarding(args.draft);
+        // Autorisation des notifications demandée maintenant, quand l'utilisateur vient de l'accepter.
+        if (args.draft.notifications)
+          this.notifier.post({
+            title: t("onboarding.ui.notifications_ready"),
+            body: t("onboarding.notifications.text"),
+          });
         // Le Trousseau n'est écrit qu'après l'enregistrement de config.toml (156f978).
         const smb = config.destinations.find((d) => d.provider === "smb");
         if (smb && args.password) {
@@ -603,17 +616,19 @@ export class CairnApp implements Host {
         return saved;
       },
       planDestinationRemoval: (args) => this.destinations.planRemoval(args.id, args.includeBackups),
-      removeDestination: async (args) => {
-        const r = await this.destinations.remove(args.planId);
+      removeDestination: async (args, _event, ctx) => {
+        const r = await this.destinations.remove(args.planId, ctx.confirmed);
         await this.configs.load();
         await this.backup.reloadRunState();
         return r;
       },
       planRetention: (args) => this.destinations.planRetention(args.destination, args.retention),
-      applyRetention: (args) => this.destinations.applyRetention(args.planId),
+      applyRetention: (args, _event, ctx) => this.destinations.applyRetention(args.planId, ctx.confirmed),
 
       planRestore: (args) => this.restore.plan(args),
-      applyRestore: (args) => this.restore.apply(args.planId),
+      applyRestore: (args, _event, ctx) => this.restore.apply(args.planId, ctx.confirmed),
+      createWorkspacesVolume: (_args, _event, ctx) => this.restore.createWorkspacesVolume(ctx.confirmed),
+      prepareConfirmation: (args, event) => this.confirmations.issue(event.sender.id, args.method, args.args),
 
       checkUpdates: () => this.updates.check(true),
       installUpdate: () => this.updates.install(),

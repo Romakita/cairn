@@ -24,7 +24,6 @@ import { SidebarRow } from "../../ui/SidebarRow.tsx";
 import { TabBar } from "../../ui/TabBar.tsx";
 import { TextField } from "../../ui/TextField.tsx";
 import { Toggle } from "../../ui/Toggle.tsx";
-import { Tooltip } from "../../ui/Tooltip.tsx";
 import { rowLabel, shortPath } from "../shell/format.ts";
 import { Page, Section, Sidebar, SplitView } from "../shell/Layout.tsx";
 import type { ScreenProps } from "../types.ts";
@@ -42,18 +41,6 @@ const SECTIONS = [
   { id: "alerts", key: "settings.alerts", icon: Bell },
   { id: "maintenance", key: "settings.maintenance", icon: Wrench },
 ] as const;
-
-/** Contrôle sans `disabledReason` (onglets, pas à pas, champ de chemin) : inerte, raison en infobulle. */
-function Locked({ reason, children }: { reason?: string; children: ReactNode }) {
-  if (!reason) return <>{children}</>;
-  return (
-    <Tooltip content={reason}>
-      <span className={styles.locked} inert>
-        {children}
-      </span>
-    </Tooltip>
-  );
-}
 
 export function SettingsScreen(_props: ScreenProps) {
   const snapshot = useSnapshot();
@@ -315,17 +302,16 @@ function HomeItems({ snapshot, api, reason, save }: PartProps & { api: CairnApi 
         ))}
         <CardTray>
           <div className={styles.grow}>
-            <Locked reason={reason}>
-              <PathField
-                value={draft}
-                onChange={setDraft}
-                suggest={(input) => api.completePath({ input })}
-                placeholder={t("onboarding.home.add_placeholder")}
-                label={t("settings.home.path")}
-                listLabel={t("settings.home.suggestions")}
-                onSubmit={add}
-              />
-            </Locked>
+            <PathField
+              disabledReason={reason}
+              value={draft}
+              onChange={setDraft}
+              suggest={(input) => api.completePath({ input })}
+              placeholder={t("onboarding.home.add_placeholder")}
+              label={t("settings.home.path")}
+              listLabel={t("settings.home.suggestions")}
+              onSubmit={add}
+            />
           </div>
           <Button
             variant="primary"
@@ -361,14 +347,13 @@ function Schedule({ snapshot, reason, save }: PartProps) {
     <Anchor id="schedule" heading={t("settings.schedule")}>
       <Card flush>
         <SettingsRow label={rowLabel(t("settings.frequency"))}>
-          <Locked reason={reason}>
-            <TabBar
-              label={t("settings.frequency")}
-              value={schedule.frequency}
-              options={(["daily", "weekly", "manual"] as const).map((f) => ({ value: f, label: t(`frequency.${f}`) }))}
-              onChange={(frequency) => void save({ kind: "schedule", schedule: { frequency } })}
-            />
-          </Locked>
+          <TabBar
+            disabledReason={reason}
+            label={t("settings.frequency")}
+            value={schedule.frequency}
+            options={(["daily", "weekly", "manual"] as const).map((f) => ({ value: f, label: t(`frequency.${f}`) }))}
+            onChange={(frequency) => void save({ kind: "schedule", schedule: { frequency } })}
+          />
         </SettingsRow>
         {!manual && (
           <>
@@ -421,21 +406,20 @@ function Schedule({ snapshot, reason, save }: PartProps) {
         </SettingsRow>
         <RowDivider />
         <SettingsRow
-          label={rowLabel(t("settings.battery", schedule.onBatteryMinPercent))}
+          label={rowLabel(t("settings.ui.battery", Fmt.percent(schedule.onBatteryMinPercent, 100, 0)))}
           description={t("settings.battery.text")}
         >
-          <Locked reason={reason}>
-            <NumberStepper
-              {...stepperLabels()}
-              label={t("settings.battery.label")}
-              value={schedule.onBatteryMinPercent}
-              min={0}
-              max={100}
-              step={5}
-              format={(v) => `${v} %`}
-              onChange={(onBatteryMinPercent) => void save({ kind: "schedule", schedule: { onBatteryMinPercent } })}
-            />
-          </Locked>
+          <NumberStepper
+            disabledReason={reason}
+            {...stepperLabels()}
+            label={t("settings.battery.label")}
+            value={schedule.onBatteryMinPercent}
+            min={0}
+            max={100}
+            step={5}
+            format={(v) => Fmt.percent(v, 100, 0)}
+            onChange={(onBatteryMinPercent) => void save({ kind: "schedule", schedule: { onBatteryMinPercent } })}
+          />
         </SettingsRow>
       </Card>
     </Anchor>
@@ -447,73 +431,73 @@ function Schedule({ snapshot, reason, save }: PartProps) {
 function Alerts({ snapshot, reason, save }: PartProps) {
   const a = snapshot.config.config.alerts;
   const set = (patch: Partial<typeof a>) => void save({ kind: "alerts", alerts: patch });
-  const pct = (v: number) => `${Fmt.number(v, 0)} %`;
+  const pct = (v: number) => Fmt.percent(v, 100, 0);
   const gb = (v: number) => t("settings.alerts.gb_value", Fmt.number(v, 0));
   return (
     <Anchor id="alerts" heading={t("settings.alerts")}>
       <Card flush>
         <SettingsRow
           icon={HardDrive}
-          label={rowLabel(t("settings.alerts.low", Fmt.number(a.lowPercent, 0), Fmt.number(a.lowGB, 0)))}
+          label={rowLabel(t("settings.ui.alerts.low", pct(a.lowPercent), gb(a.lowGB)))}
           description={t("settings.alerts.low.text")}
         >
-          <Locked reason={reason}>
-            <div className={styles.steppers}>
-              <NumberStepper
-                {...stepperLabels()}
-                label={t("settings.alerts.low_percent")}
-                value={a.lowPercent}
-                min={Math.max(1, a.criticalPercent + 1)}
-                max={50}
-                maxReason={t("settings.alerts.max")}
-                minReason={t("settings.alerts.order")}
-                format={pct}
-                onChange={(lowPercent) => set({ lowPercent })}
-              />
-              <NumberStepper
-                {...stepperLabels()}
-                label={t("settings.alerts.low_gb")}
-                value={a.lowGB}
-                min={Math.max(1, a.criticalGB + 1)}
-                max={500}
-                step={5}
-                minReason={t("settings.alerts.order")}
-                format={gb}
-                onChange={(lowGB) => set({ lowGB })}
-              />
-            </div>
-          </Locked>
+          <div className={styles.steppers}>
+            <NumberStepper
+              disabledReason={reason}
+              {...stepperLabels()}
+              label={t("settings.alerts.low_percent")}
+              value={a.lowPercent}
+              min={Math.max(1, a.criticalPercent + 1)}
+              max={50}
+              maxReason={t("settings.alerts.max")}
+              minReason={t("settings.alerts.order")}
+              format={pct}
+              onChange={(lowPercent) => set({ lowPercent })}
+            />
+            <NumberStepper
+              disabledReason={reason}
+              {...stepperLabels()}
+              label={t("settings.alerts.low_gb")}
+              value={a.lowGB}
+              min={Math.max(1, a.criticalGB + 1)}
+              max={500}
+              step={5}
+              minReason={t("settings.alerts.order")}
+              format={gb}
+              onChange={(lowGB) => set({ lowGB })}
+            />
+          </div>
         </SettingsRow>
         <RowDivider />
         <SettingsRow
           icon={HardDrive}
-          label={rowLabel(t("settings.alerts.critical", Fmt.number(a.criticalPercent, 0), Fmt.number(a.criticalGB, 0)))}
+          label={rowLabel(t("settings.ui.alerts.critical", pct(a.criticalPercent), gb(a.criticalGB)))}
           description={t("settings.alerts.critical.text")}
         >
-          <Locked reason={reason}>
-            <div className={styles.steppers}>
-              <NumberStepper
-                {...stepperLabels()}
-                label={t("settings.alerts.critical_percent")}
-                value={a.criticalPercent}
-                min={1}
-                max={Math.max(1, a.lowPercent - 1)}
-                maxReason={t("settings.alerts.order")}
-                format={pct}
-                onChange={(criticalPercent) => set({ criticalPercent })}
-              />
-              <NumberStepper
-                {...stepperLabels()}
-                label={t("settings.alerts.critical_gb")}
-                value={a.criticalGB}
-                min={1}
-                max={Math.max(1, a.lowGB - 1)}
-                maxReason={t("settings.alerts.order")}
-                format={gb}
-                onChange={(criticalGB) => set({ criticalGB })}
-              />
-            </div>
-          </Locked>
+          <div className={styles.steppers}>
+            <NumberStepper
+              disabledReason={reason}
+              {...stepperLabels()}
+              label={t("settings.alerts.critical_percent")}
+              value={a.criticalPercent}
+              min={1}
+              max={Math.max(1, a.lowPercent - 1)}
+              maxReason={t("settings.alerts.order")}
+              format={pct}
+              onChange={(criticalPercent) => set({ criticalPercent })}
+            />
+            <NumberStepper
+              disabledReason={reason}
+              {...stepperLabels()}
+              label={t("settings.alerts.critical_gb")}
+              value={a.criticalGB}
+              min={1}
+              max={Math.max(1, a.lowGB - 1)}
+              maxReason={t("settings.alerts.order")}
+              format={gb}
+              onChange={(criticalGB) => set({ criticalGB })}
+            />
+          </div>
         </SettingsRow>
       </Card>
     </Anchor>
@@ -531,34 +515,32 @@ function Maintenance({ snapshot, reason, save }: PartProps) {
           label={rowLabel(t("settings.logs", config.logRetentionDays))}
           description={t("settings.logs.text")}
         >
-          <Locked reason={reason}>
-            <NumberStepper
-              {...stepperLabels()}
-              label={t("settings.logs.label")}
-              value={config.logRetentionDays}
-              min={15}
-              max={365}
-              step={15}
-              onChange={(days) => void save({ kind: "logRetentionDays", days })}
-            />
-          </Locked>
+          <NumberStepper
+            disabledReason={reason}
+            {...stepperLabels()}
+            label={t("settings.logs.label")}
+            value={config.logRetentionDays}
+            min={15}
+            max={365}
+            step={15}
+            onChange={(days) => void save({ kind: "logRetentionDays", days })}
+          />
         </SettingsRow>
         <RowDivider />
         <SettingsRow
           label={rowLabel(t("settings.stale_days", config.git.worktreeStaleDays))}
           description={t("settings.stale_days.text")}
         >
-          <Locked reason={reason}>
-            <NumberStepper
-              {...stepperLabels()}
-              label={t("settings.stale_days.label")}
-              value={config.git.worktreeStaleDays}
-              min={1}
-              max={365}
-              step={5}
-              onChange={(worktreeStaleDays) => void save({ kind: "git", git: { worktreeStaleDays } })}
-            />
-          </Locked>
+          <NumberStepper
+            disabledReason={reason}
+            {...stepperLabels()}
+            label={t("settings.stale_days.label")}
+            value={config.git.worktreeStaleDays}
+            min={1}
+            max={365}
+            step={5}
+            onChange={(worktreeStaleDays) => void save({ kind: "git", git: { worktreeStaleDays } })}
+          />
         </SettingsRow>
         <RowDivider />
         <SettingsRow label={rowLabel(t("settings.git_gc"))} description={t("settings.git_gc.text")}>

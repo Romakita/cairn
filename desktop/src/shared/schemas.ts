@@ -2,7 +2,7 @@
 // tout appel dont les arguments ne passent pas est refusé (`invalidArguments`) avant d'atteindre le core.
 // Les objets sont stricts (clé inconnue refusée) et les tailles bornées.
 import { z } from "zod";
-import type { MethodArgs, MethodName } from "./contract.ts";
+import { CONFIRMED_METHODS, type MethodArgs, type MethodName } from "./contract.ts";
 
 const MAX_PATH = 4096;
 const MAX_LIST = 10_000;
@@ -20,6 +20,11 @@ const absolutePath = text(MAX_PATH).refine((s) => s.startsWith("/") || s.startsW
 });
 
 const password = z.string().min(1).max(1024).optional();
+/** Jeton de `prepareConfirmation` (UUID). */
+const confirmation = z
+  .string()
+  .regex(/^[0-9a-f-]{36}$/)
+  .optional();
 const id = text(128).min(1);
 const nodeId = z.number().int().nonnegative();
 const weekday = z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]);
@@ -128,7 +133,17 @@ const configPatch = z.discriminatedUnion("kind", [
 const onboardingDraft = z.strictObject({
   folders: z.array(z.strictObject({ path: absolutePath, selected: z.boolean() })).max(200),
   home: z.array(z.strictObject({ path: text(1024), selected: z.boolean() })).max(MAX_LIST),
-  ai: z.array(z.strictObject({ id, detected: z.boolean(), categories: z.array(text(64)).max(16) })).max(100),
+  ai: z
+    .array(
+      z.strictObject({
+        id,
+        name: text(128),
+        detected: z.boolean(),
+        categories: z.array(text(64)).max(16),
+        offeredCategories: z.array(text(64)).max(16),
+      }),
+    )
+    .max(100),
   destination: z.discriminatedUnion("kind", [
     z.strictObject({ kind: z.literal("later") }),
     z.strictObject({ kind: z.literal("local"), path: absolutePath }),
@@ -144,6 +159,7 @@ const onboardingDraft = z.strictObject({
   weekday,
   background: z.boolean(),
   language: z.enum(["auto", "en-US", "fr-FR", "en", "fr"]),
+  notifications: z.boolean(),
 });
 
 const restoreSource = z.discriminatedUnion("kind", [
@@ -186,13 +202,20 @@ export const ARG_SCHEMAS = {
   removeNodes: z.strictObject({
     nodeIds: z.array(nodeId).min(1).max(MAX_LIST),
     permanently: z.boolean().optional(),
+    confirmation,
   }),
   checkStorage: none,
   snoozeAlert: z.strictObject({ volume: text(512).min(1) }),
   checkAll: none,
   cancelCheckAll: none,
 
-  gitAnalyze: z.strictObject({ fullCheck: z.boolean().optional(), only: text(1024).optional() }),
+  gitAnalyze: z.strictObject({
+    fullCheck: z.boolean().optional(),
+    only: text(1024).optional(),
+    includeUnmerged: z.boolean().optional(),
+    worktreesOnly: z.boolean().optional(),
+    includeAtRisk: z.boolean().optional(),
+  }),
   gitCancel: none,
   gitApply: z.strictObject({
     selections: z
@@ -205,12 +228,13 @@ export const ARG_SCHEMAS = {
       )
       .min(1)
       .max(MAX_LIST),
+    confirmation,
   }),
-  gitCompact: z.strictObject({ repo: absolutePath }),
-  gitTrashRepo: z.strictObject({ repo: absolutePath }),
+  gitCompact: z.strictObject({ repo: absolutePath, pruneNow: z.boolean().optional(), confirmation }),
+  gitTrashRepo: z.strictObject({ repo: absolutePath, confirmation }),
 
   toolsRefresh: none,
-  toolsExport: none,
+  toolsExport: z.strictObject({ dir: absolutePath.optional() }),
   aiRefresh: none,
   aiExport: none,
 
@@ -231,9 +255,9 @@ export const ARG_SCHEMAS = {
   addDestination: z.strictObject({ destination: newDestination, password }),
   editDestination: z.strictObject({ id, destination: newDestination, password }),
   planDestinationRemoval: z.strictObject({ id, includeBackups: z.boolean() }),
-  removeDestination: z.strictObject({ planId: id }),
+  removeDestination: z.strictObject({ planId: id, confirmation }),
   planRetention: z.strictObject({ destination: id, retention }),
-  applyRetention: z.strictObject({ planId: id }),
+  applyRetention: z.strictObject({ planId: id, confirmation }),
 
   planRestore: z.strictObject({
     source: restoreSource,
@@ -247,7 +271,10 @@ export const ARG_SCHEMAS = {
     imagePassword: password,
     sharePassword: password,
   }),
-  applyRestore: z.strictObject({ planId: id }),
+  applyRestore: z.strictObject({ planId: id, confirmation }),
+  createWorkspacesVolume: z.strictObject({ confirmation }),
+  // Les arguments de l'action sont validés par le schéma de `method` (sans `confirmation`) dans le main.
+  prepareConfirmation: z.strictObject({ method: z.enum(CONFIRMED_METHODS), args: z.unknown() }),
 
   checkUpdates: none,
   installUpdate: none,

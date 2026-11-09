@@ -27,7 +27,12 @@ import {
   type RestoreVersion,
   versionsOnDestination,
 } from "../core/restore/source.ts";
-import { targetIsMissing, terminalAdminWaiter } from "../core/restore/system.ts";
+import {
+  createWorkspacesVolume,
+  targetIsMissing,
+  terminalAdminWaiter,
+  WORKSPACES_VOLUME,
+} from "../core/restore/system.ts";
 import type {
   Confirmed,
   RestorePart,
@@ -275,20 +280,45 @@ export class RestoreController {
     });
   }
 
+  // MARK: Volume workspaces
+
+  /**
+   * Crée le volume APFS `workspaces` (dossiers restaurés sous `/Volumes/workspaces` sur un Mac neuf), après
+   * confirmation : geste irréversible, jamais fait d'office. Le plan est ensuite à refaire (cibles à revoir).
+   */
+  async createWorkspacesVolume(confirmed = false): Promise<Confirmed> {
+    if (this.running) throw new ApiError("busy", t("cli.busy"));
+    const ok =
+      confirmed ||
+      (await this.host.confirm({
+        message: t("restore.create_volume"),
+        detail: t("restore.missing_volume", `/Volumes/${WORKSPACES_VOLUME}`),
+        confirm: t("restore.create_volume"),
+      }));
+    if (!ok) return { cancelled: true };
+    const r = await createWorkspacesVolume();
+    if (!r.ok) throw new ApiError("failed", r.output.trim() || t("restore.create_volume"));
+    this.host.message("success", t("restore.ui.volume_created", WORKSPACES_VOLUME));
+    this.host.changed();
+    return { cancelled: false };
+  }
+
   // MARK: Application
 
-  /** Restauration réelle d'un plan simulé : confirmée ici, puis lancée en tâche de fond. */
-  async apply(planId: string): Promise<Confirmed> {
+  /** Restauration réelle d'un plan simulé : confirmée (feuille ou boîte du main), puis lancée en tâche de fond. */
+  async apply(planId: string, confirmed = false): Promise<Confirmed> {
     const stored = this.plans.get(planId);
     if (!stored) throw new ApiError("notFound", "unknown restore plan");
     if (this.running || this.host.isBackingUp()) throw new ApiError("busy", t("cli.busy"));
     const sizes = Object.values(stored.view.sizes).reduce((a, b) => a + b, 0);
-    const ok = await this.host.confirm({
-      message: t("restore.run"),
-      detail: [t("cli.restore.confirm"), ...stored.view.warnings].join("\n\n"),
-      confirm: t("restore.run"),
-      destructive: sizes > 0,
-    });
+    const ok =
+      confirmed ||
+      (await this.host.confirm({
+        message: t("restore.run"),
+        detail: [t("cli.restore.confirm"), ...stored.view.warnings].join("\n\n"),
+        confirm: t("restore.run"),
+        destructive: sizes > 0,
+      }));
     if (!ok) return { cancelled: true };
     const service = this.service(stored.source);
     this.running = true;

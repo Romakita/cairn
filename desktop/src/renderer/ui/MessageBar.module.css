@@ -12,6 +12,18 @@
   color: var(--color-text-secondary);
 }
 
+.bar[data-level="success"] .icon {
+  color: var(--tone-success-fg);
+}
+
+.bar[data-level="warning"] .icon {
+  color: var(--status-attention);
+}
+
+.bar[data-level="error"] .icon {
+  color: var(--tone-danger-fg);
+}
+
 .text {
   flex: 1;
   min-width: 0;

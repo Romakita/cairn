@@ -78,6 +78,17 @@ describe("format", () => {
     });
   });
 
+  test("pourcentages sans décimale (avancement, seuils)", () => {
+    inLanguage("fr-FR", () => {
+      expect(Fmt.percent(60, 100, 0)).toBe("60 %");
+      expect(Fmt.percent(1, 1000, 0)).toBe("<1 %");
+    });
+    inLanguage("en-US", () => {
+      expect(Fmt.percent(60, 100, 0)).toBe("60%");
+      expect(Fmt.percent(1, 1, 0)).toBe("100%");
+    });
+  });
+
   test("compteurs et nombres", () => {
     inLanguage("fr-FR", () => {
       expect(Fmt.count(1_234_567)).toBe("1 234 567");

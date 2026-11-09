@@ -176,7 +176,12 @@ function disk(t: number): DestinationProgress {
 
 /** Progression des deux destinations à l'instant `t` ; `dryRun` marque une simulation. */
 export function simulatedProgress(t: number, dryRun = false): DestinationProgress[] {
-  return [nas(t), disk(t)].map((d) => ({ ...d, dryRun }));
+  // Une simulation ne crée pas de version.
+  return [nas(t), disk(t)].map((d) => ({
+    ...d,
+    dryRun,
+    result: d.result && dryRun ? { ...d.result, version: null } : d.result,
+  }));
 }
 
 /** La sauvegarde simulée est finie à l'instant `t`. */

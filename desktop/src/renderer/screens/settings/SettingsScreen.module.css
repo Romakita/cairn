@@ -12,11 +12,6 @@
   scroll-margin-top: var(--space-9);
 }
 
-.locked {
-  display: inline-flex;
-  opacity: var(--opacity-disabled);
-}
-
 .empty {
   margin: 0;
   padding: var(--space-7);
@@ -32,10 +27,6 @@
 .grow {
   flex: 1;
   min-width: 0;
-}
-
-.grow > span {
-  display: flex;
 }
 
 .timeField {

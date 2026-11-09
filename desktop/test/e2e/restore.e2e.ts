@@ -48,6 +48,12 @@ test("Mac neuf : mot de passe de l'image, version de l'ancien Mac, simulation pu
   await expect(page.getByRole("heading", { name: "What do you want to restore?" })).toBeVisible();
   await page.getByRole("checkbox", { name: "workspaces" }).click();
   await expect(page.getByText("/Volumes/workspaces does not exist on this Mac.")).toBeVisible();
+  // Volume absent : créé après une feuille de confirmation, puis la cible ne manque plus.
+  await page.getByRole("button", { name: "Create the “workspaces” APFS volume" }).click();
+  const volume = page.getByRole("dialog", { name: "Create the “workspaces” volume?" });
+  await volume.getByRole("button", { name: "Create the “workspaces” APFS volume" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByText("/Volumes/workspaces does not exist on this Mac.")).toHaveCount(0);
   await screen(page).getByRole("button", { name: "Simulate" }).click();
   await expect(page.getByRole("heading", { name: "Summary" })).toBeVisible();
   // go et ~/.local/bin : listés à réinstaller à la main, avec leur version.
@@ -55,6 +61,10 @@ test("Mac neuf : mot de passe de l'image, version de l'ancien Mac, simulation pu
   await expect(page.getByText("v0.16.2")).toBeVisible();
   await expect(page.getByText(/Warning: backup made on x86_64/)).toBeVisible();
   await screen(page).getByRole("button", { name: "Restore", exact: true }).click();
+  // Une seule confirmation : la feuille de l'interface (le main ne redemande pas).
+  const confirm = page.getByRole("dialog", { name: "Restore to this Mac?" });
+  await expect(confirm.getByText(/^To copy: /)).toBeVisible();
+  await confirm.getByRole("button", { name: "Restore", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Restore in progress" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Restore finished" })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByRole("button", { name: "Restore something else" })).toBeVisible();

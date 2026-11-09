@@ -16,8 +16,8 @@
     color var(--duration-state) var(--ease-out);
 }
 
-.chip:hover,
-:global([data-simulate="hover"]) .chip {
+.chip:not([aria-disabled]):hover,
+:global([data-simulate="hover"]) .chip:not([aria-disabled]) {
   background: var(--color-row-hover);
   color: var(--color-text);
 }
@@ -25,4 +25,8 @@
 .chip[aria-checked="true"] {
   background: var(--color-field);
   color: var(--color-text);
+}
+
+.chip[aria-disabled="true"] {
+  opacity: var(--opacity-disabled);
 }

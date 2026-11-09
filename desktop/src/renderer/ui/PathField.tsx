@@ -22,6 +22,8 @@ export interface PathFieldProps {
   listLabel: string;
   onSubmit?: () => void;
   invalid?: boolean;
+  /** Raison pour laquelle le champ ne peut pas être modifié : lecture seule, pas de suggestions, raison en infobulle. */
+  disabledReason?: string;
 }
 
 /**
@@ -37,6 +39,7 @@ export function PathField({
   listLabel,
   onSubmit,
   invalid,
+  disabledReason,
 }: PathFieldProps) {
   const [items, setItems] = useState<readonly PathSuggestion[]>([]);
   const [highlighted, setHighlighted] = useState<number | null>(null);
@@ -59,7 +62,7 @@ export function PathField({
     };
   }, [value]);
 
-  const open = !dismissed && items.length > 0;
+  const open = !dismissed && !disabledReason && items.length > 0;
   const accept = (s: PathSuggestion) => {
     onChange(s.path);
     setHighlighted(null);
@@ -103,6 +106,7 @@ export function PathField({
         prefix="~/"
         label={label}
         invalid={invalid}
+        disabledReason={disabledReason}
         onBlur={() => setDismissed(true)}
         inputProps={{
           role: "combobox",
@@ -113,7 +117,7 @@ export function PathField({
         }}
         onKeyDown={(event) => {
           if (!open) {
-            if (event.key === "Enter") {
+            if (event.key === "Enter" && !disabledReason) {
               onSubmit?.();
               setDismissed(true);
               event.preventDefault();

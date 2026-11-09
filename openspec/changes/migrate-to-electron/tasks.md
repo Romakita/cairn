@@ -15,7 +15,7 @@ Références : `parity/behavior.md` (B), `parity/ui.md` (U), `parity/platform.md
 - [x] 2.1 Écrire `native/` (Objective-C, N-API, `node-gyp`, Command Line Tools seules) : Trousseau générique et Internet SMB (lire, ajouter, mettre à jour) ; vérifier par un test qu'une entrée écrite par la version Swift est relue
 - [x] 2.2 Ajouter `flock` exclusif non bloquant et bloquant ; vérifier par un test qu'un verrou tenu par le binaire Swift 0.8.0 est vu comme tenu, et inversement
 - [ ] 2.3 Ajouter le montage `NetFSMountURLSync` (souple, sans interface, codes d'erreur de B §1.1) et la capacité « importante » du volume ; vérifier le montage d'un partage SMB de test et la valeur comparée à `diskutil info`
-- [ ] 2.4 Charger le module hors de l'asar (`asarUnpack`) avec un message clair en cas d'échec ; vérifier dans l'app empaquetée
+- [x] 2.4 Charger le module hors de l'asar (`asarUnpack`) avec un message clair en cas d'échec ; vérifier dans l'app empaquetée
 
 ## 3. Fondations du core
 
@@ -80,9 +80,9 @@ Références : `parity/behavior.md` (B), `parity/ui.md` (U), `parity/platform.md
 
 - [x] 11.1 Générer `tokens.css` (clair et sombre) depuis U §1 ; vérifier que la galerie en clair et en sombre reprend les valeurs de la 0.8.0
 - [x] 11.2 Écrire la bibliothèque `ui/` (les 43 composants de U §2, dont l'infobulle, le menu, PillPicker, TabBar, la case et l'interrupteur, le tableau, la feuille) en appliquant les règles de U §2.7 ; vérifier chaque composant dans la galerie
-- [ ] 11.3 Écrire l'API d'exemple (`fixtures/`, états scénarisés), `bun run dev:web` et `bun run shots` ; vérifier qu'une capture par écran, par état et par thème est produite sans accès au disque
+- [x] 11.3 Écrire l'API d'exemple (`fixtures/`, états scénarisés), `bun run dev:web` et `bun run shots` ; vérifier qu'une capture par écran, par état et par thème est produite sans accès au disque
 - [x] 11.4 Porter `--gallery` et `--gallery-export <dir>` (spec `interface-design`) ; vérifier que l'export n'écrit que dans le dossier demandé
-- [ ] 11.5 Écrire `desktop/DESIGN.md` (jetons, composants, règles, vocabulaire) à jour avec le code
+- [x] 11.5 Écrire `desktop/DESIGN.md` (jetons, composants, règles, vocabulaire) à jour avec le code
 
 ## 12. Écrans
 
@@ -98,7 +98,7 @@ Chaque tâche est vérifiée par ses captures en clair et en sombre (11.3), ses 
 - [x] 12.8 Restauration : choix de la source et de la version, plan, simulation, application, réinstallation des outils
 - [x] 12.9 Réglages, assistant de premier lancement (rien n'est écrit avant « Terminer ») et mise à jour
 - [x] 12.10 Barre des menus : Tray avec icône par état, panneau, actions rapides sans suppression directe
-- [ ] 12.11 Vérifier qu'aucun texte n'est en dur et qu'aucun jargon de la spec `interface-design` n'apparaît, par un test sur les catalogues et les sources
+- [x] 12.11 Vérifier qu'aucun texte n'est en dur et qu'aucun jargon de la spec `interface-design` n'apparaît, par un test sur les catalogues et les sources
 
 ## 13. Packaging, CI et release
 

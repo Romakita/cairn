@@ -94,3 +94,6 @@ export function s(key: string, ...args: Array<string | number>): string {
     return arg === undefined ? match : String(arg);
   });
 }
+
+/** Noms de branches d'exemple (contenu de la feuille) : des données, pas des textes à traduire. */
+export const SAMPLE_BRANCHES = ["feat/in-app-updates", "fix/ai-wal-database-backup", "ci/semver-release"] as const;

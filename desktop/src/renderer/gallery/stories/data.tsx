@@ -350,7 +350,14 @@ export const fields = (): Story[] => [
       <Row gap={8} wrap>
         {AI_CATEGORIES.map((cat) => (
           <Stateful key={cat} initial={cat !== "credentials"}>
-            {(on, set) => <ChoiceChip label={s(`ai.category.${cat}`)} checked={on} onChange={set} />}
+            {(on, set) => (
+              <ChoiceChip
+                label={s(`ai.category.${cat}`)}
+                checked={on}
+                onChange={set}
+                disabledReason={cat === "credentials" ? s("gallery.sample.reason_no_backup") : undefined}
+              />
+            )}
           </Stateful>
         ))}
       </Row>

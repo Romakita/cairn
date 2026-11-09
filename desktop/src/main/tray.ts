@@ -13,7 +13,8 @@ export type TrayState = "normal" | "running" | "attention" | "error";
 
 const FRAME_MS = 600;
 const RUNNING_FRAMES = 4;
-const PANEL_WIDTH = 340;
+/** Largeur du panneau (spec : 360, comme la 0.8.0). */
+const PANEL_WIDTH = 360;
 const PANEL_HEIGHT = 480;
 
 function iconDir(): string {

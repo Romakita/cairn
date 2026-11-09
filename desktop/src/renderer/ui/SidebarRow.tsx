@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { Fmt } from "../../core/format.ts";
 import { cx } from "./cx.ts";
 import { Icon, type LucideIcon } from "./Icon.tsx";
 import { MiddleText } from "./MiddleText.tsx";
@@ -56,11 +57,6 @@ export function ProgressRing({
   );
 }
 
-function percent(fraction: number): string {
-  const locale = typeof document === "undefined" ? undefined : document.documentElement.lang || undefined;
-  return new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 0 }).format(fraction);
-}
-
 /** Ligne de la barre latérale : pastille ou icône, titre tronqué au milieu, méta à droite. */
 export function SidebarRow({
   label,
@@ -84,7 +80,7 @@ export function SidebarRow({
       <span className={styles.trailing}>
         {busy && fraction !== undefined && (
           <>
-            <span className={styles.meta}>{fractionLabel ?? percent(fraction)}</span>
+            <span className={styles.meta}>{fractionLabel ?? Fmt.percent(fraction, 1, 0)}</span>
             <ProgressRing fraction={fraction} />
           </>
         )}

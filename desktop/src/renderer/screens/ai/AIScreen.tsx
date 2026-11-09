@@ -19,7 +19,9 @@ import { RowDivider } from "../../ui/RowDivider.tsx";
 import { Tooltip } from "../../ui/Tooltip.tsx";
 import type { ScreenProps } from "../types.ts";
 import styles from "./AIScreen.module.css";
-import { CATEGORY_ORDER, profileOf } from "./profiles.ts";
+
+/** Ordre d'affichage des catégories. */
+const CATEGORY_ORDER = ["conversations", "config", "memories", "credentials"];
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -29,15 +31,9 @@ export function AIScreen(props: ScreenProps) {
   return <AIContent {...props} snapshot={snapshot} />;
 }
 
-/** Catégories proposées pour un outil : celles de son profil (identifiants seulement s'ils sont des fichiers). */
+/** Catégories proposées pour un outil (profil, identifiants seulement s'ils sont des fichiers), et celles cochées. */
 function categoriesOf(tool: AIToolView): string[] {
-  const profile = profileOf(tool.id);
-  const known = profile
-    ? Object.entries(profile.categories)
-        .filter(([c, paths]) => paths.length > 0 || (c !== "credentials" && c in tool.bytesByCategory))
-        .map(([c]) => c)
-    : Object.keys(tool.bytesByCategory);
-  return [...new Set([...known, ...tool.categories])].sort(
+  return [...new Set([...tool.offeredCategories, ...tool.categories])].sort(
     (a, b) => (CATEGORY_ORDER.indexOf(a) + 1 || 99) - (CATEGORY_ORDER.indexOf(b) + 1 || 99),
   );
 }
@@ -162,7 +158,6 @@ interface ToolCardProps {
 }
 
 function ToolCard({ tool, checked, credentialsBlock, configBlocked, onToggle }: ToolCardProps) {
-  const profile = profileOf(tool.id);
   const effective = checked.filter((c) => c !== "credentials" || !credentialsBlock);
   const saved = effective.reduce((s, c) => s + (tool.bytesByCategory[c] ?? 0), 0);
   const categories = categoriesOf(tool);
@@ -179,7 +174,7 @@ function ToolCard({ tool, checked, credentialsBlock, configBlocked, onToggle }: 
             <Badge>{t("onboarding.ai.not_detected")}</Badge>
           )}
         </div>
-        {profile && profile.root !== "~" && <MiddleText text={profile.root} className={styles.root} />}
+        {tool.root !== "~" && <MiddleText text={tool.root} className={styles.root} />}
         <dl className={styles.facts}>
           <div className={styles.fact}>
             <dt>{t("ai.category.conversations")}</dt>
@@ -212,15 +207,8 @@ function ToolCard({ tool, checked, credentialsBlock, configBlocked, onToggle }: 
                   ? credentialsBlock
                   : undefined);
             const on = checked.includes(c) && !(c === "credentials" && credentialsBlock);
-            return reason ? (
-              // Puce indisponible : raison au survol, aucun effet au clic (ChoiceChip n'a pas encore d'état désactivé).
-              <Tooltip key={c} content={reason}>
-                <span className={styles.disabledChip} aria-disabled="true" aria-description={reason}>
-                  <ChoiceChip label={label} checked={on} onChange={() => {}} />
-                </span>
-              </Tooltip>
-            ) : (
-              <ChoiceChip key={c} label={label} checked={on} onChange={(v) => onToggle(c, v)} />
+            return (
+              <ChoiceChip key={c} label={label} checked={on} disabledReason={reason} onChange={(v) => onToggle(c, v)} />
             );
           })}
         </fieldset>
@@ -230,17 +218,20 @@ function ToolCard({ tool, checked, credentialsBlock, configBlocked, onToggle }: 
             {t("ai.credentials.ignored")}
           </p>
         )}
-        {profile?.credentialsInKeychain && (
+        {tool.detected && tool.notCopiedBytes > 0 && (
+          <p className={styles.note}>{t("ai.page.not_copied", Fmt.bytes(tool.notCopiedBytes))}</p>
+        )}
+        {tool.credentialsInKeychain && (
           <p className={styles.note}>
             <Icon icon={KeyRound} size={14} />
             {t("ai.page.keychain")}
           </p>
         )}
-        {profile && profile.exclude.length > 0 && (
+        {tool.exclude.length > 0 && (
           <p className={styles.note}>
             {t(
               "ai.excluded",
-              profile.exclude
+              tool.exclude
                 .filter((e) => e !== ".DS_Store")
                 .slice(0, 3)
                 .join(", "),

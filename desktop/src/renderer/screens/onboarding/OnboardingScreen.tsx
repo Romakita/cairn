@@ -17,9 +17,6 @@ import {
   Server,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import claudeCode from "../../../../resources/ai-tools/claude-code.json" with { type: "json" };
-import claudeDesktop from "../../../../resources/ai-tools/claude-desktop.json" with { type: "json" };
-import codex from "../../../../resources/ai-tools/codex.json" with { type: "json" };
 import { t } from "../../../core/l10n.ts";
 import type { OnboardingDraftWire } from "../../../shared/contract.ts";
 import { useApi } from "../../api/hooks.ts";
@@ -55,14 +52,8 @@ type Step = (typeof STEPS)[number];
 const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-/** Profils d'outils IA embarqués : nom affiché et catégories proposées. */
-const PROFILES: Record<string, { name?: string; categories: Record<string, unknown> }> = Object.fromEntries(
-  [claudeCode, claudeDesktop, codex].map((p) => [p.id, p]),
-);
-
 interface Draft extends OnboardingDraftWire {
   password: string;
-  notifications: boolean;
 }
 
 /** Problème qui empêche de quitter une étape, ou `null`. */
@@ -91,7 +82,7 @@ export function OnboardingScreen({ navigate }: ScreenProps) {
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
-    void api.onboardingDetect().then((d) => live && setDraft({ ...d, password: "", notifications: true }));
+    void api.onboardingDetect().then((d) => live && setDraft({ ...d, password: "" }));
     return () => {
       live = false;
     };
@@ -112,7 +103,7 @@ export function OnboardingScreen({ navigate }: ScreenProps) {
     setFinishing(true);
     setError(null);
     try {
-      const { password, notifications: _n, ...wire } = draft;
+      const { password, ...wire } = draft;
       await api.onboardingFinish({ draft: wire, ...(password ? { password } : {}) });
       navigate({ route: "home" });
     } catch (e) {
@@ -333,13 +324,12 @@ function AIStep({ draft, update }: StepProps) {
   return (
     <div className={styles.block}>
       {draft.ai.map((tool) => {
-        const profile = PROFILES[tool.id];
-        const categories = Object.keys(profile?.categories ?? { conversations: 1, config: 1, memories: 1 });
+        const categories = [...new Set([...tool.offeredCategories, ...tool.categories])];
         return (
           <div key={tool.id} className={styles.aiCard} data-absent={tool.detected ? undefined : true}>
             <Card>
               <div className={styles.aiHead}>
-                <span className={styles.aiName}>{profile?.name ?? tool.id}</span>
+                <span className={styles.aiName}>{tool.name}</span>
                 <Badge tone={tool.detected ? "success" : "neutral"}>
                   {tool.detected ? t("onboarding.ai.detected") : t("onboarding.ai.not_detected")}
                 </Badge>

@@ -83,7 +83,9 @@ function ToolsContent({ snapshot }: ScreenProps & { snapshot: AppSnapshot }) {
     setExporting(true);
     setNotice(null);
     try {
-      const result = await api.toolsExport();
+      // Dossier choisi dans la boîte du système (bouton « Exporter »), puis écrit par le main.
+      const dir = await api.chooseFolder({ buttonLabel: t("inventory.export") });
+      const result = dir ? await api.toolsExport({ dir }) : null;
       if (result) setNotice({ tone: "success", text: t("inventory.exported", kept.length, result.dir) });
     } catch (e) {
       setNotice({ tone: "danger", text: errorText(e) });

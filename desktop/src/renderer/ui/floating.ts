@@ -137,3 +137,21 @@ export function moveIndex(key: string, index: number, count: number, axis: "hori
   if (key === "End") return count - 1;
   return null;
 }
+
+/** Comme `moveIndex`, en sautant les éléments désactivés (`enabled[i] === false`) ; `null` si aucun n'est possible. */
+export function moveEnabledIndex(
+  key: string,
+  index: number,
+  enabled: readonly boolean[],
+  axis: "horizontal" | "vertical",
+): number | null {
+  const count = enabled.length;
+  const first = moveIndex(key, index, count, axis);
+  if (first === null) return null;
+  const backwards = key === (axis === "horizontal" ? "ArrowLeft" : "ArrowUp") || key === "End";
+  for (let step = 0, i = first; step < count; step += 1) {
+    if (enabled[i] !== false) return i === index ? null : i;
+    i = (i + (backwards ? -1 : 1) + count) % count;
+  }
+  return null;
+}

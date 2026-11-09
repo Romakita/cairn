@@ -36,7 +36,15 @@
   transition: color var(--duration-state) var(--ease-out);
 }
 
+.segment {
+  width: 100%;
+}
+
 .segment[aria-selected="true"],
-.segment:hover {
+.segment:not([aria-disabled]):hover {
   color: var(--color-text);
+}
+
+.segment[aria-disabled="true"] {
+  opacity: var(--opacity-disabled);
 }

@@ -6,11 +6,14 @@
 }
 
 .head {
+  /* `pre` : l'espace en bord de coupure (« Mes Documents ») reste visible. */
+  white-space: pre;
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
 }
 
 .tail {
+  white-space: pre;
   flex-shrink: 0;
 }

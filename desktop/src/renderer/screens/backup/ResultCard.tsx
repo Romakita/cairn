@@ -3,13 +3,13 @@
 import { CircleCheck, CircleX, FileText, OctagonPause, X } from "lucide-react";
 import { Fmt } from "../../../core/format.ts";
 import { t } from "../../../core/l10n.ts";
-import { useApi } from "../../api/hooks.ts";
+import { useApi, useSnapshot } from "../../api/hooks.ts";
 import { Banner } from "../../ui/Banner.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { Icon } from "../../ui/Icon.tsx";
 import { IconButton } from "../../ui/IconButton.tsx";
 import { MiddleText } from "../../ui/MiddleText.tsx";
-import type { ShownResult } from "./model.ts";
+import { partVolumes, type ShownResult } from "./model.ts";
 import styles from "./ResultCard.module.css";
 
 const MAX_DAMAGED = 10;
@@ -28,6 +28,10 @@ function statusIcon(status: ShownResult["status"]) {
 
 export function ResultCard({ result: r, label, onDismiss }: ResultCardProps) {
   const api = useApi();
+  const snapshot = useSnapshot();
+  const parts = r.dryRun
+    ? partVolumes(r.bytesByPart, (id) => snapshot?.ai.tools.find((x) => x.id === id)?.name ?? id)
+    : [];
   const title = r.dryRun
     ? t("backup.result.simulation")
     : r.status === "succeeded"
@@ -62,6 +66,16 @@ export function ResultCard({ result: r, label, onDismiss }: ResultCardProps) {
           <span>{t("backup.result.total", label)}</span>
           <span className={styles.figure}>{total}</span>
         </div>
+      )}
+      {parts.length > 0 && (
+        <ul className={styles.parts} aria-label={t("backup.ui.result.by_part")}>
+          {parts.map((p) => (
+            <li key={p.key} className={styles.part}>
+              <MiddleText text={p.label} className={styles.partName} />
+              <span className={styles.figure}>{Fmt.bytes(p.bytes)}</span>
+            </li>
+          ))}
+        </ul>
       )}
       {r.status === "waiting" && !r.error && (
         <Banner tone="warning">{t("destination.error.unreachable", label)}</Banner>

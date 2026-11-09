@@ -28,6 +28,17 @@ export const shots: ScreenShot[] = [
   },
   { name: "settings.config-invalid", hash: "#/app/settings", scenario: "config-invalid" },
   {
+    name: "settings.config-invalid-schedule",
+    hash: "#/app/settings",
+    scenario: "config-invalid",
+    before: async (page) => {
+      await page.getByRole("navigation", { name: "Settings" }).getByRole("button", { name: "Schedule" }).click();
+      await page.waitForTimeout(600);
+      await page.getByRole("radiogroup", { name: "Frequency" }).hover();
+      await page.waitForTimeout(500);
+    },
+  },
+  {
     name: "settings.remove-folder",
     hash: "#/app/settings",
     before: async (page) => {

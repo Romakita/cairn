@@ -5,7 +5,9 @@
 // - L'interface n'appelle que les méthodes métier de `CairnApi` ; chaque argument est validé dans le main par le
 //   schéma zod de `schemas.ts`, et l'origine de l'appel est vérifiée (`app://cairn`).
 // - Les suppressions désignent des éléments du dernier état connu du main (`nodeId`, plan de suppression…), jamais
-//   des chemins libres ; les confirmations destructives sont redemandées par le main.
+//   des chemins libres. Chaque action destructive est confirmée UNE fois : par la feuille de l'interface, qui obtient
+//   un jeton du main (`prepareConfirmation`), ou, si l'appel arrive sans jeton valide, par une boîte native du main
+//   (voir « Confirmation des actions destructives » plus bas).
 // - Les mots de passe vont de l'interface au main une seule fois et ne reviennent jamais (sauf le mot de passe d'une
 //   image neuve, montré une fois).
 //
@@ -147,6 +149,11 @@ export type BackupResultView = Omit<CoreBackupResult, "newImagePassword" | "outc
   version: string | null;
   filesTransferred: number;
   bytesTransferred: number;
+  /**
+   * Volume par partie de la version (`folders/<nom>`, `home`, `ai/<outil>/<catégorie>`, `tools`) : en simulation, ce
+   * qui serait copié ; sinon ce qui a été examiné. Vide si la destination n'a pas atteint la copie.
+   */
+  bytesByPart: Record<string, number>;
 };
 
 export interface BackupView {
@@ -227,11 +234,22 @@ export interface AnalysisView {
   error: string | null;
 }
 
+/** Occupation d'un volume des dossiers suivis (jauge « X utilisés sur Y »). */
+export interface VolumeView {
+  /** Nom du volume (« Macintosh HD », « workspaces »). */
+  volume: string;
+  /** Espace libre « pour usage important » (purgeable APFS compris), en octets. */
+  free: number;
+  total: number;
+}
+
 export interface StorageView {
   /** Alertes en cours (volumes sous un seuil ou pleins dans moins de 7 jours). */
   alerts: StorageAlert[];
   /** Espace libre du volume principal (premier dossier suivi). */
   freeBytes: number | null;
+  /** Volumes des dossiers suivis, dans l'ordre des dossiers (le premier est le volume principal). */
+  volumes: VolumeView[];
   lastCheck: number | null;
 }
 
@@ -259,6 +277,16 @@ export interface AIToolView {
   id: string;
   name: string;
   detected: boolean;
+  /** Racine des données de l'outil, telle que dans son profil (`~`, `~/.codex`…). */
+  root: string;
+  /** Catégories proposées par le profil (dans l'ordre conversations, config, memories, credentials). */
+  offeredCategories: string[];
+  /** Le jeton de connexion est rangé au Trousseau : reconnexion nécessaire après une restauration. */
+  credentialsInKeychain: boolean;
+  /** Motifs jamais copiés (caches, journaux), relatifs à la racine. */
+  exclude: string[];
+  /** Octets des dossiers réinstallés plutôt que copiés (extensions, paquets). */
+  notCopiedBytes: number;
   bytesByCategory: Record<string, number>;
   totalBytes: number;
   conversations: number;
@@ -350,6 +378,14 @@ export interface BackgroundView {
   status: "enabled" | "not-registered" | "requires-approval" | "not-found" | "unknown";
 }
 
+/** État de l'accueil (`HubState` du core) et du « Tout vérifier ». */
+export type HubView = HubState & {
+  /** Fin du dernier « Tout vérifier » terminé (ms), `null` s'il n'a jamais été fait. */
+  lastCheck: number | null;
+  /** Un « Tout vérifier » est en cours (analyse, git, joignabilité). */
+  checking: boolean;
+};
+
 export interface AppSnapshot {
   /** Incrémenté à chaque changement (les fenêtres ignorent un état plus ancien). */
   revision: number;
@@ -369,7 +405,7 @@ export interface AppSnapshot {
   git: GitView;
   inventory: InventoryView;
   ai: AIView;
-  hub: HubState;
+  hub: HubView;
   /** Mini-graphique de l'accueil : 7 derniers jours, du plus ancien à aujourd'hui. */
   backupDays: (boolean | null)[];
   activity: ActivityView[];
@@ -428,8 +464,9 @@ export interface VerifyArgs {
 
 export interface RemoveNodesArgs {
   nodeIds: number[];
-  /** `false` (défaut) : corbeille. `true` : suppression définitive, confirmée par le main. */
+  /** `false` (défaut) : corbeille. `true` : suppression définitive. */
   permanently?: boolean;
+  confirmation?: string;
 }
 
 export interface GitSelection {
@@ -459,7 +496,8 @@ export type NewDestination = Omit<DestinationConfig, "id">;
 export interface OnboardingDraftWire {
   folders: { path: string; selected: boolean }[];
   home: { path: string; selected: boolean }[];
-  ai: { id: string; detected: boolean; categories: string[] }[];
+  /** `name` et `offeredCategories` viennent du profil de l'outil (rendus tels quels par l'interface). */
+  ai: { id: string; name: string; detected: boolean; categories: string[]; offeredCategories: string[] }[];
   destination: { kind: "later" } | { kind: "local"; path: string } | { kind: "smb"; url: string; username: string };
   encrypted: boolean;
   frequency: Frequency;
@@ -467,6 +505,8 @@ export interface OnboardingDraftWire {
   weekday: string;
   background: boolean;
   language: string;
+  /** Demander l'autorisation des notifications système à la fin de l'assistant. */
+  notifications: boolean;
 }
 
 export interface RemovalPlanView {
@@ -582,6 +622,27 @@ export interface RestorePlanView {
   simulated: boolean;
 }
 
+/** Options d'analyse git choisies sur l'écran Git (absentes : réglages par défaut, comme `cairn git`). */
+export interface GitAnalyzeArgs {
+  /** « Tout vérifier » : tous les dépôts, jamais de mise à jour depuis le serveur. */
+  fullCheck?: boolean;
+  /** Un seul dépôt. */
+  only?: string;
+  /** Proposer aussi les branches jamais fusionnées (`--include-unmerged`). */
+  includeUnmerged?: boolean;
+  /** Seulement les worktrees (`--worktrees-only`). */
+  worktreesOnly?: boolean;
+  /** Proposer aussi les worktrees avec des modifications non enregistrées (`--include-at-risk`). */
+  includeAtRisk?: boolean;
+}
+
+/** Compactage d'un dépôt : taille de son dossier `.git` avant et après. */
+export interface CompactResult {
+  repo: string;
+  before: number;
+  after: number;
+}
+
 export type ShowTarget = { kind: "node"; nodeId: number } | { kind: "path"; path: string };
 
 export type OpenTarget =
@@ -606,10 +667,51 @@ export interface RemovalOutcome {
   failures: { path: string; message: string }[];
 }
 
-/** Résultat d'une action confirmée par le main (`cancelled` : refusée par l'utilisateur, rien n'a changé). */
+/** Résultat d'une action confirmée (`cancelled` : refusée par l'utilisateur, rien n'a changé). */
 export interface Confirmed<T = void> {
   cancelled: boolean;
   value?: T;
+}
+
+// MARK: Confirmation des actions destructives
+//
+// Une action destructive n'est confirmée qu'une fois :
+// 1. la feuille de l'interface montre ce qui sera fait ; quand l'utilisateur confirme, l'interface appelle
+//    `prepareConfirmation({ method, args })` avec EXACTEMENT les arguments de l'appel qui suit (sans `confirmation`) ;
+// 2. le main valide ces arguments (même schéma que la méthode) et rend un jeton aléatoire, à usage unique, valable
+//    2 minutes, lié à la fenêtre appelante, à la méthode et à ces arguments ;
+// 3. l'interface fait l'appel avec `confirmation: <jeton>` : le main consomme le jeton et n'ouvre pas de boîte.
+// Sans jeton, avec un jeton expiré, déjà servi, d'une autre fenêtre ou pour d'autres arguments, le main ouvre sa boîte
+// native, comme avant : aucun appel ne supprime rien sans une confirmation explicite de cette action précise.
+// `renderer/api/confirm.ts` (`confirmedCall`) enchaîne les deux appels.
+
+/** Méthodes destructives : leurs arguments acceptent `confirmation` (jeton de `prepareConfirmation`). */
+export const CONFIRMED_METHODS = [
+  "removeNodes",
+  "gitApply",
+  "gitCompact",
+  "gitTrashRepo",
+  "removeDestination",
+  "applyRetention",
+  "applyRestore",
+  "createWorkspacesVolume",
+] as const;
+
+export type ConfirmedMethod = (typeof CONFIRMED_METHODS)[number];
+
+/** Arguments d'une méthode destructive, sans le jeton. */
+export type ConfirmedArgs<M extends ConfirmedMethod> = Omit<CairnMethods[M]["args"], "confirmation">;
+
+export interface PrepareConfirmationArgs {
+  method: ConfirmedMethod;
+  /** Arguments de l'appel à venir, sans `confirmation` (validés par le schéma de la méthode). */
+  args: unknown;
+}
+
+/** Jeton à passer en `confirmation` ; durée de validité en ms. */
+export interface ConfirmationToken {
+  token: string;
+  expiresIn: number;
 }
 
 export interface SMBConnectResult {
@@ -655,15 +757,17 @@ export interface CairnMethods {
   cancelCheckAll: { args: undefined; result: void };
 
   // Maintenance git
-  gitAnalyze: { args: { fullCheck?: boolean; only?: string }; result: void };
+  gitAnalyze: { args: GitAnalyzeArgs; result: void };
   gitCancel: { args: undefined; result: void };
-  gitApply: { args: { selections: GitSelection[] }; result: Confirmed<CleanupResult> };
-  gitCompact: { args: { repo: string }; result: Confirmed };
-  gitTrashRepo: { args: { repo: string }; result: Confirmed };
+  gitApply: { args: { selections: GitSelection[]; confirmation?: string }; result: Confirmed<CleanupResult> };
+  /** `pruneNow` : élaguer tout de suite les objets inaccessibles (`--prune-now`). */
+  gitCompact: { args: { repo: string; pruneNow?: boolean; confirmation?: string }; result: Confirmed<CompactResult> };
+  gitTrashRepo: { args: { repo: string; confirmation?: string }; result: Confirmed };
 
   // Outils et IA
   toolsRefresh: { args: undefined; result: void };
-  toolsExport: { args: undefined; result: { dir: string } | null };
+  /** Écrit `tools.toml` et `Brewfile` dans `dir` (dossier existant), ou dans un dossier choisi par le main. */
+  toolsExport: { args: { dir?: string }; result: { dir: string } | null };
   aiRefresh: { args: undefined; result: void };
   aiExport: { args: undefined; result: { file: string } | null };
 
@@ -689,17 +793,25 @@ export interface CairnMethods {
     result: SavedDestinationView;
   };
   planDestinationRemoval: { args: { id: string; includeBackups: boolean }; result: RemovalPlanView };
-  removeDestination: { args: { planId: string }; result: Confirmed };
+  removeDestination: { args: { planId: string; confirmation?: string }; result: Confirmed };
   planRetention: { args: { destination: string; retention: Retention }; result: RetentionPlanView };
-  applyRetention: { args: { planId: string }; result: Confirmed<{ deleted: string[]; failed: string[] }> };
+  applyRetention: {
+    args: { planId: string; confirmation?: string };
+    result: Confirmed<{ deleted: string[]; failed: string[] }>;
+  };
 
-  // Restauration (simulation d'abord ; `applyRestore` est confirmé par le main, puis suivi par `restore.progress`)
+  // Restauration (simulation d'abord ; `applyRestore` est confirmé, puis suivi par `restore.progress`)
   planRestore: { args: RestorePlanArgs; result: RestorePlanView };
-  applyRestore: { args: { planId: string }; result: Confirmed };
+  applyRestore: { args: { planId: string; confirmation?: string }; result: Confirmed };
+  /** Crée le volume APFS `workspaces` sur le disque de démarrage (irréversible : confirmé). */
+  createWorkspacesVolume: { args: { confirmation?: string }; result: Confirmed };
 
   // Mises à jour
   checkUpdates: { args: undefined; result: void };
   installUpdate: { args: undefined; result: void };
+
+  // Confirmation d'une action destructive par la feuille de l'interface (voir plus haut)
+  prepareConfirmation: { args: PrepareConfirmationArgs; result: ConfirmationToken };
 
   // Système
   openTarget: { args: OpenTarget; result: void };
@@ -763,6 +875,8 @@ export const METHOD_NAMES = [
   "applyRetention",
   "planRestore",
   "applyRestore",
+  "createWorkspacesVolume",
+  "prepareConfirmation",
   "checkUpdates",
   "installUpdate",
   "openTarget",

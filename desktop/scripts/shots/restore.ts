@@ -46,7 +46,38 @@ export const shots: ScreenShot[] = [
     before: async (page) => {
       await toSummary(page);
       await page.getByTestId("screen-restore").getByRole("button", { name: "Restore", exact: true }).click();
+      await page.getByRole("dialog").getByRole("button", { name: "Restore", exact: true }).click();
       await page.getByRole("heading", { name: "Restore in progress" }).waitFor();
+    },
+  },
+  {
+    name: "restore.confirm",
+    hash: "#/app/restore",
+    scenario: "restore",
+    before: async (page) => {
+      await toSummary(page);
+      await page.getByTestId("screen-restore").getByRole("button", { name: "Restore", exact: true }).click();
+      await page.getByRole("dialog").waitFor();
+    },
+  },
+  {
+    name: "restore.missing-volume",
+    hash: "#/app/restore",
+    scenario: "restore",
+    before: async (page) => {
+      await toParts(page);
+      await page.getByRole("checkbox", { name: "workspaces" }).click();
+    },
+  },
+  {
+    name: "restore.create-volume",
+    hash: "#/app/restore",
+    scenario: "restore",
+    before: async (page) => {
+      await toParts(page);
+      await page.getByRole("checkbox", { name: "workspaces" }).click();
+      await page.getByRole("button", { name: "Create the “workspaces” APFS volume" }).click();
+      await page.getByRole("dialog").waitFor();
     },
   },
   {
@@ -61,6 +92,7 @@ export const shots: ScreenShot[] = [
       await page.getByRole("button", { name: /8 nov\. 2026/ }).click();
       await page.getByRole("button", { name: "Simuler" }).click();
       await page.getByTestId("screen-restore").getByRole("button", { name: "Restaurer", exact: true }).click();
+      await page.getByRole("dialog").getByRole("button", { name: "Restaurer", exact: true }).click();
       await page.getByRole("heading", { name: "Restauration terminée" }).waitFor({ timeout: 20_000 });
     },
   },

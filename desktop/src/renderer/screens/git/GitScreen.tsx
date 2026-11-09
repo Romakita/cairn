@@ -6,6 +6,7 @@ import { Fmt } from "../../../core/format.ts";
 import type { GoneBranch, WorktreeInfo } from "../../../core/git/types.ts";
 import { t } from "../../../core/l10n.ts";
 import type { AppSnapshot, RepoReport } from "../../../shared/contract.ts";
+import { confirmedCall } from "../../api/confirm.ts";
 import { useApi, useSnapshot } from "../../api/hooks.ts";
 import { Badge } from "../../ui/Badge.tsx";
 import { Banner } from "../../ui/Banner.tsx";
@@ -34,8 +35,8 @@ import {
   worktreeTone,
 } from "./common.ts";
 import styles from "./GitScreen.module.css";
-import { type GitAction, GitSheet } from "./GitSheets.tsx";
-import { OptionsSheet } from "./OptionsSheet.tsx";
+import { type GitAction, type GitConfirmOptions, GitSheet } from "./GitSheets.tsx";
+import { type AnalysisOptions, OptionsSheet } from "./OptionsSheet.tsx";
 
 type Tab = "repos" | "branches" | "worktrees";
 
@@ -68,6 +69,12 @@ function GitContent({ request, snapshot }: ScreenProps & { snapshot: AppSnapshot
   const [busyRepo, setBusyRepo] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ tone: "success" | "danger"; text: string } | null>(null);
   const [options, setOptions] = useState(false);
+  /** Options de la prochaine analyse (comme `cairn git --include-unmerged` etc.), propres à cette session. */
+  const [analysisOptions, setAnalysisOptions] = useState<AnalysisOptions>(() => ({
+    includeUnmerged: git.options.includeUnmerged,
+    worktreesOnly: git.options.worktreesOnly,
+    includeAtRisk: git.options.includeAtRisk,
+  }));
   const [repoSort, setRepoSort] = useState<TableSort>({ column: "git", direction: "descending" });
   const [branchSort, setBranchSort] = useState<TableSort>({ column: "date", direction: "ascending" });
   const [worktreeSort, setWorktreeSort] = useState<TableSort>({ column: "modified", direction: "ascending" });
@@ -81,7 +88,9 @@ function GitContent({ request, snapshot }: ScreenProps & { snapshot: AppSnapshot
 
   const analyze = (only?: string) => {
     setNotice(null);
-    api.gitAnalyze(only ? { only } : {}).catch((e: unknown) => setNotice({ tone: "danger", text: errorText(e) }));
+    api
+      .gitAnalyze({ ...analysisOptions, ...(only ? { only } : {}) })
+      .catch((e: unknown) => setNotice({ tone: "danger", text: errorText(e) }));
   };
 
   const reports = repoFilter ? git.reports.filter((r) => r.path === repoFilter) : git.reports;
@@ -90,7 +99,7 @@ function GitContent({ request, snapshot }: ScreenProps & { snapshot: AppSnapshot
   const reportOf = (repo: string) => git.reports.find((r) => r.path === repo);
   const failed = Object.entries(git.failed);
 
-  const confirm = async (a: GitAction, { withBranch }: { withBranch: boolean }) => {
+  const confirm = async (a: GitAction, { withBranch, pruneNow }: GitConfirmOptions) => {
     const repo = a.kind === "branch" ? a.branch.repo : a.kind === "worktree" ? a.worktree.repo : a.report.path;
     setBusyRepo(repo);
     try {
@@ -103,7 +112,7 @@ function GitContent({ request, snapshot }: ScreenProps & { snapshot: AppSnapshot
                 branches: withBranch && a.worktree.branch ? [a.worktree.branch] : [],
                 worktrees: [a.worktree.path],
               };
-        const result = await api.gitApply({ selections: [selection] });
+        const result = await confirmedCall(api, "gitApply", { selections: [selection] });
         if (!result.cancelled && result.value) {
           const v = result.value;
           setNotice(
@@ -113,10 +122,13 @@ function GitContent({ request, snapshot }: ScreenProps & { snapshot: AppSnapshot
           );
         }
       } else if (a.kind === "compact") {
-        const result = await api.gitCompact({ repo });
-        if (!result.cancelled) setNotice({ tone: "success", text: t("git.page.compacted", baseName(repo)) });
+        const result = await confirmedCall(api, "gitCompact", { repo, pruneNow });
+        if (!result.cancelled && result.value) {
+          const { before, after } = result.value;
+          setNotice({ tone: "success", text: t("git.compacted", baseName(repo), Fmt.bytes(before), Fmt.bytes(after)) });
+        }
       } else {
-        const result = await api.gitTrashRepo({ repo });
+        const result = await confirmedCall(api, "gitTrashRepo", { repo });
         if (!result.cancelled) {
           setNotice({ tone: "success", text: t("git.trashed", baseName(repo)) });
           if (repoFilter === repo) setRepoFilter(null);
@@ -613,7 +625,13 @@ function GitContent({ request, snapshot }: ScreenProps & { snapshot: AppSnapshot
         onCancel={() => setAction(null)}
         onConfirm={(a, o) => void confirm(a, o)}
       />
-      <OptionsSheet open={options} onClose={() => setOptions(false)} snapshot={snapshot} />
+      <OptionsSheet
+        open={options}
+        onClose={() => setOptions(false)}
+        snapshot={snapshot}
+        analysis={analysisOptions}
+        onAnalysisChange={setAnalysisOptions}
+      />
     </div>
   );
 }

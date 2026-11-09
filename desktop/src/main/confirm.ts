@@ -1,5 +1,6 @@
-// Confirmations des actions destructives, posées par le main (parity/platform.md §5) : l'interface peut demander une
-// suppression, mais c'est cette boîte qui décide. Le bouton par défaut est toujours « Annuler ».
+// Confirmations des actions destructives (parity/platform.md §5), une seule par action : la feuille de l'interface
+// (jeton de `prepareConfirmation`, voir contract.ts) ou, sans jeton valide, la boîte native du main, dont le bouton par
+// défaut est toujours « Annuler ».
 import { app, BrowserWindow, dialog } from "electron";
 import { t } from "../core/l10n.ts";
 

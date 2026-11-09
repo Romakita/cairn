@@ -1,5 +1,5 @@
 // Écran Restauration (U §3.8, tâche 12.8) : assistant en 4 étapes visibles (source, version, contenu, récapitulatif),
-// colonne « Version choisie », puis la restauration confirmée par le main et sa progression. Rien n'est écrit avant
+// colonne « Version choisie », puis la restauration confirmée par une feuille (jeton passé au main) et sa progression. Rien n'est écrit avant
 // « Restaurer » : le récapitulatif vient d'une simulation (`planRestore` avec `simulate`). Les outils go et
 // `~/.local/bin` sont listés « à réinstaller à la main » avec leur version (spec `restore` modifiée).
 import {
@@ -20,6 +20,7 @@ import { Fmt } from "../../../core/format.ts";
 import { t } from "../../../core/l10n.ts";
 import type { RestoreStep } from "../../../core/restore/service.ts";
 import type { RestorePart, RestorePlanArgs, RestorePlanView, RestoreSource } from "../../../shared/contract.ts";
+import { confirmedCall } from "../../api/confirm.ts";
 import { useApi, useSnapshot } from "../../api/hooks.ts";
 import { Banner } from "../../ui/Banner.tsx";
 import { Button } from "../../ui/Button.tsx";
@@ -30,12 +31,15 @@ import { Icon } from "../../ui/Icon.tsx";
 import { PasswordField } from "../../ui/PasswordField.tsx";
 import { ProgressBar } from "../../ui/ProgressBar.tsx";
 import { RowDivider } from "../../ui/RowDivider.tsx";
+import { Sheet } from "../../ui/Sheet.tsx";
 import { Spinner } from "../../ui/Spinner.tsx";
 import { WizardStepper } from "../../ui/WizardStepper.tsx";
 import type { ScreenProps } from "../types.ts";
 import styles from "./RestoreScreen.module.css";
 
 const STEPS = ["source", "version", "parts", "summary"] as const;
+/** Volume APFS que la restauration peut créer (dossiers suivis sous `/Volumes/workspaces`). */
+const WORKSPACES_ROOT = "/Volumes/workspaces";
 type Step = (typeof STEPS)[number];
 
 function errorText(e: unknown): string {
@@ -121,6 +125,8 @@ export function RestoreScreen({ navigate }: ScreenProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [applied, setApplied] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [volumeSheet, setVolumeSheet] = useState(false);
 
   if (!snapshot) return <div className={styles.root} data-testid="screen-restore" />;
   const restore = snapshot.restore;
@@ -208,14 +214,36 @@ export function RestoreScreen({ navigate }: ScreenProps) {
     if (p) goTo(3);
   };
 
+  /** Restauration confirmée par la feuille : le main ne redemande pas. */
   const apply = async () => {
     if (!plan) return;
     setBusy(true);
     setError(null);
     try {
-      const r = await api.applyRestore({ planId: plan.planId });
+      const r = await confirmedCall(api, "applyRestore", { planId: plan.planId });
       if (!r.cancelled) setApplied(true);
     } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setConfirming(false);
+      setBusy(false);
+    }
+  };
+
+  /** Volume « workspaces » créé après la feuille, puis plan relu (les cibles ne manquent plus). */
+  const createVolume = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await confirmedCall(api, "createWorkspacesVolume", {});
+      setVolumeSheet(false);
+      if (!r.cancelled && source)
+        await call(
+          plan?.simulated ? fullArgs(source) : { source, ...(version ? { version } : {}) },
+          plan?.simulated === true,
+        );
+    } catch (e) {
+      setVolumeSheet(false);
       setError(errorText(e));
     } finally {
       setBusy(false);
@@ -483,7 +511,18 @@ export function RestoreScreen({ navigate }: ScreenProps) {
                   </div>
                 )}
                 {chosen && f.targetMissing && target === f.target && (
-                  <Banner tone="warning">{t("restore.missing_volume", target)}</Banner>
+                  <Banner tone="warning">
+                    <span className={styles.stack}>
+                      <span>{t("restore.missing_volume", target)}</span>
+                      {target.startsWith(WORKSPACES_ROOT) && (
+                        <span>
+                          <Button icon={HardDrive} onClick={() => setVolumeSheet(true)}>
+                            {t("restore.create_volume")}
+                          </Button>
+                        </span>
+                      )}
+                    </span>
+                  </Banner>
                 )}
               </div>
             );
@@ -625,12 +664,65 @@ export function RestoreScreen({ navigate }: ScreenProps) {
                 icon={RotateCcw}
                 loading={busy}
                 disabledReason={backupRunning ?? (restore.running ? t("cli.busy") : undefined)}
-                onClick={() => void apply()}
+                onClick={() => setConfirming(true)}
               >
                 {t("restore.run")}
               </Button>
             )}
           </footer>
+          <Sheet
+            open={confirming}
+            width={520}
+            heading={t("restore.ui.confirm.title")}
+            description={t("cli.restore.confirm")}
+            closeLabel={t("action.close")}
+            onClose={busy ? undefined : () => setConfirming(false)}
+            footer={
+              <>
+                <Button
+                  onClick={() => setConfirming(false)}
+                  disabledReason={busy ? t("restore.ui.running.title") : undefined}
+                >
+                  {t("action.cancel")}
+                </Button>
+                <Button variant="primary" icon={RotateCcw} loading={busy} autoFocus onClick={() => void apply()}>
+                  {t("restore.run")}
+                </Button>
+              </>
+            }
+          >
+            {plan && (
+              <div className={styles.confirm}>
+                <span className={styles.figure}>{t("restore.ui.confirm.total", Fmt.bytes(total))}</span>
+                {plan.warnings.map((w) => (
+                  <Banner key={w} tone="warning">
+                    {w}
+                  </Banner>
+                ))}
+              </div>
+            )}
+          </Sheet>
+          <Sheet
+            open={volumeSheet}
+            width={520}
+            heading={t("restore.ui.volume.title")}
+            description={t("restore.ui.volume.text")}
+            closeLabel={t("action.close")}
+            onClose={busy ? undefined : () => setVolumeSheet(false)}
+            footer={
+              <>
+                <Button
+                  onClick={() => setVolumeSheet(false)}
+                  disabledReason={busy ? t("restore.ui.volume.busy") : undefined}
+                >
+                  {t("action.cancel")}
+                </Button>
+                <Button variant="primary" icon={HardDrive} loading={busy} onClick={() => void createVolume()}>
+                  {t("restore.create_volume")}
+                </Button>
+              </>
+            }
+          />
         </div>
       </div>
     </div>

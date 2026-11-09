@@ -4,13 +4,14 @@
 import { shell } from "electron";
 import { folderExpandedPath } from "../core/config.ts";
 import { Fmt } from "../core/format.ts";
+import { refreshSizes } from "../core/git/analysis.ts";
 import { applyCleanup, type CleanupResult, compactUnderLock } from "../core/git/apply.ts";
 import { analyzeAll, type PoolProgress } from "../core/git/pool.ts";
 import { type RepoPlan, removing } from "../core/git/selection.ts";
 import { defaultGitOptions, forAnalysis, type GitOptions, type RepoReport } from "../core/git/types.ts";
 import { t } from "../core/l10n.ts";
 import { classify } from "../core/regenerable.ts";
-import type { Confirmed, GitSelection, GitView } from "../shared/contract.ts";
+import type { CompactResult, Confirmed, GitAnalyzeArgs, GitSelection, GitView } from "../shared/contract.ts";
 import { itemList } from "./confirm.ts";
 import { ApiError } from "./errors.ts";
 import type { Host } from "./host.ts";
@@ -41,12 +42,22 @@ export class GitService {
   }
 
   /** Analyse les dépôts des dossiers suivis ; `fullCheck` : tous les dépôts, jamais de `git fetch` (85501aa). */
-  async analyze(args: { fullCheck?: boolean; only?: string }): Promise<void> {
+  async analyze(args: GitAnalyzeArgs): Promise<void> {
     if (this.controller) throw new ApiError("busy", t("hub.checking"));
     const config = this.host.config();
     const folders = config.folders.map(folderExpandedPath);
     if (folders.length === 0) throw new ApiError("notFound", "no folder to analyze");
-    const options = forAnalysis({ ...this.baseOptions(), only: args.only ?? null }, config, args.fullCheck ?? false);
+    const options = forAnalysis(
+      {
+        ...this.baseOptions(),
+        only: args.only ?? null,
+        includeUnmerged: args.includeUnmerged ?? false,
+        worktreesOnly: args.worktreesOnly ?? false,
+        includeAtRisk: args.includeAtRisk ?? false,
+      },
+      config,
+      args.fullCheck ?? false,
+    );
     const controller = new AbortController();
     this.controller = controller;
     this.options = options;
@@ -112,18 +123,20 @@ export class GitService {
   }
 
   /** Supprime la sélection après confirmation (verrou `git-clean`). */
-  async apply(selections: readonly GitSelection[]): Promise<Confirmed<CleanupResult>> {
+  async apply(selections: readonly GitSelection[], confirmed = false): Promise<Confirmed<CleanupResult>> {
     if (this.controller || this.applying) throw new ApiError("busy", t("hub.checking"));
     const plans = this.plans(selections);
     const branches = plans.flatMap((p) => p.branches.map((b) => `${b.name} (${b.sha})`));
     const worktrees = plans.flatMap((p) => p.worktrees.map((w) => w.path));
     if (branches.length + worktrees.length === 0) return { cancelled: true };
-    const ok = await this.host.confirm({
-      message: t("cli.git.confirm", branches.length, worktrees.length, ""),
-      detail: [itemList([...worktrees, ...branches], 8), t("git.confirm.log")].join("\n\n"),
-      confirm: t("git.apply"),
-      destructive: true,
-    });
+    const ok =
+      confirmed ||
+      (await this.host.confirm({
+        message: t("cli.git.confirm", branches.length, worktrees.length, ""),
+        detail: [itemList([...worktrees, ...branches], 8), t("git.confirm.log")].join("\n\n"),
+        confirm: t("git.apply"),
+        destructive: true,
+      }));
     if (!ok) return { cancelled: true };
     this.applying = true;
     this.host.changed();
@@ -147,34 +160,46 @@ export class GitService {
     }
   }
 
-  /** Compacte un dépôt analysé (`git gc`), après confirmation. */
-  async compact(repo: string): Promise<Confirmed> {
+  /**
+   * Compacte un dépôt analysé (`git gc`, et `pruneNow` : objets inaccessibles élagués tout de suite), après
+   * confirmation ; rend la taille du dossier `.git` avant et après, et met le rapport à jour.
+   */
+  async compact(repo: string, pruneNow = false, confirmed = false): Promise<Confirmed<CompactResult>> {
     const report = this.report(repo);
-    const ok = await this.host.confirm({
-      message: t("git.compact.title", repo),
-      detail: t("git.compact.detail", Fmt.bytes(report.gitBytes), Fmt.bytes(report.looseBytes)),
-      confirm: t("git.compact.confirm"),
-    });
+    const ok =
+      confirmed ||
+      (await this.host.confirm({
+        message: t("git.compact.title", repo),
+        detail: t("git.compact.detail", Fmt.bytes(report.gitBytes), Fmt.bytes(report.looseBytes)),
+        confirm: t("git.compact.confirm"),
+      }));
     if (!ok) return { cancelled: true };
-    await compactUnderLock({ stateDir: this.host.paths.state }, repo, this.options);
+    const measured = await refreshSizes(report, this.options).catch(() => report);
+    await compactUnderLock({ stateDir: this.host.paths.state }, repo, { gc: true, pruneNow });
+    const updated = await refreshSizes(measured, this.options).catch(() => measured);
+    this.reports = this.reports.map((r) => (r.path === repo ? updated : r));
+    const before = measured.gitBytes;
+    const after = updated.gitBytes;
     void this.host.checkStorage();
     this.host.changed();
-    return { cancelled: false };
+    return { cancelled: false, value: { repo, before, after } };
   }
 
   /** Met tout le dépôt à la corbeille (récupérable), après confirmation. */
-  async trashRepo(repo: string): Promise<Confirmed> {
+  async trashRepo(repo: string, confirmed = false): Promise<Confirmed> {
     const report = this.report(repo);
     const risk =
       report.modifiedFiles > 0 || report.unpushedCommits > 0
         ? `\n\n${t("git.trash.risk", report.modifiedFiles, report.unpushedCommits)}`
         : "";
-    const ok = await this.host.confirm({
-      message: t("git.trash.title", repo),
-      detail: t("git.trash.detail", report.lastModified ? Fmt.date(report.lastModified) : "—") + risk,
-      confirm: t("action.trash"),
-      destructive: risk !== "",
-    });
+    const ok =
+      confirmed ||
+      (await this.host.confirm({
+        message: t("git.trash.title", repo),
+        detail: t("git.trash.detail", report.lastModified ? Fmt.date(report.lastModified) : "—") + risk,
+        confirm: t("action.trash"),
+        destructive: risk !== "",
+      }));
     if (!ok) return { cancelled: true };
     await shell.trashItem(repo);
     this.reports = this.reports.filter((r) => r.path !== repo);

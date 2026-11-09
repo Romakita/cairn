@@ -5,6 +5,7 @@ import type { Retention } from "../../../core/config.ts";
 import { Fmt } from "../../../core/format.ts";
 import { t } from "../../../core/l10n.ts";
 import type { DestinationView, RetentionPlanView } from "../../../shared/contract.ts";
+import { confirmedCall } from "../../api/confirm.ts";
 import { useApi } from "../../api/hooks.ts";
 import { Banner } from "../../ui/Banner.tsx";
 import { Button } from "../../ui/Button.tsx";
@@ -39,10 +40,13 @@ export function RetentionCard({ destination, disabledReason }: RetentionCardProp
   }, [savedKey]);
   const changed = !sameRetention(draft, saved);
 
-  const apply = async (planId: string) => {
+  /** `confirmed` : la feuille des versions à supprimer vient d'être confirmée (le main ne redemande pas). */
+  const apply = async (planId: string, confirmed = false) => {
     setBusy(true);
     try {
-      const r = await api.applyRetention({ planId });
+      const r = confirmed
+        ? await confirmedCall(api, "applyRetention", { planId })
+        : await api.applyRetention({ planId });
       if (!r.cancelled) setPlan(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -93,7 +97,7 @@ export function RetentionCard({ destination, disabledReason }: RetentionCardProp
         footer={
           <>
             <Button onClick={() => setPlan(null)}>{t("action.cancel")}</Button>
-            <Button variant="danger" loading={busy} onClick={() => plan && void apply(plan.planId)}>
+            <Button variant="danger" loading={busy} onClick={() => plan && void apply(plan.planId, true)}>
               {excess ? t("backup.ui.retention.delete", excess.names.length) : t("action.delete")}
             </Button>
           </>

@@ -39,7 +39,7 @@ function useNow(active: boolean): number {
 }
 
 function percentLabel(fraction: number): string {
-  return `${Math.round(fraction * 100)} %`;
+  return Fmt.percent(fraction, 1, 0);
 }
 
 function Ring({ fraction }: { fraction: number | undefined }) {
@@ -105,7 +105,7 @@ function FinishSteps({ steps }: { steps: FinishStepProgress[] }) {
               {s.status === "running" && s.current && <MiddleText text={s.current} className={styles.mono} />}
             </span>
             {s.status === "running" && s.percent !== null && (
-              <span className={styles.stepPercent}>{`${s.percent} %`}</span>
+              <span className={styles.stepPercent}>{Fmt.percent(s.percent, 100, 0)}</span>
             )}
           </li>
         ))}
