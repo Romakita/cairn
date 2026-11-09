@@ -203,3 +203,19 @@ test("« Ajouter une destination » sans destination ouvre le formulaire", async
   await expect(page.getByRole("dialog", { name: "Add a destination" })).toBeVisible();
   await page.close();
 });
+
+test("sans l'Accès complet au disque : bandeau et éléments refusés dans le résultat", async () => {
+  const page = await open("no-full-disk-access", "&frozen=1&lang=fr");
+  await expect(page.getByTestId("full-disk-access")).toContainText(
+    "Cairn n'a pas l'Accès complet au disque : Documents, Téléchargements",
+  );
+  const result = page.getByRole("region", { name: "Sauvegarde terminée" });
+  await expect(result.getByText("21 éléments n'ont pas pu être lus")).toBeVisible();
+  await expect(result.getByText("/Users/demo/Documents", { exact: true })).toBeVisible();
+  await expect(result.getByText("…et 16 autres, listés dans le journal.")).toBeVisible();
+  // Un seul lien vers le journal, dans le bandeau des éléments refusés.
+  await expect(result.getByRole("button", { name: "Voir le journal" })).toHaveCount(1);
+  await page.getByRole("button", { name: "Ouvrir les réglages" }).click();
+  await expect(page.getByTestId("full-disk-access")).toHaveCount(0);
+  await page.close();
+});

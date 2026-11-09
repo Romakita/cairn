@@ -6,6 +6,7 @@ import path from "node:path";
 import { type AnalysisSummary, reclaimableBytes } from "./analysis.ts";
 import { defaultConfig, type ScheduleConfig } from "./config.ts";
 import { isoDate, parseISODate } from "./dates.ts";
+import type { FullDiskAccess } from "./full-disk-access.ts";
 import { selectedBranchByDefault, selectedWorktreeByDefault } from "./git/selection.ts";
 import type { GitOptions, RepoReport } from "./git/types.ts";
 import { type DestinationStatus, destinationHealth, type HealthLevel, nextBackup, worstLevel } from "./health.ts";
@@ -17,6 +18,7 @@ import { AlertLevel, type StorageAlert } from "./storage-alerts.ts";
 export const ISSUE_KINDS = [
   "configInvalid",
   "backupFailed",
+  "fullDiskAccess",
   "diskCritical",
   "destinationOverdue",
   "diskLow",
@@ -148,6 +150,8 @@ export interface HubInputs {
   /** Nombre de versions par destination, quand la liste a été lue. */
   versions: Record<string, number>;
   isBackingUp: boolean;
+  /** Accès complet au disque : refusé, les dossiers protégés (Documents, Téléchargements…) sont sautés. */
+  fullDiskAccess: FullDiskAccess;
   now: Date;
   calendar: Calendar;
 }
@@ -166,6 +170,7 @@ export function hubInputs(values: Partial<HubInputs> = {}): HubInputs {
     aiLastBackup: null,
     versions: {},
     isBackingUp: false,
+    fullDiskAccess: "unknown",
     now: new Date(),
     calendar: localCalendar,
     ...values,
@@ -201,6 +206,8 @@ export function hubIssues(i: HubInputs): HubIssue[] {
       else out.push({ kind: "destinationOverdue", subject: d.label, ref: d.id });
     }
   }
+  // Sauvegarde configurée sans l'Accès complet au disque : des dossiers protégés seraient sautés.
+  if (i.fullDiskAccess === "denied" && i.destinations.length > 0) out.push({ kind: "fullDiskAccess", subject: "" });
   for (const a of i.volumeAlerts) {
     if (a.level === AlertLevel.ok) continue;
     out.push({

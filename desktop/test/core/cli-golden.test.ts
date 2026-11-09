@@ -378,12 +378,23 @@ describe.skipIf(!installed)("cli-golden", () => {
         .replace(/(backup|backup-dry-run)-[0-9T:-]+\.log/g, "$1-<date>.log")
         .replace(/ in [\d.,]+ s(ec)?\b/g, " in <duration>")
         .replace(/ of [A-Z][a-z]{2} \d+, \d{4} at \d+:\d{2}\u202f?[AP]M/g, " of <date>");
+    // Ajouts de la 0.9 absents de la 0.8.0 (Accès complet au disque) : clés JSON `full_disk_access` et
+    // `permission_denied`, avertissement sur stderr quand l'accès est refusé à la machine qui lance les tests.
+    const withoutAccess = (x: string) =>
+      x
+        .replace(/^\s*"full_disk_access" : "\w+",\n/gm, "")
+        .replace(/^\s*"permission_denied" : \{[\s\S]*?\n\s*\},\n/gm, "")
+        .replace(/^Warning: no Full Disk Access\..*\n/gm, "");
     const pair = async (args: (cfg: string, root: string) => string[]) => {
       const s = await swift(["--lang", "en-US", ...args(S.cfg, S.root)]);
       const t = await typescript(["--lang", "en-US", ...args(T.cfg, T.root)]);
       return {
         swift: { ...s, stdout: normalize(s.stdout, S.root), stderr: normalize(s.stderr, S.root) },
-        ts: { ...t, stdout: normalize(t.stdout, T.root), stderr: normalize(t.stderr, T.root) },
+        ts: {
+          ...t,
+          stdout: withoutAccess(normalize(t.stdout, T.root)),
+          stderr: withoutAccess(normalize(t.stderr, T.root)),
+        },
       };
     };
     // Erreurs d'usage, détectées avant toute écriture (code 2).

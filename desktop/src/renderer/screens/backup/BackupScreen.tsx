@@ -9,6 +9,7 @@ import { useApi, useSnapshot } from "../../api/hooks.ts";
 import { Banner } from "../../ui/Banner.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { Icon } from "../../ui/Icon.tsx";
+import { FullDiskAccessBanner } from "../shell/FullDiskAccessBanner.tsx";
 import { SplitView } from "../shell/Layout.tsx";
 import type { ScreenProps } from "../types.ts";
 import styles from "./BackupScreen.module.css";
@@ -78,6 +79,11 @@ export function BackupScreen({ request, navigate }: ScreenProps) {
         }
       >
         <div className={styles.scroll}>
+          {snapshot.access.fullDisk === "denied" && (
+            <div className={styles.notice}>
+              <FullDiskAccessBanner snapshot={snapshot} />
+            </div>
+          )}
           {keychainError && (
             <div className={styles.notice}>
               <Banner

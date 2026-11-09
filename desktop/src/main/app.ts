@@ -11,6 +11,7 @@ import { type CairnConfig, type DestinationConfig, folderExpandedPath } from "..
 import { pruneLogs } from "../core/config-logs.ts";
 import { setSmbPassword } from "../core/config-secrets.ts";
 import { ConfigStore } from "../core/config-store.ts";
+import { FULL_DISK_ACCESS_SETTINGS_URL, type FullDiskAccess, fullDiskAccess } from "../core/full-disk-access.ts";
 import { hubInputs, loadHubRecord, makeHubState, saveHubRecord, summarizeGit } from "../core/hub-state.ts";
 import { configureLanguage, currentLanguage, t } from "../core/l10n.ts";
 import { OperationLock } from "../core/lock.ts";
@@ -53,10 +54,24 @@ import { UpdateController } from "./updates.ts";
 const LOCK_POLL_MS = 10_000;
 const LOG_PURGE_MS = 24 * 3600 * 1000;
 const MAX_MESSAGES = 5;
+/** Accès complet au disque refusé : sondé de nouveau toutes les 60 s (l'utilisateur peut l'accorder à tout moment). */
+const ACCESS_POLL_MS = 60_000;
 
 /** Exécution de test de bout en bout (dossier de données à part, jamais dans l'app empaquetée). */
 function e2eMode(): boolean {
   return !app.isPackaged && process.env.CAIRN_E2E_USER_DATA !== undefined;
+}
+
+/**
+ * Sonde de l'Accès complet au disque. En test de bout en bout, l'état vient de `CAIRN_E2E_FULL_DISK_ACCESS` (accordé
+ * par défaut) : le résultat ne dépend pas des autorisations de la machine qui lance les tests.
+ */
+function probeFullDiskAccess(): Promise<FullDiskAccess> {
+  if (e2eMode()) {
+    const forced = process.env.CAIRN_E2E_FULL_DISK_ACCESS;
+    return Promise.resolve(forced === "denied" || forced === "unknown" ? forced : "granted");
+  }
+  return fullDiskAccess(os.homedir());
 }
 
 export class CairnApp implements Host {
@@ -92,6 +107,7 @@ export class CairnApp implements Host {
   private unavailableFolders: string[] = [];
   private lastHubCheck: Date | null = null;
   private checkingAll = false;
+  private fullDisk: FullDiskAccess = "unknown";
   private timers: NodeJS.Timeout[] = [];
   private quitting = false;
   private unregister: (() => void) | null = null;
@@ -197,7 +213,15 @@ export class CairnApp implements Host {
     void this.updates.start();
     void this.purgeLogs();
     void this.pollLock();
+    void this.probeAccess();
     this.timers.push(setInterval(() => void this.pollLock(), LOCK_POLL_MS));
+    this.timers.push(
+      setInterval(() => {
+        if (this.fullDisk === "denied") void this.probeAccess();
+      }, ACCESS_POLL_MS),
+    );
+    // Retour au premier plan (souvent depuis Réglages Système) : l'accès vient peut-être d'être accordé.
+    app.on("browser-window-focus", () => void this.probeAccess());
     this.timers.push(setInterval(() => void this.purgeLogs(), LOG_PURGE_MS));
 
     app.on("second-instance", () => this.showMainWindow());
@@ -317,6 +341,14 @@ export class CairnApp implements Host {
     }
   }
 
+  /** Accès complet au disque, publié s'il change. */
+  private async probeAccess(): Promise<void> {
+    const next = await probeFullDiskAccess().catch((): FullDiskAccess => "unknown");
+    if (next === this.fullDisk) return;
+    this.fullDisk = next;
+    this.changed();
+  }
+
   private updateTray(): void {
     if (!this.menuBar) return;
     const overall = this.hubState().overall;
@@ -375,6 +407,7 @@ export class CairnApp implements Host {
         aiLastBackup: this.tools.aiLastBackup,
         versions: this.backup.versionCounts(),
         isBackingUp: this.backup.running,
+        fullDiskAccess: this.fullDisk,
         now: new Date(),
       }),
     );
@@ -422,6 +455,7 @@ export class CairnApp implements Host {
       lock: this.lock,
       restore: this.restoreView(),
       background: this.backgroundView(),
+      access: { fullDisk: this.fullDisk },
       notificationsSupported: this.notifier.supported,
       messages: this.messages,
     };
@@ -638,6 +672,9 @@ export class CairnApp implements Host {
       openExternal: async (args) => {
         if (!allowedExternalURL(args.url)) throw new ApiError("forbidden", "URL not allowed");
         await shell.openExternal(args.url);
+      },
+      openPrivacySettings: async () => {
+        await shell.openExternal(FULL_DISK_ACCESS_SETTINGS_URL);
       },
       copyText: (args) => clipboard.writeText(args.text),
       chooseFolder: (args) => this.chooseFolder(args.buttonLabel, args.defaultPath),

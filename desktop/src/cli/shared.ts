@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import type { BackupServiceDependencies } from "../core/backup/run.ts";
 import { type CairnConfig, decodeConfig, defaultConfig } from "../core/config.ts";
 import type { ConfigStore } from "../core/config-store.ts";
+import type { FullDiskAccess } from "../core/full-disk-access.ts";
 import { type JSONValue, prettyJSON } from "../core/json.ts";
 import type { RestoreDependencies } from "../core/restore/service.ts";
 import { TOMLDocument } from "../core/toml.ts";
@@ -49,6 +50,8 @@ export interface CliContext {
   backup?: Partial<BackupServiceDependencies>;
   /** Remplacements des dépendances de la restauration (home cible, attentes, exécuteur de commandes…). */
   restore?: Partial<RestoreDependencies>;
+  /** État de l'Accès complet au disque (par défaut : sondé dans le home, voir `core/full-disk-access.ts`). */
+  fullDiskAccess?: () => Promise<FullDiskAccess>;
 }
 
 /** Ce que reçoit chaque commande : ses arguments (sans le nom de la commande), la configuration, les sorties. */

@@ -7,6 +7,8 @@ export const shots: ScreenShot[] = [
   { name: "home.backup-failed", hash: "#/app/home", scenario: "backup-failed" },
   { name: "home.disk-critical", hash: "#/app/home", scenario: "disk-critical" },
   { name: "home.config-invalid", hash: "#/app/home", scenario: "config-invalid" },
+  { name: "home.no-full-disk-access", hash: "#/app/home", scenario: "no-full-disk-access" },
+  { name: "home.no-full-disk-access-fr", hash: "#/app/home", scenario: "no-full-disk-access", lang: "fr" },
   { name: "home.backup-running", hash: "#/app/home", scenario: "backup-running", at: 20 },
   {
     name: "home.checking",

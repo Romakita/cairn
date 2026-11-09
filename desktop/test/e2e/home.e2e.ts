@@ -73,3 +73,22 @@ test("la barre latérale mène aux destinations et aux dossiers", async () => {
   expect(page.url()).toContain("#/app/backup/nas");
   await page.close();
 });
+
+test("sans l'Accès complet au disque : bandeau, problème de l'accueil, « Ouvrir les réglages »", async () => {
+  const page = await open("no-full-disk-access", "&frozen=1");
+  const banner = page.getByTestId("full-disk-access");
+  await expect(banner).toContainText("Documents, Downloads and other protected folders won't be backed up.");
+  await expect(banner).toContainText("System Settings › Privacy & Security › Full Disk Access");
+  await expect(page.getByRole("heading", { name: "One thing to look at" })).toBeVisible();
+  // Le bandeau porte déjà ce problème : pas de « Résoudre » en double en bas de page.
+  await expect(page.getByRole("button", { name: "Resolve" })).toHaveCount(0);
+  // L'API d'exemple simule l'accès accordé au retour des réglages : le bandeau disparaît.
+  await page.getByRole("button", { name: "Open Settings" }).click();
+  await expect(page.getByTestId("full-disk-access")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Everything is in order" })).toBeVisible();
+  await page.close();
+
+  const normal = await open();
+  await expect(normal.getByTestId("full-disk-access")).toHaveCount(0);
+  await normal.close();
+});

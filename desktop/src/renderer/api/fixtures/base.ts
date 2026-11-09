@@ -608,6 +608,7 @@ export function normalSnapshot(): AppSnapshot {
     lock: { held: false, byOther: false, holder: null },
     restore: { available: true, running: false, plan: null, progress: null, ok: null, error: null },
     background: { enabled: true, status: "enabled" },
+    access: { fullDisk: "granted" },
     notificationsSupported: true,
     messages: [],
   };

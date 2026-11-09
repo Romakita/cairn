@@ -11,6 +11,8 @@
 // - la copie indique la partie et le dossier en cours (« dossier n sur N ») ;
 // - la finalisation liste ses étapes : liste, empreintes (avec %), version, échantillon, image, compactage/fermeture.
 
+import type { PermissionDenied } from "../full-disk-access.ts";
+
 export const BACKUP_PHASES = [
   "waiting",
   "preparing",
@@ -99,6 +101,8 @@ export interface DestinationResultSummary {
   deletedVersions: string[];
   damagedFiles: string[];
   imageCheck: { ok: boolean; output: string } | null;
+  /** Éléments que macOS n'a pas laissé lire (Accès complet au disque, droits) : sautés, jamais passés sous silence. */
+  permissionDenied: PermissionDenied;
   log: string | null;
 }
 
@@ -386,6 +390,7 @@ export function emptyResult(
     deletedVersions: [],
     damagedFiles: [],
     imageCheck: null,
+    permissionDenied: { count: 0, examples: [] },
     log: null,
     ...extra,
   };

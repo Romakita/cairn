@@ -2,12 +2,16 @@
 // (port de `CLI.backup` et `CLI.runBackup`). Toute erreur d'usage ou de configuration (code 2) est détectée AVANT la
 // moindre écriture ; le verrou d'opération (pris par `BackupService`) refuse une 2ᵉ opération (`cli.busy`, code 1).
 // Progression : une ligne sur stderr par point de pourcentage, une seule pendant le comptage.
+// Accès complet au disque : refusé → avertissement sur stderr avant de commencer (hors --json), puis une ligne par
+// destination pour les éléments que macOS n'a pas laissé lire ; en --json, `full_disk_access` et `permission_denied`.
+import os from "node:os";
 import { BUNDLED_PROFILES } from "../../core/ai/profiles.ts";
 import { defaultBackupDependencies } from "../../core/backup/defaults.ts";
 import type { DestinationProgress } from "../../core/backup/progress.ts";
 import { type BackupRequest, type BackupResult, BackupService } from "../../core/backup/run.ts";
 import type { PartKind } from "../../core/backup/types.ts";
 import { Fmt } from "../../core/format.ts";
+import { type FullDiskAccess, fullDiskAccess } from "../../core/full-disk-access.ts";
 import type { JSONValue } from "../../core/json.ts";
 import { t } from "../../core/l10n.ts";
 import { OperationLockError } from "../../core/lock.ts";
@@ -21,6 +25,7 @@ function resultJSON(r: BackupResult): JSONValue {
     waiting: r.waiting,
     error: r.error,
     damaged_files: r.damagedFiles,
+    permission_denied: { count: r.permissionDenied.count, examples: r.permissionDenied.examples },
     log: r.log,
   };
   if (r.imageCheck) d.image_check_ok = r.imageCheck.ok;
@@ -60,6 +65,10 @@ function printResults(results: readonly BackupResult[], io: CliIO): void {
       if (r.damagedFiles.length > 0) {
         io.err(t("cli.backup.damaged", r.damagedFiles.length));
         for (const f of r.damagedFiles.slice(0, 20)) io.err(`  ✗ ${f}`);
+      }
+      if (r.permissionDenied.count > 0) {
+        io.err(t("cli.backup.permission_denied", r.destination, Fmt.count(r.permissionDenied.count)));
+        for (const p of r.permissionDenied.examples) io.err(`  ✗ ${p}`);
       }
       if (r.imageCheck && !r.imageCheck.ok)
         io.err(t("cli.backup.image_check_failed", r.destination, r.imageCheck.output));
@@ -192,6 +201,11 @@ export async function backup({ args, store, io, context }: CommandEnv): Promise<
   }
   // `--tool` : seulement ces outils IA (la configuration de cette exécution ne garde qu'eux).
   const runConfig = aiTools ? { ...config, ai: config.ai.filter((a) => aiTools.includes(a.id)) } : config;
+  // Sondé avant de commencer : sans l'Accès complet au disque, les dossiers protégés seraient sautés.
+  const access: FullDiskAccess = await (
+    context.fullDiskAccess ?? (() => fullDiskAccess(context.backup?.home ?? os.homedir()))
+  )();
+  if (access === "denied" && !json) io.err(t("cli.backup.full_disk_denied"));
   const service = new BackupService(store.paths, runConfig, defaultBackupDependencies(context.backup));
   const progress = progressPrinter(io);
   service.on((e) => {
@@ -209,7 +223,7 @@ export async function backup({ args, store, io, context }: CommandEnv): Promise<
     io.err(errorText(error));
     return Exit.failure;
   }
-  if (json) printJSON({ results: results.map(resultJSON) }, io);
+  if (json) printJSON({ full_disk_access: access, results: results.map(resultJSON) }, io);
   else printResults(results, io);
   return results.every((r) => r.outcome !== null) ? Exit.ok : Exit.failure;
 }

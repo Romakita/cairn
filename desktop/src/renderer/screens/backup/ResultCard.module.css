@@ -101,3 +101,9 @@
 .partName {
   min-width: 0;
 }
+
+.more {
+  display: block;
+  margin-top: var(--space-2);
+  font: var(--text-caption);
+}

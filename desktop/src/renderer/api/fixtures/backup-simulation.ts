@@ -47,6 +47,7 @@ function result(version: string, files: number, bytes: number): DestinationResul
     deletedVersions: [],
     damagedFiles: [],
     imageCheck: null,
+    permissionDenied: { count: 0, examples: [] },
     log: "/Users/demo/.cairn/logs/backup-20261109-100000.log",
   };
 }

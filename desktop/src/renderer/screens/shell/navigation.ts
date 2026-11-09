@@ -20,6 +20,8 @@ export function resolveIssue(issue: HubIssue, snapshot: AppSnapshot): Navigation
     case "configInvalid":
     case "folderUnavailable":
       return { route: "settings" };
+    case "fullDiskAccess":
+      return { route: "backup" };
     case "backupFailed":
     case "destinationOverdue":
     case "versionsDamaged":

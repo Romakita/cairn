@@ -34,6 +34,7 @@ import type {
 } from "../core/config.ts";
 import type { BackupAction } from "../core/destinations/actions.ts";
 import type { ExistingImage, FolderEntry, ProbeFailure, ProbeResult } from "../core/destinations/failure.ts";
+import type { FullDiskAccess } from "../core/full-disk-access.ts";
 import type { CleanupResult } from "../core/git/apply.ts";
 import type { PoolProgress } from "../core/git/pool.ts";
 import type { GitOptions, RepoReport } from "../core/git/types.ts";
@@ -386,6 +387,16 @@ export type HubView = HubState & {
   checking: boolean;
 };
 
+/** Autorisations de macOS dont dépend la sauvegarde. */
+export interface AccessView {
+  /**
+   * Accès complet au disque (`core/full-disk-access.ts`) : sondé au démarrage, quand l'app revient au premier plan et
+   * toutes les 60 s tant qu'il est refusé. Refusé : Documents, Téléchargements et les autres dossiers protégés sont
+   * sautés par la sauvegarde.
+   */
+  fullDisk: FullDiskAccess;
+}
+
 export interface AppSnapshot {
   /** Incrémenté à chaque changement (les fenêtres ignorent un état plus ancien). */
   revision: number;
@@ -413,6 +424,7 @@ export interface AppSnapshot {
   lock: LockView;
   restore: RestoreView;
   background: BackgroundView;
+  access: AccessView;
   /** Notifications système disponibles (sinon les alertes restent visibles dans l'app seulement). */
   notificationsSupported: boolean;
   messages: MessageView[];
@@ -817,6 +829,12 @@ export interface CairnMethods {
   openTarget: { args: OpenTarget; result: void };
   showInFinder: { args: ShowTarget; result: void };
   openExternal: { args: { url: string }; result: void };
+  /**
+   * Ouvre Réglages Système sur « Accès complet au disque ». Méthode dédiée plutôt qu'une URL de plus dans la liste
+   * blanche d'`openExternal` : l'interface ne passe aucune adresse, le main ouvre la seule qu'il connaît
+   * (`FULL_DISK_ACCESS_SETTINGS_URL`), et `openExternal` reste limité aux pages https du dépôt.
+   */
+  openPrivacySettings: { args: undefined; result: void };
   copyText: { args: { text: string }; result: void };
   chooseFolder: { args: ChooseFolderArgs; result: string | null };
   openWindow: { args: NavigationRequest; result: void };
@@ -882,6 +900,7 @@ export const METHOD_NAMES = [
   "openTarget",
   "showInFinder",
   "openExternal",
+  "openPrivacySettings",
   "copyText",
   "chooseFolder",
   "openWindow",

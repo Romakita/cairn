@@ -18,6 +18,7 @@ import { SegmentBar } from "../../ui/SegmentBar.tsx";
 import { SidebarHeader } from "../../ui/SidebarHeader.tsx";
 import { SidebarRow } from "../../ui/SidebarRow.tsx";
 import { Spinner } from "../../ui/Spinner.tsx";
+import { FullDiskAccessBanner } from "../shell/FullDiskAccessBanner.tsx";
 import { baseName, relativeDate, toDate } from "../shell/format.ts";
 import { Page, Section, Sidebar, SplitView } from "../shell/Layout.tsx";
 import { ADD_DESTINATION, cleanRequest, resolveIssue } from "../shell/navigation.ts";
@@ -58,7 +59,8 @@ export function HomeScreen({ navigate }: ScreenProps) {
     await api.cancelCheckAll();
   };
 
-  const top = snapshot.hub.topIssue;
+  // L'Accès complet au disque a son bandeau en haut de la page : le pied montre le problème suivant.
+  const top = snapshot.hub.causes.find((c) => c.kind !== "fullDiskAccess") ?? null;
   const footer = top ? (
     <Banner
       tone={issueTone(top)}
@@ -76,6 +78,7 @@ export function HomeScreen({ navigate }: ScreenProps) {
     <div data-testid="screen-home" className={styles.root}>
       <SplitView sidebar={<HomeSidebar snapshot={snapshot} navigate={navigate} />}>
         <Page width={1080} footer={footer}>
+          <FullDiskAccessBanner snapshot={snapshot} />
           <HubHeader
             snapshot={snapshot}
             checking={checking}

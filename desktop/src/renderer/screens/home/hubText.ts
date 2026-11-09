@@ -49,6 +49,8 @@ export function issueText(i: HubIssue): string {
       return t("hub.issue.config_invalid", i.detail ?? "");
     case "backupFailed":
       return t("hub.issue.backup_failed", i.subject);
+    case "fullDiskAccess":
+      return t("home.issue.full_disk_access");
     case "diskCritical":
       return t("hub.issue.disk_critical", i.subject, Fmt.bytes(i.bytes ?? 0));
     case "destinationOverdue":

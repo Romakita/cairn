@@ -2,7 +2,8 @@
 // `cli_analyze_uses_config_folders`, GitTests `simulation_changes_nothing` et `cli_apply_worktrees_only_and_tsv_report`).
 // `runCli` est appelé directement, avec des sorties simulées ; tout se passe dans des dossiers temporaires.
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { PassThrough } from "node:stream";
 import { type CliContext, cliContextForApp, Exit, runCli } from "../../src/cli/index.ts";
@@ -496,6 +497,58 @@ describe("cli backup, verify, restore", () => {
       // la ligne de pourcentage est alors absente. Quand elle est là, elle a ce format.
       const percentLines = real.err.split("\n").filter((line) => line.includes(" % ("));
       for (const line of percentLines) expect(line).toMatch(/^local · folders\/src · \d+ % \(/);
+    },
+    60_000,
+  );
+
+  test.skipIf(!native)(
+    "backup without Full Disk Access: warning first, denied items counted, stable JSON keys",
+    async () => {
+      // Un échantillon par exécution : deux versions dans la même seconde auraient le même nom.
+      const denied = (): { s: Sample; locked: string } => {
+        const s = sample();
+        const locked = path.join(s.src, "Documents");
+        writeSized(path.join(locked, "a.bin"), 100);
+        chmodSync(locked, 0);
+        return { s, locked };
+      };
+      const samples: Sample[] = [];
+      try {
+        const a = denied();
+        samples.push(a.s);
+        const context: CliContext = { ...a.s.context, fullDiskAccess: async () => "denied" };
+        const text = await run(["backup", "--only", "folders", "--config", a.s.cfg, "--lang", "en-US"], context);
+        expect(text.code).toBe(Exit.ok); // un succès avec avertissement
+        expect(text.err.split("\n")[0]).toStartWith("Warning: no Full Disk Access. Documents, Downloads");
+        expect(text.err).toContain("local: 1 item(s) not backed up: macOS denied access (Full Disk Access needed)");
+        expect(text.err).toContain(`  ✗ ${a.locked}`);
+
+        const b = denied();
+        samples.push(b.s);
+        const json = await run(["backup", "--only", "folders", "--json", "--config", b.s.cfg, "--lang", "fr-FR"], {
+          ...b.s.context,
+          fullDiskAccess: async () => "denied",
+        });
+        expect(json.code).toBe(Exit.ok);
+        expect(json.err).not.toContain("Accès complet au disque");
+        const out = JSON.parse(json.out);
+        expect(out.full_disk_access).toBe("denied");
+        expect(out.results[0].permission_denied).toEqual({ count: 1, examples: [b.locked] });
+
+        // Accès accordé, rien de refusé : ni avertissement, ni élément compté.
+        const c = sample();
+        samples.push(c);
+        const ok = await run(["backup", "--only", "folders", "--json", "--config", c.cfg], {
+          ...c.context,
+          fullDiskAccess: async () => "granted",
+        });
+        const okOut = JSON.parse(ok.out);
+        expect(okOut.full_disk_access).toBe("granted");
+        expect(okOut.results[0].permission_denied).toEqual({ count: 0, examples: [] });
+      } finally {
+        // Copié sans droit de lecture dans la version aussi : rétabli partout pour le nettoyage.
+        for (const s of samples) execFileSync("/bin/chmod", ["-R", "u+rwx", s.dir]);
+      }
     },
     60_000,
   );

@@ -14,6 +14,7 @@ import os from "node:os";
 import path from "node:path";
 import { ActivityLog } from "../activity-log.ts";
 import { type CairnConfig, type DestinationConfig, folderExpandedPath } from "../config.ts";
+import { noPermissionDenied, type PermissionDenied } from "../full-disk-access.ts";
 import { t } from "../l10n.ts";
 import { OperationLock } from "../lock.ts";
 import { machineName } from "../machine.ts";
@@ -78,11 +79,16 @@ export interface BackupResult {
   damagedFiles: string[];
   /** Contrôle de l'image disque fait pendant cette sauvegarde (vérification mensuelle). */
   imageCheck: ImageCheck | null;
+  /**
+   * Éléments que macOS n'a pas laissé lire (sans l'Accès complet au disque : Documents, Téléchargements…) : la
+   * sauvegarde réussit avec cet avertissement explicite.
+   */
+  permissionDenied: PermissionDenied;
   /** Journal de l'exécution. */
   log: string | null;
 }
 
-export type BackupNotificationKind = "failed" | "damaged" | "imageFailed";
+export type BackupNotificationKind = "failed" | "damaged" | "imageFailed" | "permissionDenied";
 
 /** Notification à afficher par le main (jamais d'action destructive, le journal s'ouvre au clic). */
 export interface BackupNotification {
@@ -628,6 +634,7 @@ export class BackupService {
       newImagePassword: null,
       damagedFiles: [],
       imageCheck: null,
+      permissionDenied: noPermissionDenied(),
       log: null,
       ...r,
     };
@@ -653,6 +660,15 @@ export class BackupService {
           destination: r.destination,
           title: t("backup.notify.damaged_title", label),
           body: t("backup.notify.damaged_body", r.damagedFiles.length),
+          log: r.log,
+        });
+      }
+      if (r.permissionDenied.count > 0 && !dryRun) {
+        out.push({
+          kind: "permissionDenied",
+          destination: r.destination,
+          title: t("backup.notify.permission_title", label),
+          body: t("backup.notify.permission_body", r.permissionDenied.count),
           log: r.log,
         });
       }
@@ -708,6 +724,12 @@ export class BackupService {
       const outcome = await engine.finish(copied, tracker);
       succeeded = true;
       for (const w of outcome.warnings) log.write(`${d.id}: ${w}`);
+      const denied = outcome.permissionDenied;
+      if (denied.count > 0) {
+        log.write(
+          `${d.id}: permission denied by macOS for ${denied.count} item(s), not backed up (Full Disk Access): ${swiftArray(denied.examples)}`,
+        );
+      }
       let damagedFiles: string[] = [];
       let imageCheck: ImageCheck | null = null;
       if (!dryRun) {
@@ -755,6 +777,7 @@ export class BackupService {
           newImagePassword: session.newImagePassword,
           damagedFiles,
           imageCheck,
+          permissionDenied: outcome.permissionDenied,
           log: log.file,
         }),
       };
@@ -798,6 +821,7 @@ export class BackupService {
       deletedVersions: r.outcome?.deletedVersions ?? [],
       damagedFiles: r.damagedFiles,
       imageCheck: r.imageCheck,
+      permissionDenied: r.permissionDenied,
       log: r.log,
     });
   }
