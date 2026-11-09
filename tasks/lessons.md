@@ -82,3 +82,10 @@ Une entrée après chaque correction de l'utilisateur. À relire au début de ch
 - Erreur : branche poussée alors que `main` avait avancé (release 0.6.1), sans rebase préalable.
 - Règle : avant chaque push, `git fetch origin` puis `git rebase origin/main`, tests relancés, puis
   `rtk proxy git push --force-with-lease`. Jamais de push d'une branche en retard sur `main`.
+
+## 2026-11-09 — Tests lancés pour un changement simple
+- Erreur : suite complète relancée pour une simple résolution de conflit (deux blocs de clés de traduction gardés
+  côte à côte), alors qu'elle prend près d'une minute.
+- Règle : pas de `just test` pour un changement simple (fusion de textes, doc, renommage local) : une vérification
+  ciblée suffit (doublons de clés, `swift build` si du code change). Garder la suite complète pour un changement de
+  code qui peut casser un comportement.
