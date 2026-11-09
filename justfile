@@ -39,10 +39,15 @@ git-clean-apply *args:
 tools *args:
     {{cairn}} tools "$@"
 
-# Lance les tests de Cairn (FILTRE optionnel sur le nom des tests)
+# Lance les tests de Cairn (Swift Testing, Xcode requis ; FILTRE optionnel sur le nom des suites ou des tests)
 test *filter:
-    swift build --package-path Cairn
-    Cairn/.build/debug/cairn-selftest {{filter}}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ -z "${DEVELOPER_DIR:-}" && "$(xcode-select -p)" == *CommandLineTools* ]]; then
+        echo "Les tests demandent Xcode : sudo xcode-select -s /Applications/Xcode.app/Contents/Developer" >&2
+        exit 1
+    fi
+    swift test --package-path Cairn ${1:+--filter "$1"}
 
 # Construit l'app Cairn, l'installe dans ~/Applications et relie ~/.local/bin/cairn
 storage-install:

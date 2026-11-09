@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   test:
-    name: Build and self-tests
+    name: Build and tests
     runs-on: macos-15
     timeout-minutes: 30
     steps:
@@ -35,8 +35,8 @@ jobs:
       - name: Build
         run: swift build --package-path Cairn
 
-      - name: Self-tests
-        run: Cairn/.build/debug/cairn-selftest
+      - name: Tests
+        run: swift test --package-path Cairn
 
       - name: App bundle
         run: Cairn/build-app.sh --no-install
