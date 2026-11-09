@@ -1,0 +1,21 @@
+.project {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: var(--space-2) 0;
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--color-text);
+}
+
+.parent {
+  font: var(--text-mono-small);
+  color: var(--color-text-secondary);
+}
+
+.total {
+  font-weight: 600;
+}

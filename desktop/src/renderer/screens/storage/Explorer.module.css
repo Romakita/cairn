@@ -1,0 +1,47 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.crumbs {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.count {
+  flex-shrink: 0;
+  font: var(--text-meta);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-11);
+}
+
+.name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.name > svg {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
+.secondary {
+  color: var(--color-text-secondary);
+}
