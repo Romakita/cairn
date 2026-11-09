@@ -225,6 +225,46 @@ let backupTests: [TestCase] = [
             try expect(fm.fileExists(atPath: latest.appendingPathComponent("top.txt").path), "fichier du premier niveau")
         }
     },
+    TestCase("resumed_chunked_copy_removes_excluded_and_vanished_entries") {
+        try withTempDir { dir in
+            let (src, dest) = (dir.appendingPathComponent("src"), dir.appendingPathComponent("dest"))
+            try writeFile(src.appendingPathComponent("a/f.txt"), size: 10)
+            try writeFile(src.appendingPathComponent("a/node_modules/m.js"), size: 10)
+            try writeFile(src.appendingPathComponent("b/g.txt"), size: 10)
+            // Version interrompue : un dossier depuis exclu, un dossier disparu de la source, un fichier déjà copié.
+            let work = try incompleteVersion(dest)
+            for f in ["a/f.txt", "a/node_modules/old.js", "gone/z.txt"] { try writeFile(work.appendingPathComponent("folders/src/" + f), size: 10) }
+            let part = BackupPart(kind: .folder, target: "folders/src", source: src.path, excludes: ["node_modules/"])
+            let r = try BackupEngine().run(parts: [BackupPart(kind: part.kind, target: part.target, source: part.source, excludes: part.excludes)],
+                                           root: dest, retention: .recommended, dryRun: false, machine: "m")
+            let v = BackupEngine.versionsDir(root: dest, machine: "m").appendingPathComponent(r.version!).appendingPathComponent("folders/src")
+            let fm = FileManager.default
+            try expect(fm.fileExists(atPath: v.appendingPathComponent("a/f.txt").path), "fichier gardé")
+            try expect(fm.fileExists(atPath: v.appendingPathComponent("b/g.txt").path), "fichier copié")
+            try expect(!fm.fileExists(atPath: v.appendingPathComponent("a/node_modules").path), "exclu retiré à la reprise")
+            try expect(!fm.fileExists(atPath: v.appendingPathComponent("gone").path), "dossier disparu retiré")
+            // Total jamais sous-estimé : le comptage complet, sinon rien (l'ancien total est gardé).
+            try expect(r.filesByPart["folders/src"] == nil || r.filesByPart["folders/src"] == 2, "\(r.filesByPart)")
+        }
+    },
+    TestCase("failed_chunk_never_triggers_the_cleanup") {
+        try withTempDir { dir in
+            let (src, dest) = (dir.appendingPathComponent("src"), dir.appendingPathComponent("dest"))
+            try writeFile(src.appendingPathComponent("a/f.txt"), size: 10)
+            let locked = src.appendingPathComponent("b")
+            try writeFile(locked.appendingPathComponent("g.txt"), size: 10)
+            let work = try incompleteVersion(dest)
+            try writeFile(work.appendingPathComponent("folders/src/gone/z.txt"), size: 10)
+            // Dossier illisible : rsync finit en 23, la passe de nettoyage ne doit pas tourner.
+            try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: locked.path)
+            defer { try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: locked.path) }
+            let c = try BackupEngine().copy(parts: [BackupPart(kind: .folder, target: "folders/src", source: src.path)],
+                                            root: dest, retention: .recommended, dryRun: false, machine: "m")
+            try expect(!c.warnings.isEmpty, "transfert partiel signalé")
+            try expect(FileManager.default.fileExists(atPath: work.appendingPathComponent("folders/src/gone/z.txt").path),
+                       "rien d'effacé après un échec")
+        }
+    },
     TestCase("dry_run_writes_nothing") {
         try withTempDir { dir in
             let src = dir.appendingPathComponent("src"), dest = dir.appendingPathComponent("dest")
@@ -584,3 +624,14 @@ let backupTests: [TestCase] = [
         }
     },
 ]
+
+/// Version interrompue récente (reprise par la prochaine sauvegarde), pour la machine « m ».
+private func incompleteVersion(_ dest: URL) throws -> URL {
+    let f = DateFormatter()
+    f.locale = Locale(identifier: "en_US_POSIX")
+    f.dateFormat = BackupEngine.versionFormat
+    let work = BackupEngine.versionsDir(root: dest, machine: "m")
+        .appendingPathComponent(BackupEngine.incompletePrefix + f.string(from: Date().addingTimeInterval(-60)))
+    try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
+    return work
+}
