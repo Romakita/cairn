@@ -38,7 +38,6 @@ export function categoryShortLabel(c: Category): string {
 export const ALWAYS_REGENERABLE: Readonly<Record<string, Category>> = Object.freeze({
   ".git": "git",
   node_modules: "deps",
-  ".pnpm-store": "deps",
   bower_components: "deps",
   jspm_packages: "deps",
   Pods: "ios",
@@ -66,6 +65,8 @@ export const ALWAYS_REGENERABLE: Readonly<Record<string, Category>> = Object.fre
   ".ruff_cache": "python",
   ".tox": "python",
   ".cache": "cache",
+  ".npm-cache": "cache",
+  ".pnpm-store": "cache",
   ".eslintcache": "cache",
   ".sass-cache": "cache",
   ".Trashes": "trash",
@@ -85,14 +86,25 @@ export const CONDITIONAL_REGENERABLE: Readonly<Record<string, readonly [Category
   ".build": ["build", ["Package.swift"]],
 });
 
+/**
+ * Dossiers régénérables reconnus par leur chemin (fin du chemin, à n'importe quelle profondeur) : leur nom seul est
+ * trop générique (`_cacache`, `cache`). Caches des gestionnaires de paquets.
+ */
+export const NESTED_REGENERABLE: Readonly<Record<string, Category>> = Object.freeze({
+  ".npm/_cacache": "cache",
+  ".bun/install/cache": "cache",
+});
+
 /** Tables passées telles quelles aux workers d'analyse (données clonables). */
 export interface ClassificationRules {
   always: Readonly<Record<string, Category>>;
+  nested: Readonly<Record<string, Category>>;
   conditional: Readonly<Record<string, readonly [Category, readonly string[]]>>;
 }
 
 export const CLASSIFICATION_RULES: ClassificationRules = {
   always: ALWAYS_REGENERABLE,
+  nested: NESTED_REGENERABLE,
   conditional: CONDITIONAL_REGENERABLE,
 };
 
@@ -107,6 +119,11 @@ export function classifyWith(
   parentPath: string,
 ): Category {
   if (Object.hasOwn(rules.always, name)) return rules.always[name] as Category;
+  for (const suffix of Object.keys(rules.nested)) {
+    if (suffix.slice(suffix.lastIndexOf("/") + 1) !== name) continue;
+    const parent = suffix.slice(0, suffix.lastIndexOf("/"));
+    if (parentPath === parent || parentPath.endsWith(`/${parent}`)) return rules.nested[suffix] as Category;
+  }
   if (Object.hasOwn(rules.conditional, name)) {
     const [category, markers] = rules.conditional[name] as readonly [Category, readonly string[]];
     for (const m of markers) if (exists(`${parentPath}/${m}`)) return category;
@@ -125,7 +142,9 @@ async function fileExists(file: string): Promise<boolean> {
 
 /** `Scanner.classify`, asynchrone (les marqueurs des noms génériques sont cherchés avec `fs/promises`). */
 export async function classify(name: string, parentPath: string): Promise<Category> {
-  if (Object.hasOwn(ALWAYS_REGENERABLE, name)) return ALWAYS_REGENERABLE[name] as Category;
+  // Noms et chemins : même code que les workers ; seuls les marqueurs des noms génériques sont cherchés ici.
+  const known = classifyWith({ ...CLASSIFICATION_RULES, conditional: {} }, () => false, name, parentPath);
+  if (known !== "source") return known;
   if (Object.hasOwn(CONDITIONAL_REGENERABLE, name)) {
     const [category, markers] = CONDITIONAL_REGENERABLE[name] as readonly [Category, readonly string[]];
     for (const m of markers) if (await fileExists(`${parentPath}/${m}`)) return category;
@@ -147,15 +166,23 @@ export const VOLUME_METADATA: readonly string[] = [
 const EXTRA_PATTERNS = [".nyc_output/", ".stylelintcache", ".eslintcache", "*.tsbuildinfo", ".terraform/", ".DS_Store"];
 
 /**
+ * Applications, qui se réinstallent : exclues des sauvegardes de dossiers (paquets `*.app` partout, `Applications` à
+ * la racine du dossier suivi), mais jamais classées régénérables (l'analyse ne les propose pas au nettoyage).
+ */
+export const APPLICATION_PATTERNS: readonly string[] = ["/Applications/", "*.app/"];
+
+/**
  * Motifs rsync exclus partout, dans cet ordre : métadonnées de volume, noms toujours régénérables (catégories
- * régénérables seulement : ni `.git/`, l'historique est sauvegardé, ni `.Trash/`), triés, puis extras.
+ * régénérables seulement : ni `.git/`, l'historique est sauvegardé, ni `.Trash/`), triés, chemins régénérables
+ * (`.npm/_cacache/`… : un motif rsync avec `/` non ancré vaut à toute profondeur), extras, puis applications.
  */
 export function staticPatterns(): string[] {
   const regenerable = Object.keys(ALWAYS_REGENERABLE)
     .filter((name) => isRegenerable(ALWAYS_REGENERABLE[name] as Category))
     .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
     .map((name) => `${name}/`);
-  return [...VOLUME_METADATA, ...regenerable, ...EXTRA_PATTERNS];
+  const nested = Object.keys(NESTED_REGENERABLE).map((p) => `${p}/`);
+  return [...VOLUME_METADATA, ...regenerable, ...nested, ...EXTRA_PATTERNS, ...APPLICATION_PATTERNS];
 }
 
 /** Noms génériques exclus de la sauvegarde seulement s'ils sont générés. */
@@ -248,6 +275,7 @@ export async function detectGenerated(root: string, options: DetectOptions = {})
       const st = await lstat(p).catch(() => null);
       if (!st?.isDirectory()) continue;
       if (WALK_SKIP.has(item) || VOLUME_METADATA.includes(`/${item}/`)) continue;
+      if (Object.keys(NESTED_REGENERABLE).some((n) => p.endsWith(`/${n}`))) continue;
       if (GENERIC_NAMES.has(item) && (await isGenerated(item, dir, repoHere))) {
         found.push(`/${p.slice(root.length + 1)}/`);
         continue;

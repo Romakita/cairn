@@ -427,6 +427,130 @@ describe("backup", () => {
     });
   });
 
+  test("resumed_full_backup_removes_parts_no_longer_selected", async () => {
+    await withTempDir(async (dir) => {
+      const src = path.join(dir, "src");
+      const ai = path.join(dir, "ai-sessions");
+      const dest = path.join(dir, "dest");
+      writeFile(path.join(src, "a.txt"), 10);
+      writeFile(path.join(ai, "s.jsonl"), 10);
+      // Tentative interrompue : `folders/home` (dossier depuis retiré de la sauvegarde), un outil et une catégorie IA
+      // désactivés, `home` et `tools` qui n'existent plus, et des fichiers propres de la version.
+      const work = incompleteVersion(dest);
+      for (const f of [
+        "folders/home/Documents/d.txt",
+        "folders/src/a.txt",
+        "ai/claude/sessions/s.jsonl",
+        "ai/claude/history/h.jsonl",
+        "ai/codex/sessions/c.jsonl",
+        "home/.zshrc",
+        "tools/brew.txt",
+        "damaged.tsv",
+        "notes/keep.txt",
+      ])
+        writeFile(path.join(work, f), 10);
+      const parts = [backupPart("folder", "folders/src", src), backupPart("ai", "ai/claude/sessions", ai)];
+      const lines: string[] = [];
+      const e = engine();
+      const c = await e.copy({
+        parts,
+        root: dest,
+        retention: rec,
+        dryRun: false,
+        machine: "m",
+        log: (l) => lines.push(l),
+      });
+      expect(c.work).toBe(work);
+      for (const gone of ["folders/home", "ai/claude/history", "ai/codex", "home", "tools"])
+        expect(existsSync(path.join(work, gone))).toBe(false);
+      for (const kept of ["folders/src/a.txt", "ai/claude/sessions/s.jsonl", "damaged.tsv", "notes/keep.txt"])
+        expect(existsSync(path.join(work, kept))).toBe(true);
+      expect(lines.sort()).toEqual(
+        ["folders/home", "ai/claude/history", "ai/codex", "home", "tools"]
+          .sort()
+          .map((p) => `removed part ${p} from resumed version`),
+      );
+      const r = await e.finish(c);
+      const v = path.join(versionsDir(dest, "m"), r.version!);
+      expect(existsSync(path.join(v, "folders/home"))).toBe(false);
+      expect(readdirSync(path.join(v, "folders"))).toEqual(["src"]);
+    });
+  });
+
+  test("resumed_partial_backup_keeps_other_parts", async () => {
+    await withTempDir(async (dir) => {
+      const src = path.join(dir, "src");
+      const dest = path.join(dir, "dest");
+      writeFile(path.join(src, "a.txt"), 10);
+      const work = incompleteVersion(dest);
+      for (const f of ["folders/home/d.txt", "ai/claude/sessions/s.jsonl", "home/.zshrc"])
+        writeFile(path.join(work, f), 10);
+      const lines: string[] = [];
+      await engine().copy({
+        parts: [backupPart("folder", "folders/src", src)],
+        root: dest,
+        retention: rec,
+        dryRun: false,
+        machine: "m",
+        partial: true,
+        log: (l) => lines.push(l),
+      });
+      for (const kept of ["folders/home/d.txt", "ai/claude/sessions/s.jsonl", "home/.zshrc", "folders/src/a.txt"])
+        expect(existsSync(path.join(work, kept))).toBe(true);
+      expect(lines).toEqual([]);
+    });
+  });
+
+  test("folder_backup_skips_applications_and_package_caches", async () => {
+    await withTempDir(async (dir) => {
+      const src = path.join(dir, "home");
+      const dest = path.join(dir, "dest");
+      for (const f of [
+        "Applications/WebStorm.app/Contents/Info.plist",
+        "proj/build/Demo.app/Contents/MacOS/Demo",
+        "proj/.npm-cache/_cacache/index",
+        "proj/.pnpm-store/v3/files/x",
+        ".npm/_cacache/content/x",
+        ".bun/install/cache/pkg/index.js",
+        ".bun/bin/bun",
+        ".npm/_logs/debug.log",
+        "proj/src/main.ts",
+        "Documents/Applications/notes.txt",
+      ])
+        writeFile(path.join(src, f), 10);
+      const excludes = await testDeps().regenerable.forFolder(src, {
+        userPatterns: [],
+        destinations: [],
+        isCancelled: () => false,
+        onDir: () => {},
+      });
+      await engine().run({
+        parts: [backupPart("folder", "folders/home", src, { excludes })],
+        root: dest,
+        retention: rec,
+        dryRun: false,
+        machine: "m",
+      });
+      const v = path.join(versionsDir(dest, "m"), "latest/folders/home");
+      for (const gone of [
+        "Applications",
+        "proj/build/Demo.app",
+        "proj/.npm-cache",
+        "proj/.pnpm-store",
+        ".npm/_cacache",
+        ".bun/install/cache",
+      ])
+        expect(existsSync(path.join(v, gone))).toBe(false);
+      for (const kept of [
+        ".bun/bin/bun",
+        ".npm/_logs/debug.log",
+        "proj/src/main.ts",
+        "Documents/Applications/notes.txt",
+      ])
+        expect(existsSync(path.join(v, kept))).toBe(true);
+    });
+  });
+
   test("reduced_retention_lists_excess_without_deleting", async () => {
     await withTempDir(async (dir) => {
       const versions = path.join(dir, "v");

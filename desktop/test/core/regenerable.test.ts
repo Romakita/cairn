@@ -10,6 +10,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import {
   ALWAYS_REGENERABLE,
+  APPLICATION_PATTERNS,
   aiManaged,
   CATEGORIES,
   CLASSIFICATION_RULES,
@@ -21,6 +22,7 @@ import {
   HOME_EXCLUDES,
   homeItems,
   isRegenerable,
+  NESTED_REGENERABLE,
   REGENERABLE_CATEGORIES,
   staticPatterns,
 } from "../../src/core/regenerable.ts";
@@ -53,7 +55,7 @@ describe("regenerable", () => {
         .filter((k) => ALWAYS_REGENERABLE[k] === c)
         .sort();
     expect(byCategory("git")).toEqual([".git"]);
-    expect(byCategory("deps")).toEqual([".pnpm-store", "bower_components", "jspm_packages", "node_modules"]);
+    expect(byCategory("deps")).toEqual(["bower_components", "jspm_packages", "node_modules"]);
     expect(byCategory("ios")).toEqual(["Carthage", "DerivedData", "Pods"]);
     expect(byCategory("build")).toEqual(
       [
@@ -76,7 +78,8 @@ describe("regenerable", () => {
     expect(byCategory("python")).toEqual(
       [".venv", "venv", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".tox"].sort(),
     );
-    expect(byCategory("cache")).toEqual([".cache", ".eslintcache", ".sass-cache"].sort());
+    expect(byCategory("cache")).toEqual([".cache", ".eslintcache", ".npm-cache", ".pnpm-store", ".sass-cache"].sort());
+    expect(NESTED_REGENERABLE).toEqual({ ".npm/_cacache": "cache", ".bun/install/cache": "cache" });
     expect(byCategory("trash")).toEqual([".Trash", ".Trashes"]);
     expect(CONDITIONAL_REGENERABLE).toEqual({
       build: [
@@ -116,6 +119,30 @@ describe("regenerable", () => {
     });
   });
 
+  test("package_caches_are_regenerable_and_apps_are_not", async () => {
+    await withTempDir(async (dir) => {
+      const exists = (f: string) => existsSync(f);
+      const cases: Array<[string, string, string]> = [
+        [".npm-cache", path.join(dir, "proj"), "cache"],
+        [".pnpm-store", dir, "cache"],
+        ["_cacache", path.join(dir, ".npm"), "cache"],
+        ["cache", path.join(dir, ".bun/install"), "cache"],
+        ["_cacache", path.join(dir, "other"), "source"], // nom seul trop générique
+        ["cache", path.join(dir, "install"), "source"],
+        ["cache", path.join(dir, "x/install"), "source"],
+        ["install", path.join(dir, ".bun"), "source"],
+        ["bin", path.join(dir, ".bun"), "source"],
+        ["WebStorm.app", path.join(dir, "Applications"), "source"], // jamais proposé au nettoyage
+        ["Applications", dir, "source"],
+        ["Demo.app", path.join(dir, "proj/build"), "source"],
+      ];
+      for (const [name, parent, category] of cases) {
+        expect(await classify(name, parent)).toBe(category as never);
+        expect(classifyWith(CLASSIFICATION_RULES, exists, name, parent)).toBe(category as never);
+      }
+    });
+  });
+
   test("static_patterns_order", () => {
     const list = staticPatterns();
     expect(list.slice(0, 5)).toEqual([
@@ -125,15 +152,20 @@ describe("regenerable", () => {
       "/.TemporaryItems/",
       "/.DocumentRevisions-V100/",
     ]);
-    expect(list.slice(-6)).toEqual([
+    expect(list.slice(-10)).toEqual([
+      ".npm/_cacache/",
+      ".bun/install/cache/",
       ".nyc_output/",
       ".stylelintcache",
       ".eslintcache",
       "*.tsbuildinfo",
       ".terraform/",
       ".DS_Store",
+      "/Applications/",
+      "*.app/",
     ]);
-    const regenerable = list.slice(5, -6);
+    expect(list.slice(-2)).toEqual([...APPLICATION_PATTERNS]);
+    const regenerable = list.slice(5, -10);
     expect(regenerable).toEqual([...regenerable].sort());
     expect(regenerable).toContain("node_modules/");
     expect(regenerable).toContain(".venv/");

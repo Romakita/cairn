@@ -549,6 +549,7 @@ export class BackupService {
               partial: isPartialRequest(request),
               warnings: prepWarnings,
               expectedFiles: ds.fileCounts ?? {},
+              log: (line) => log?.write(`${d.id}: ${line}`),
             },
             tracker,
           );
