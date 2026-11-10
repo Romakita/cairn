@@ -4,7 +4,7 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import type { Retention } from "../config.ts";
-import { mkdir, readdir, rename, rm, symlink, unlink } from "../fs-promises.ts";
+import { lstat, mkdir, readdir, rename, rm, symlink, unlink } from "../fs-promises.ts";
 import { DeniedCounter, type PermissionDenied } from "../full-disk-access.ts";
 import { t } from "../l10n.ts";
 import { ProcessGroup } from "../process.ts";
@@ -87,6 +87,8 @@ export interface CopyParams {
   warnings?: readonly string[];
   /** Fichiers par partie de la sauvegarde précédente (`fileCounts`) : total affiché avant la fin du comptage. */
   expectedFiles?: Readonly<Record<string, number>>;
+  /** Ligne de journal (parties retirées d'une version reprise). */
+  log?: (line: string) => void;
 }
 
 /** Résultat d'une copie, en attente de finalisation (`finish`). */
@@ -149,6 +151,41 @@ async function readable(dir: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/** Dossiers de la version qui contiennent des parties (`folders/<nom>`, `home`, `ai/<outil>/<catégorie>`, `tools`). */
+const PART_ROOTS: readonly string[] = ["folders", "home", "ai", "tools"];
+
+/**
+ * Reprise d'une sauvegarde complète : retire de la version de travail les parties qui ne font plus partie de cette
+ * exécution (dossier retiré de la sauvegarde, outil IA désactivé…), avant la copie. Ne regarde que les dossiers de
+ * parties : les fichiers propres de la version (manifest, empreintes…) ne sont jamais touchés, ni rien hors de `work`.
+ * Rend les chemins retirés (relatifs à la version).
+ */
+export async function pruneRemovedParts(work: string, parts: readonly BackupPart[]): Promise<string[]> {
+  const root = path.resolve(work);
+  const targets = parts.map((p) => path.posix.normalize(p.target)).filter((t) => !t.startsWith(".."));
+  const kept = (rel: string) => targets.some((t) => t === rel || t.startsWith(`${rel}/`));
+  const removed: string[] = [];
+  const visit = async (rel: string): Promise<void> => {
+    const full = path.resolve(root, rel);
+    if (!full.startsWith(`${root}${path.sep}`)) return;
+    const st = await lstat(full).catch(() => null);
+    if (!st) return;
+    if (!kept(rel)) {
+      await rm(full, { recursive: true, force: true });
+      removed.push(rel);
+      return;
+    }
+    // Partie elle-même (ou son contenu) : rsync s'en charge. Sinon, dossier intermédiaire : on descend.
+    if (targets.includes(rel) || !st.isDirectory()) return;
+    for (const name of await readdir(full).catch(() => [] as string[])) {
+      if (name === ".cairn-partial") continue;
+      await visit(`${rel}/${name}`);
+    }
+  };
+  for (const name of PART_ROOTS) await visit(name);
+  return removed;
 }
 
 export class BackupEngine {
@@ -230,6 +267,11 @@ export class BackupEngine {
       work = path.join(dir, INCOMPLETE_PREFIX + versionName(now));
     }
     if (!dryRun) await mkdir(work, { recursive: true });
+    // Sauvegarde complète reprise : les parties retirées depuis la tentative précédente ne doivent pas y rester.
+    // Une sauvegarde partielle (`--only`, `--tool`) ne contient qu'une partie de la sélection : rien n'est retiré.
+    if (resumed && !params.partial) {
+      for (const rel of await pruneRemovedParts(work, parts)) params.log?.(`removed part ${rel} from resumed version`);
+    }
 
     // Comptage pendant la copie (4 rsync -n par partie). Le total connu d'une sauvegarde précédente sert jusqu'à la
     // fin du nouveau comptage ; les compteurs restent visibles pendant tout le comptage.

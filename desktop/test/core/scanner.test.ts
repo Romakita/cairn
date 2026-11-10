@@ -57,6 +57,23 @@ describe("scanner", () => {
     });
   });
 
+  test("package_caches_count_as_cache_and_apps_stay_source", async () => {
+    await withTempDir(async (dir) => {
+      // Profondeurs variées : listé par le parcours principal et compté par les workers (`classifyWith`).
+      await put(path.join(dir, "proj/.npm-cache/_cacache/index"), 100_000);
+      await put(path.join(dir, "a/b/c/.npm/_cacache/content/x"), 110_000);
+      await put(path.join(dir, ".bun/install/cache/pkg/index.js"), 120_000);
+      await put(path.join(dir, "deep/x/y/.bun/install/cache/pkg/index.js"), 130_000);
+      await put(path.join(dir, ".bun/bin/bun"), 200_000);
+      await put(path.join(dir, "Applications/WebStorm.app/Contents/Info.plist"), 300_000);
+      const r = await scan(dir, new ScanContext());
+      const cache = bytes(r.root, "cache");
+      expect(cache).toBeGreaterThanOrEqual(460_000);
+      expect(cache).toBeLessThan(600_000); // ni `.bun/bin` ni l'application
+      expect(bytes(r.root, "source")).toBeGreaterThanOrEqual(500_000);
+    });
+  });
+
   test("hard_links_counted_once", async () => {
     await withTempDir(async (dir) => {
       const a = path.join(dir, "x/a.bin");

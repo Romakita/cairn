@@ -102,6 +102,9 @@ Chaque tâche est vérifiée par ses captures en clair et en sombre (11.3), ses 
 
 - [x] 12.12 Détecter l'Accès complet au disque (spec `backup`, « Accès complet au disque ») : état dans le snapshot, bandeau sur l'accueil et l'écran Sauvegardes avec bouton vers le réglage système, avertissement de `cairn backup`, éléments refusés comptés dans le résultat, le journal et la notification ; vérifier par des tests et des captures
 
+- [x] 12.13 Reprise : retirer de la version en cours les parties qui ne sont plus sélectionnées (spec `backup`, « Partie retirée entre deux tentatives ») ; vérifier par un test du moteur
+- [x] 12.14 Exclure les applications des sauvegardes de dossiers et classer les caches de paquets régénérables (spec `backup`) ; règles communes à l'analyse et à la sauvegarde ; vérifier par des tests et sur `/Volumes/workspaces` (`cairn analyze`, simulation)
+
 ## 13. Packaging, CI et release
 
 - [x] 13.1 Configurer electron-builder (fuses fermées, `afterPack` ad hoc, `minimumSystemVersion 14.0`, Info.plist en/fr) et produire le zip avec `ditto` (`Cairn.app` à la racine) et son `.sha256` ; vérifier que la fuse RunAsNode est fermée (scénario « Exécutable détourné »)
