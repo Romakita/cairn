@@ -17,11 +17,13 @@ import {
   FillBar,
   FilterChip,
   MessageBar,
+  MiddleText,
   NumberStepper,
   PasswordField,
   PathField,
   PopupMenu,
   ProgressBar,
+  ProgressRing,
   ProjectBar,
   RailButton,
   RowDivider,
@@ -30,6 +32,7 @@ import {
   Stat,
   TextField,
   Toggle,
+  ToggleTrack,
   type Tone,
   Tooltip,
   WorkerRow,
@@ -174,6 +177,28 @@ export const feedback = (): Story[] => [
         <ProgressBar label={s("gallery.sample.counting")} />
       </Column>
     ),
+  },
+  {
+    id: "feedback.progress_ring",
+    group: "feedback",
+    component: "ProgressRing",
+    controls: [{ kind: "number", key: "percent", min: 0, max: 100, default: 64 }],
+    render: (v) => (
+      <Row gap={14}>
+        <ProgressRing fraction={num(v, "percent") / 100} />
+        <ProgressRing fraction={num(v, "percent") / 100} size={22} stroke={3} />
+      </Row>
+    ),
+  },
+  {
+    id: "feedback.middle_text",
+    group: "feedback",
+    component: "MiddleText",
+    width: 260,
+    controls: [
+      { kind: "text", key: "label", default: "Developer/cairn/desktop/src/renderer/gallery/stories/data.tsx" },
+    ],
+    render: (v) => <MiddleText text={text(v, "label")} />,
   },
   {
     id: "feedback.spinner",
@@ -449,6 +474,19 @@ export const fields = (): Story[] => [
           )}
         </Stateful>
       </div>
+    ),
+  },
+  {
+    id: "fields.toggle_track",
+    group: "fields",
+    component: "ToggleTrack",
+    render: () => (
+      <Row gap={14}>
+        <ToggleTrack checked={true} />
+        <ToggleTrack checked={false} />
+        <ToggleTrack checked={true} size="small" />
+        <ToggleTrack checked={false} size="small" />
+      </Row>
     ),
   },
   {

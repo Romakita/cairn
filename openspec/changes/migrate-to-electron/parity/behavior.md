@@ -560,6 +560,12 @@ Les autres fichiers de tests à porter tels quels sont résumés en §1 (scénar
 | cache | `.cache`, `.eslintcache`, `.sass-cache` |
 | trash | `.Trashes`, `.Trash` |
 
+🆕 Après la 0.8.0 (spec `backup`, « Caches de paquets régénérables » et « Applications exclues des sauvegardes de
+dossiers ») : `.pnpm-store` passe de deps à cache, `.npm-cache` s'ajoute en cache, et les chemins imbriqués
+`.npm/_cacache` et `.bun/install/cache` sont régénérables (cache). Les sauvegardes de dossiers excluent aussi
+`/Applications/` (à la racine du dossier suivi) et `*.app/`, sans que l'analyse les classe régénérables
+(`src/core/regenerable.ts`, `APPLICATION_PATTERNS`).
+
 **`Scanner.conditional`** : le dossier n'est régénérable que si l'un des marqueurs est présent **dans le dossier parent**.
 
 | Dossier | Catégorie | Marqueurs |

@@ -72,7 +72,9 @@ interface StoredPlan {
 }
 
 function sourceKey(source: RestorePlanArgs["source"]): string {
-  return source.kind === "destination" ? `destination:${source.destination}` : `folder:${source.path}`;
+  return source.kind === "destination"
+    ? `destination:${source.destination}:${source.image ?? ""}`
+    : `folder:${source.path}`;
 }
 
 export class RestoreController {
@@ -130,10 +132,14 @@ export class RestoreController {
     if (args.sharePassword !== undefined) session.sharePassword = args.sharePassword;
     if (args.imagePassword !== undefined) session.imagePassword = args.imagePassword;
     try {
-      const opened = await openForRestore(session, async (kind) => {
-        // Mot de passe déjà saisi et refusé, ou pas encore saisi : l'interface le demande.
-        throw new PasswordNeeded(kind);
-      });
+      const opened = await openForRestore(
+        session,
+        async (kind) => {
+          // Mot de passe déjà saisi et refusé, ou pas encore saisi : l'interface le demande.
+          throw new PasswordNeeded(kind);
+        },
+        args.source.image,
+      );
       if (!opened) throw new PasswordNeeded("share");
       this.opened = { key, session, versions: opened.versions, direct: null };
       return this.opened;

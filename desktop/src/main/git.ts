@@ -5,7 +5,7 @@ import { shell } from "electron";
 import { folderExpandedPath } from "../core/config.ts";
 import { Fmt } from "../core/format.ts";
 import { refreshSizes } from "../core/git/analysis.ts";
-import { applyCleanup, type CleanupResult, compactUnderLock } from "../core/git/apply.ts";
+import { appDeletionOptions, applyCleanup, type CleanupResult, compactUnderLock } from "../core/git/apply.ts";
 import { analyzeAll, type PoolProgress } from "../core/git/pool.ts";
 import { type RepoPlan, removing } from "../core/git/selection.ts";
 import { defaultGitOptions, forAnalysis, type GitOptions, type RepoReport } from "../core/git/types.ts";
@@ -141,10 +141,16 @@ export class GitService {
     this.applying = true;
     this.host.changed();
     try {
-      const result = await applyCleanup({ stateDir: this.host.paths.state }, plans, this.options);
+      const result = await applyCleanup({ stateDir: this.host.paths.state }, plans, appDeletionOptions(this.options));
       const names = new Set(result.deletedBranches);
       const paths = new Set(result.removedWorktrees);
       this.reports = this.reports.map((r) => removing(r, names, paths));
+      // Remesure des seuls dépôts nettoyés (worktrees retirés : taille et dossier .git changent).
+      const cleaned = new Set(result.cleanedRepos);
+      const refreshed = await Promise.all(
+        this.reports.map((r) => (cleaned.has(r.path) ? refreshSizes(r, this.options).catch(() => r) : r)),
+      );
+      this.reports = refreshed;
       this.lastCleanup = result;
       if (result.deletedBranches.length + result.removedWorktrees.length > 0) {
         this.host.logActivity({
