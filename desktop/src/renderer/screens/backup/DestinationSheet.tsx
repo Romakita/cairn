@@ -86,6 +86,11 @@ interface CheckState {
   error: string | null;
 }
 
+/** Nom de l'image (`cairn-<machine>.sparsebundle`) d'un chemin trouvé par la vérification. */
+function imageName(p: string): string {
+  return p.split("/").filter(Boolean).pop() ?? p;
+}
+
 export function DestinationSheet({ mode, onClose, onSaved, navigate }: DestinationSheetProps) {
   const api = useApi();
   const editing = mode.kind === "edit" ? mode.destination : null;
@@ -237,7 +242,8 @@ export function DestinationSheet({ mode, onClose, onSaved, navigate }: Destinati
     }
   };
 
-  const save = async () => {
+  /** Enregistre la destination ; `then` (au lieu de la fermeture habituelle seule) enchaîne après l'enregistrement. */
+  const save = async (then?: (saved: SavedDestinationView) => void) => {
     const invalid = steps.findIndex((id) => reasonFor(id) !== null);
     if (invalid >= 0) {
       setAttempted(true);
@@ -269,6 +275,7 @@ export function DestinationSheet({ mode, onClose, onSaved, navigate }: Destinati
         saved = await api.addDestination({ destination, password: password || undefined });
       }
       onSaved(saved);
+      then?.(saved);
     } catch (e) {
       setSaveError(errorText(e));
     } finally {
@@ -500,10 +507,14 @@ export function DestinationSheet({ mode, onClose, onSaved, navigate }: Destinati
                   editing ? undefined : (
                     <Button
                       variant="outline"
-                      onClick={() => {
-                        onClose();
-                        navigate({ route: "restore" });
-                      }}
+                      loading={saving}
+                      onClick={() =>
+                        // La destination est enregistrée, puis la restauration s'ouvre sur l'image choisie, pas sur
+                        // celle de ce Mac ni la première trouvée (156f978).
+                        void save((saved) =>
+                          navigate({ route: "restore", ref: saved.destination.id, image: imageName(image.path) }),
+                        )
+                      }
                     >
                       {t("probe.image.restore")}
                     </Button>

@@ -4,7 +4,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { defaultConfig } from "../../src/core/config.ts";
 import { analyze, isMainBranch, mergeStatus } from "../../src/core/git/analysis.ts";
-import { applyCleanup, applyRepo } from "../../src/core/git/apply.ts";
+import { appDeletionOptions, applyCleanup, applyRepo } from "../../src/core/git/apply.ts";
 import { defaultScannerDeps } from "../../src/core/git/deps.ts";
 import { discover } from "../../src/core/git/discovery.ts";
 import { Git, type GitResult, type GitRunOptions } from "../../src/core/git/git.ts";
@@ -263,5 +263,12 @@ describe("regressions: git", () => {
     writeFileSync(path.join(dir, "web/package.json"), "{}");
     const repos = (await discover([dir], classify)).map((p) => path.relative(dir, p));
     expect(repos).toEqual(["app", "tools/build/lib", "web"]);
+  });
+
+  test("0.8.0 GitView.deleteSelection : une suppression depuis l'app ne lance jamais gc ni prune", () => {
+    const o = appDeletionOptions(defaultGitOptions({ gc: true, pruneNow: true }));
+    expect(o.gc).toBe(false);
+    expect(o.pruneNow).toBe(false);
+    expect(appDeletionOptions(defaultGitOptions({ worktreesOnly: true })).worktreesOnly).toBe(true);
   });
 });

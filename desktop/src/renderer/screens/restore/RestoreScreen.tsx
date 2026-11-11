@@ -15,7 +15,7 @@ import {
   TriangleAlert,
   Wrench,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Fmt } from "../../../core/format.ts";
 import { t } from "../../../core/l10n.ts";
 import type { RestoreStep } from "../../../core/restore/service.ts";
@@ -107,7 +107,7 @@ function ManualTools({ steps }: { steps: RestoreStep[] }) {
   );
 }
 
-export function RestoreScreen({ navigate }: ScreenProps) {
+export function RestoreScreen({ navigate, request }: ScreenProps) {
   const snapshot = useSnapshot();
   const api = useApi();
   const [step, setStep] = useState(0);
@@ -127,6 +127,21 @@ export function RestoreScreen({ navigate }: ScreenProps) {
   const [applied, setApplied] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [volumeSheet, setVolumeSheet] = useState(false);
+  // Arrivée depuis « Restaurer cette sauvegarde » : destination et image présélectionnées, ouvertes une seule fois.
+  const chooseRef = useRef<(src: RestoreSource) => Promise<void>>(async () => {});
+  const requested = useRef<string | null>(null);
+  const ready = snapshot !== null;
+  useEffect(() => {
+    if (!ready || request?.route !== "restore" || !request.ref) return;
+    const key = `${request.ref}:${request.image ?? ""}`;
+    if (requested.current === key) return;
+    requested.current = key;
+    void chooseRef.current({
+      kind: "destination",
+      destination: request.ref,
+      ...(request.image ? { image: request.image } : {}),
+    });
+  }, [ready, request]);
 
   if (!snapshot) return <div className={styles.root} data-testid="screen-restore" />;
   const restore = snapshot.restore;
@@ -177,6 +192,7 @@ export function RestoreScreen({ navigate }: ScreenProps) {
     if (!p || p.needsPassword) return;
     goTo(p.versions.length > 0 ? 1 : 2);
   };
+  chooseRef.current = chooseSource;
 
   const unlock = async () => {
     if (!source || !plan?.needsPassword) return;

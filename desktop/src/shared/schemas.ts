@@ -163,7 +163,14 @@ const onboardingDraft = z.strictObject({
 });
 
 const restoreSource = z.discriminatedUnion("kind", [
-  z.strictObject({ kind: z.literal("destination"), destination: id }),
+  z.strictObject({
+    kind: z.literal("destination"),
+    destination: id,
+    image: z
+      .string()
+      .regex(/^cairn-[^/]{1,200}\.sparsebundle$/)
+      .optional(),
+  }),
   z.strictObject({ kind: z.literal("folder"), path: absolutePath }),
 ]);
 

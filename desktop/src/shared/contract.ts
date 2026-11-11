@@ -451,6 +451,8 @@ export interface NavigationRequest {
   ref?: string;
   /** « Nettoyer » depuis une alerte : présélection des dossiers régénérables (identifiants de nœuds). */
   preselect?: number[];
+  /** Restauration : image choisie sur la destination `ref` (« Restaurer cette sauvegarde »). */
+  image?: string;
 }
 
 // MARK: Arguments des méthodes
@@ -548,7 +550,14 @@ export interface RetentionPlanView {
  * Source d'une restauration : une destination configurée, ou un dossier (version Cairn, sauvegarde de backup.sh, ou
  * racine d'une destination avec `cairn/<machine>/versions`).
  */
-export type RestoreSource = { kind: "destination"; destination: string } | { kind: "folder"; path: string };
+export type RestoreSource =
+  | {
+      kind: "destination";
+      destination: string;
+      /** Image choisie (`cairn-<machine>.sparsebundle`, « Restaurer cette sauvegarde ») : prise si elle existe (156f978). */
+      image?: string;
+    }
+  | { kind: "folder"; path: string };
 
 export interface RestorePlanArgs {
   source: RestoreSource;

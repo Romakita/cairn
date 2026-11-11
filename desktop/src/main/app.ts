@@ -6,7 +6,7 @@ import path from "node:path";
 import { app, BrowserWindow, clipboard, dialog, shell } from "electron";
 import { type ActivityEvent, ActivityLog, backupDays } from "../core/activity-log.ts";
 import { keptLogs } from "../core/backup/run-state.ts";
-import { type CairnConfig, type DestinationConfig, folderExpandedPath } from "../core/config.ts";
+import { type CairnConfig, type DestinationConfig, folder, folderExpandedPath } from "../core/config.ts";
 import { pruneLogs } from "../core/config-logs.ts";
 import { setSmbPassword } from "../core/config-secrets.ts";
 import { ConfigStore } from "../core/config-store.ts";
@@ -33,6 +33,7 @@ import {
   type ShowTarget,
 } from "../shared/contract.ts";
 import { AnalysisService, StorageService } from "./analysis.ts";
+import { installAppMenu } from "./app-menu.ts";
 import { BackupController } from "./backup.ts";
 import { ConfigService, draftToWire } from "./config-service.ts";
 import { type Confirmer, confirmWithDialog } from "./confirm.ts";
@@ -202,6 +203,7 @@ export class CairnApp implements Host {
       }),
     ]);
     this.menuBar = new MenuBar(preloadPath(), { openMain: () => this.showMainWindow(), quit: () => app.quit() });
+    this.installMenu();
     this.updateTray();
     // Ouverte à la connexion en tâche de fond : seulement la barre des menus.
     const atLogin = app.isPackaged && app.getLoginItemSettings().wasOpenedAtLogin;
@@ -220,8 +222,12 @@ export class CairnApp implements Host {
         if (this.fullDisk === "denied") void this.probeAccess();
       }, ACCESS_POLL_MS),
     );
-    // Retour au premier plan (souvent depuis Réglages Système) : l'accès vient peut-être d'être accordé.
-    app.on("browser-window-focus", () => void this.probeAccess());
+    // Retour au premier plan (souvent depuis Réglages Système) : l'accès vient peut-être d'être accordé, et la
+    // commande `cairn` a peut-être écrit dans le journal d'activité entre-temps (comme la 0.8.0).
+    app.on("browser-window-focus", () => {
+      void this.probeAccess();
+      void this.reloadActivity();
+    });
     this.timers.push(setInterval(() => void this.purgeLogs(), LOG_PURGE_MS));
 
     app.on("second-instance", () => this.showMainWindow());
@@ -279,7 +285,9 @@ export class CairnApp implements Host {
 
   private configChanged(): void {
     const config = this.config();
+    const language = currentLanguage();
     configureLanguage(config.language, app.getPreferredSystemLanguages());
+    if (currentLanguage() !== language) this.installMenu();
     this.applyBackground(config.schedule.background);
     void this.refreshFolders();
     this.changed();
@@ -543,6 +551,41 @@ export class CairnApp implements Host {
     }
     if (!this.knownPath(target.path)) throw new ApiError("forbidden", "unknown path");
     shell.showItemInFolder(target.path);
+  }
+
+  /** Menu de l'application (libellés traduits : réinstallé quand la langue change). */
+  private installMenu(): void {
+    installAppMenu({
+      checkForUpdates: () => {
+        this.showMainWindow();
+        void this.updates.check(true);
+      },
+      openSettings: () => this.navigate({ route: "settings" }),
+      chooseFolder: () => void this.addFolderFromMenu(),
+      rescan: () => {
+        this.navigate({ route: "storage" });
+        this.analysis.scan().catch((e: unknown) => this.message("error", e instanceof Error ? e.message : String(e)));
+      },
+    });
+  }
+
+  /** ⌘O : ajoute un dossier suivi (config.toml) puis l'analyse, comme `addFolder` de la 0.8.0. */
+  private async addFolderFromMenu(): Promise<void> {
+    const chosen = await this.chooseFolder(t("action.add"));
+    if (!chosen) return;
+    if (!this.configs.firstLaunch) {
+      const folders = this.config().folders;
+      if (!folders.some((f) => folderExpandedPath(f) === chosen)) {
+        await this.configs.save([{ kind: "folders", folders: [...folders, folder(chosen)] }]).catch((e: unknown) => {
+          this.message("error", e instanceof Error ? e.message : String(e));
+        });
+      }
+    }
+    this.navigate({ route: "storage" });
+    const targets = this.configs.firstLaunch ? [chosen] : undefined;
+    await this.analysis.scan(targets).catch((e: unknown) => {
+      this.message("error", e instanceof Error ? e.message : String(e));
+    });
   }
 
   private async chooseFolder(buttonLabel?: string, defaultPath?: string): Promise<string | null> {

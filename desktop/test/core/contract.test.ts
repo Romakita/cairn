@@ -124,12 +124,21 @@ describe("contract", () => {
       ],
       ["copyText", { text: "x".repeat(100_001) }],
       ["planRestore", { source: { kind: "folder", path: "relative" } }],
+      ["planRestore", { source: { kind: "destination", destination: "nas", image: "../cairn-x.sparsebundle" } }],
+      ["planRestore", { source: { kind: "destination", destination: "nas", image: "photos.dmg" } }],
     ];
     for (const [method, args] of refused) {
       const r = validateArgs(method, args);
       if (r.ok) throw new Error(`accepté à tort : ${method} ${JSON.stringify(args)}`);
       expect(r.message).toStartWith(`invalid arguments for ${method}`);
     }
+  });
+
+  test("156f978: la source de restauration accepte l'image choisie (« Restaurer cette sauvegarde »)", () => {
+    const r = validateArgs("planRestore", {
+      source: { kind: "destination", destination: "nas", image: "cairn-MacBook-Air.sparsebundle" },
+    });
+    expect(r.ok).toBe(true);
   });
 
   test("le message de refus ne recopie pas les valeurs (mots de passe…)", () => {

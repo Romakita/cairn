@@ -121,6 +121,14 @@ export function applyCleanup(
   });
 }
 
+/**
+ * Options d'une suppression depuis l'app (menus des lignes, « Supprimer la sélection ») : jamais de gc ni d'élagage
+ * immédiat, comme la 0.8.0. Le compactage reste une action à part ; les branches supprimées restent récupérables.
+ */
+export function appDeletionOptions(options: GitOptions): GitOptions {
+  return { ...options, gc: false, pruneNow: false };
+}
+
 /** Compactage d'un seul dépôt depuis l'app (action « Compacter », confirmée), sous le verrou `git-clean`. */
 export function compactUnderLock(
   paths: StatePaths,
