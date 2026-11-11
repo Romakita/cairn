@@ -147,10 +147,9 @@ export class GitService {
       this.reports = this.reports.map((r) => removing(r, names, paths));
       // Remesure des seuls dépôts nettoyés (worktrees retirés : taille et dossier .git changent).
       const cleaned = new Set(result.cleanedRepos);
-      const refreshed = await Promise.all(
+      this.reports = await Promise.all(
         this.reports.map((r) => (cleaned.has(r.path) ? refreshSizes(r, this.options).catch(() => r) : r)),
       );
-      this.reports = refreshed;
       this.lastCleanup = result;
       if (result.deletedBranches.length + result.removedWorktrees.length > 0) {
         this.host.logActivity({

@@ -1,20 +1,23 @@
 // Mesure de parité de l'analyse : scanner TypeScript, Cairn 0.8.0 installé (`analyze --json`) et `du -sk`.
 // Usage : bun scripts/compare-analyze.ts <dossier>… [--swift <chemin du binaire>] [--workers N]
 import { execFile } from "node:child_process";
-import os from "node:os";
 import { promisify } from "node:util";
 import { CATEGORIES } from "../src/core/regenerable.ts";
 import { bytes, regenerableBytes, ScanContext, scanFolders } from "../src/core/scanner.ts";
 
 const exec = promisify(execFile);
 const args = process.argv.slice(2);
-let swift = process.env.CAIRN_SWIFT_CLI ?? `${os.homedir()}/Applications/Cairn.app/Contents/MacOS/Cairn`;
+let swift = process.env.CAIRN_SWIFT_CLI ?? "";
 let workers: number | undefined;
 const folders: string[] = [];
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--swift") swift = args[++i] ?? swift;
   else if (args[i] === "--workers") workers = Number(args[++i]);
   else folders.push(args[i] as string);
+}
+if (!swift) {
+  console.error("binaire de la 0.8.0 introuvable : CAIRN_SWIFT_CLI=<chemin> ou --swift <chemin>");
+  process.exit(2);
 }
 if (folders.length === 0) {
   console.error("usage: bun scripts/compare-analyze.ts <folder>… [--swift <binary>] [--workers N]");

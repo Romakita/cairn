@@ -41,7 +41,7 @@ tools *args:
 
 # Tests du core et de la CLI (bun test ; FILTRE optionnel sur le nom des tests)
 test *filter:
-    cd desktop && bun test ./test/core ./test/regressions ./test/tooling ${1:+--test-name-pattern "$1"}
+    cd desktop && bun run test ${1:+--test-name-pattern "$1"}
 
 # Tests de bout en bout sur la vraie app Electron (Playwright)
 e2e:

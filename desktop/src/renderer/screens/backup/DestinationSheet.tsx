@@ -44,6 +44,7 @@ import { Spinner } from "../../ui/Spinner.tsx";
 import { TextField } from "../../ui/TextField.tsx";
 import { Toggle } from "../../ui/Toggle.tsx";
 import { WizardStepper } from "../../ui/WizardStepper.tsx";
+import { baseName } from "../shell/format.ts";
 import styles from "./DestinationSheet.module.css";
 import { FolderBrowser } from "./FolderBrowser.tsx";
 import { RECOMMENDED } from "./model.ts";
@@ -84,11 +85,6 @@ interface CheckState {
   key: string;
   result: ProbeResult | null;
   error: string | null;
-}
-
-/** Nom de l'image (`cairn-<machine>.sparsebundle`) d'un chemin trouvé par la vérification. */
-function imageName(p: string): string {
-  return p.split("/").filter(Boolean).pop() ?? p;
 }
 
 export function DestinationSheet({ mode, onClose, onSaved, navigate }: DestinationSheetProps) {
@@ -512,7 +508,7 @@ export function DestinationSheet({ mode, onClose, onSaved, navigate }: Destinati
                         // La destination est enregistrée, puis la restauration s'ouvre sur l'image choisie, pas sur
                         // celle de ce Mac ni la première trouvée (156f978).
                         void save((saved) =>
-                          navigate({ route: "restore", ref: saved.destination.id, image: imageName(image.path) }),
+                          navigate({ route: "restore", ref: saved.destination.id, image: baseName(image.path) }),
                         )
                       }
                     >

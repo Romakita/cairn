@@ -20,12 +20,11 @@ import { ConfigStore } from "../../src/core/config-store.ts";
 import { machineName } from "../../src/core/machine.ts";
 import { CairnPaths } from "../../src/core/paths.ts";
 import { detachImagesUnder, TestClock, withTempDir, writeFile } from "../helpers/backup-env.ts";
-import { nativeAvailable } from "../helpers/native.ts";
+import { nativeAvailable, swiftCli } from "../helpers/native.ts";
 
 const exec = promisify(execFile);
 const native = nativeAvailable();
-// Binaire de la 0.8.0 (Swift, tag `v0.8.0`) : `CAIRN_SWIFT_CLI` ; sans lui, les tests de compatibilité sont sautés.
-const SWIFT_APP = process.env.CAIRN_SWIFT_CLI ?? "";
+const SWIFT_APP = swiftCli() ?? "";
 
 /** Home simulé : quelques fichiers de configuration, un projet avec des dépendances régénérables. */
 function simulatedHome(home: string): void {
@@ -149,7 +148,7 @@ describe.skipIf(!native)("backup-e2e", () => {
     });
   }, 180_000);
 
-  describe.skipIf(!existsSync(SWIFT_APP))("compatibilité avec la 0.8.0", () => {
+  describe.skipIf(!SWIFT_APP)("compatibilité avec la 0.8.0", () => {
     async function swift(args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
       try {
         const r = await exec(SWIFT_APP, [...args, "--lang", "en-US"], { timeout: 120_000, maxBuffer: 16 << 20 });
