@@ -1,7 +1,7 @@
 #!/bin/zsh
 # Change la version de Cairn (app Electron) : desktop/package.json (source de la version, lue par electron-builder
-# pour CFBundleShortVersionString et par la CLI pour `cairn --version`), Cairn/VERSION tant qu'il existe
-# (`just version`, app Swift) et le CHANGELOG (section [Unreleased] datée et remplie avec les notes).
+# pour CFBundleShortVersionString, par la CLI pour `cairn --version` et par `just version`) et le
+# CHANGELOG (section [Unreleased] datée et remplie avec les notes).
 # Usage : desktop/scripts/semantic-release/bump-version.sh X.Y.Z [<fichier de notes>]
 #   Appelé par semantic-release (release-prepare.sh) avec la version calculée depuis les commits.
 set -euo pipefail
@@ -18,7 +18,6 @@ OLD="$(/usr/bin/plutil -extract version raw -o - "$PKG")"
 sed -i '' -E "1,/^  \"version\": \"[^\"]*\",$/ s/^  \"version\": \"[^\"]*\",$/  \"version\": \"$NEW\",/" "$PKG"
 [[ "$(/usr/bin/plutil -extract version raw -o - "$PKG")" == "$NEW" ]] || { echo "package.json non mis à jour" >&2; exit 1; }
 files="desktop/package.json"
-if [[ -f "$ROOT/Cairn/VERSION" ]]; then echo "$NEW" > "$ROOT/Cairn/VERSION"; files+=", Cairn/VERSION"; fi
 
 if ! grep -q "^## \[$NEW\]" "$ROOT/CHANGELOG.md"; then
   # [Unreleased] devient [NEW] - date, rempli avec les notes fournies (les mêmes que la release GitHub).

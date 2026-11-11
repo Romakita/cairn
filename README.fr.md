@@ -16,7 +16,7 @@
   <a href="https://github.com/Romakita/cairn/actions/workflows/ci.yml"><img src="https://github.com/Romakita/cairn/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/Romakita/cairn/releases"><img src="https://img.shields.io/github/v/release/Romakita/cairn?include_prereleases&label=release" alt="Release"></a>
   <img src="https://img.shields.io/badge/macOS-14%2B-black?logo=apple" alt="macOS 14+">
-  <img src="https://img.shields.io/badge/Swift-5.10-F05138?logo=swift&logoColor=white" alt="Swift 5.10">
+  <img src="https://img.shields.io/badge/Electron-TypeScript-47848F?logo=electron&logoColor=white" alt="Electron et TypeScript">
   <img src="https://img.shields.io/badge/langues-fr%20%7C%20en-blue" alt="Français et anglais">
   <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-green" alt="Licence MIT"></a>
 </p>
@@ -46,7 +46,7 @@ Comme un cairn sur un sentier, il marque le chemin pour retrouver son environnem
   pas `--apply`.
 - **Vos secrets restent les vôtres.** Sauvegardes chiffrées (AES-256) par défaut, mots de passe dans le Trousseau
   macOS, jamais dans un fichier.
-- **Un seul binaire.** L'app SwiftUI et la commande `cairn` partagent le même moteur : tout ce que fait l'interface est
+- **Un seul binaire.** L'app et la commande `cairn` partagent le même moteur : tout ce que fait l'interface est
   scriptable.
 - **Configuration lisible.** Un fichier TOML commenté (`~/.cairn/config.toml`), modifiable à la main ou depuis l'app.
 
@@ -133,15 +133,19 @@ avec `[updates] check = false` dans `config.toml`.
 
 ### Depuis les sources
 
-Il faut les [Command Line Tools](https://developer.apple.com/xcode/resources/) (Xcode n'est nécessaire que pour lancer les tests) et
-[just](https://github.com/casey/just).
+Il faut les [Command Line Tools](https://developer.apple.com/xcode/resources/) (`xcode-select --install`, pour le
+module natif ; Xcode n'est pas nécessaire), [Bun](https://bun.sh) 1.4.4 et [just](https://github.com/casey/just).
 
 ```bash
 git clone https://github.com/Romakita/cairn.git
 cd cairn
-just storage-install   # construit Cairn.app, l'installe dans ~/Applications et relie ~/.local/bin/cairn
+just storage-install   # bun install + bun run dist, installe Cairn.app dans ~/Applications et relie ~/.local/bin/cairn
 just storage           # ouvre l'app
 ```
+
+Pour travailler sur l'app sans l'installer : `just dev` (app Electron), `just dev-web` (interface dans le navigateur
+avec des données d'exemple) et `cd desktop && bun run cli <commande>` (la commande `cairn`). Voir
+[desktop/README.md](desktop/README.md).
 
 Au premier lancement, un assistant en six étapes configure les dossiers suivis, les éléments du home, les outils IA, la
 destination, la planification et les notifications. On peut aussi choisir **« Restaurer une sauvegarde à la place »**.
@@ -178,13 +182,16 @@ cairn restore --destination nas --apply    # restauration réelle
 cairn config validate                      # vérifie ~/.cairn/config.toml
 ```
 
-Codes de sortie : `0` succès, `1` échec, `2` erreur d'usage ou de configuration.
+Codes de sortie : `0` succès, `1` échec, `2` erreur d'usage ou de configuration. `--lang en-US|fr-FR` force la
+langue, `--config <fichier>` utilise un autre fichier de configuration. Référence complète des commandes :
+[docs/reference.md](docs/reference.md).
 
 ## Configuration
 
 La configuration vit dans `~/.cairn/config.toml`. Elle est créée par l'assistant et reste modifiable à la main :
 l'app la recharge, conserve les commentaires et les clés inconnues. Exemple complet et commenté :
-[`Cairn/config.example.toml`](Cairn/config.example.toml). Référence de toutes les clés : [Cairn/README.md](Cairn/README.md).
+[`desktop/resources/config.example.toml`](desktop/resources/config.example.toml). Référence de toutes les clés :
+[docs/reference.md](docs/reference.md#configuration--cairnconfigtoml).
 
 ```toml
 [[folders]]
@@ -205,12 +212,15 @@ time = "12:30"
 
 ## Tests
 
-Les tests utilisent [Swift Testing](https://developer.apple.com/xcode/swift-testing/) et demandent Xcode (pas la
-construction de l'app) : `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`.
+Les tests unitaires passent par `bun test`, les tests de bout en bout pilotent la vraie app Electron avec
+[Playwright](https://playwright.dev). Xcode n'est pas nécessaire ; construire une fois le module natif avec
+`cd desktop && bun run build:native` (sinon les tests qui en dépendent sont sautés).
 
 ```bash
-just test              # build + toute la suite
-just test Inventory    # seulement les suites ou tests dont le nom correspond à « Inventory »
+just test              # core et CLI (bun test)
+just test Inventory    # seulement les tests dont le nom correspond à « Inventory »
+just e2e               # tests de bout en bout sur la vraie app (Playwright)
+just lint              # Biome, règles du design system et vérification des types
 ```
 
 Pour vérifier un changement de bout en bout, les modes simulation n'écrivent rien :
@@ -222,29 +232,39 @@ just restore
 just storage-report    # totaux à comparer à `du -sk <dossier>`
 ```
 
-Le workflow **CI** compile, lance les tests et construit le bundle de l'app à chaque push sur `main` et
-chaque pull request.
+Le workflow **CI** lance le lint, les tests unitaires et de bout en bout, puis construit et teste l'archive de l'app à
+chaque push sur `main` et chaque pull request.
 
 ## Architecture
 
+Cairn est une app [Electron](https://www.electronjs.org) écrite en TypeScript ; [Bun](https://bun.sh) l'installe, la
+construit et la teste, et l'app tourne sur le Node d'Electron.
+
 ```text
-Cairn/
-├── Package.swift
-├── Sources/
-│   ├── CairnCore/        # logique sans interface : analyse, sauvegarde, restauration, git, config, inventaire
-│   │   └── Resources/    # traductions (en, fr), profils des outils IA, règles d'inventaire
-│   └── Cairn/            # interface SwiftUI + aiguillage vers la ligne de commande (un seul binaire)
-├── Tests/CairnTests/     # Swift Testing, une suite par fichier
-├── Tests/CairnTestHelper/ # processus auxiliaire lancé par certains tests
-├── scripts/              # icône, montée de version
-└── build-app.sh          # construit et installe Cairn.app
-openspec/                 # specs du comportement et changements proposés
+desktop/
+├── src/
+│   ├── core/       # logique sans interface : analyse, sauvegarde, restauration, git, config, inventaire (API node:*)
+│   ├── cli/        # commandes `cairn`, au-dessus du core (même exécutable que l'app)
+│   ├── main/       # process principal Electron : fenêtres, barre des menus, IPC, planificateur, notifications, mises à jour
+│   ├── preload/    # API typée exposée à l'interface
+│   ├── renderer/   # interface React : composants (ui/), écrans, galerie des composants, jetons de design
+│   └── shared/     # contrat entre le process principal et l'interface
+├── native/         # module N-API (Objective-C) : Trousseau, montage SMB, flock, espace libre APFS
+├── resources/      # profils des outils IA, règles d'inventaire, icônes de la barre des menus, config d'exemple
+├── locales/        # traductions (en, fr)
+├── test/           # bun test (core, régressions) et Playwright (e2e)
+└── scripts/        # build, empaquetage, installation, captures, release
+docs/               # référence et images
+openspec/           # specs du comportement et changements proposés
 ```
 
-- `CairnCore` ne dépend pas de SwiftUI : toute la logique est testable en ligne de commande.
-- Les analyses git lourdes passent par un pool de sous-processus du même binaire, sans jamais charger un historique
-  entier en mémoire.
+- Le core ne dépend ni d'Electron ni de React : toute la logique est testable en ligne de commande.
+- Les analyses git lourdes passent par un pool de workers, sans jamais charger un historique entier en mémoire.
 - Les règles de « régénérable » sont communes à l'analyse et à la sauvegarde.
+- Guide de développement et règles du code : [desktop/README.md](desktop/README.md) ; design system :
+  [desktop/DESIGN.md](desktop/DESIGN.md).
+
+Cairn était une app Swift (SwiftUI) jusqu'à la version 0.8.0 ; ses sources sont dans l'historique git (tag `v0.8.0`).
 
 ## Contribuer
 
@@ -254,17 +274,19 @@ traductions…
 1. Ouvrir une issue pour discuter d'un changement de comportement avant de coder.
 2. Les nouvelles fonctionnalités passent par [OpenSpec](https://github.com/Fission-AI/OpenSpec) : proposition, design,
    specs et tâches dans `openspec/changes/` (voir [AGENTS.md](AGENTS.md)).
-3. Tout texte visible passe par `T("clé")` avec une entrée dans `en.lproj` **et** `fr.lproj` ; un test le vérifie.
+3. Tout texte visible passe par `t("clé")` avec une entrée en anglais **et** en français (`desktop/locales/`) ; un
+   test le vérifie.
 4. Toute opération destructive doit rester explicite, confirmée et disposer d'un mode simulation.
-5. `just test` doit passer. Ne pas modifier [CHANGELOG.md](CHANGELOG.md) : il est généré à partir des sujets des
-   commits `feat` / `fix`, à rédiger comme des lignes de note de release.
+5. `just test`, `just lint` et `just e2e` doivent passer. Ne pas modifier [CHANGELOG.md](CHANGELOG.md) : il est généré
+   à partir des sujets des commits `feat` / `fix`, à rédiger comme des lignes de note de release.
 
-Ajouter un outil IA = ajouter un profil JSON dans `Sources/CairnCore/Resources/ai-tools/`. Ajouter une règle
-d'inventaire = éditer `Sources/CairnCore/Resources/rules/rules.json`. Détails dans [Cairn/README.md](Cairn/README.md).
+Ajouter un outil IA = ajouter un profil JSON dans `desktop/resources/ai-tools/`. Ajouter une règle d'inventaire =
+éditer `desktop/resources/rules/rules.json`. Détails dans [docs/reference.md](docs/reference.md).
 
 ## Versions et releases
 
-La version suit [SemVer](https://semver.org/lang/fr/) et vit dans `Cairn/VERSION` (`just version`, `cairn --version`).
+La version suit [SemVer](https://semver.org/lang/fr/) et vit dans `desktop/package.json` (`just version`,
+`cairn --version`).
 
 Les releases sont publiées par la CI avec [semantic-release](https://semantic-release.gitbook.io/) : branche → PR →
 revue → merge sur `main` → build → release. La version découle des
@@ -277,9 +299,10 @@ revue → merge sur `main` → build → release. La version découle des
 | seulement des `fix` / `perf` | patch (`0.2.3` → `0.2.4`) |
 | seulement `docs`, `ci`, `chore`, `refactor`, `test`… | pas de release |
 
-Une fois le build de `main` passé, la CI met à jour `Cairn/VERSION`, la constante du code et `CHANGELOG.md` (nouvelle
-section datée de la version), construit et teste l'archive, pousse un commit `chore(release): X.Y.Z` sur `main`, le
-tague `vX.Y.Z` et publie une release GitHub avec `Cairn-<version>-arm64.zip` et son empreinte SHA-256. Les notes de
+Une fois le build de `main` passé, la CI met à jour la version dans `desktop/package.json` et `CHANGELOG.md`
+(nouvelle section datée de la version), lance les tests, construit et teste l'archive, pousse un commit
+`chore(release): X.Y.Z` sur `main`, le tague `vX.Y.Z` et publie une release GitHub avec `Cairn-<version>-arm64.zip` et
+son empreinte SHA-256 (`just release-build` construit la même archive en local, dans `desktop/release/`). Les notes de
 release, dans le CHANGELOG et sur GitHub, sont générées à partir des sujets des commits (`feat` → Added, `fix` /
 `perf` → Fixed, breaking → Changed). Configuration : [.releaserc.json](.releaserc.json).
 

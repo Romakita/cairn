@@ -8,7 +8,7 @@ import { bytes, regenerableBytes, ScanContext, scanFolders } from "../src/core/s
 
 const exec = promisify(execFile);
 const args = process.argv.slice(2);
-let swift = `${os.homedir()}/Applications/Cairn.app/Contents/MacOS/Cairn`;
+let swift = process.env.CAIRN_SWIFT_CLI ?? `${os.homedir()}/Applications/Cairn.app/Contents/MacOS/Cairn`;
 let workers: number | undefined;
 const folders: string[] = [];
 for (let i = 0; i < args.length; i++) {

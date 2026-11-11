@@ -5,6 +5,17 @@ Règles de l'interface React (`src/renderer`), tirées du design system de Codex
 est dans la galerie (`bun run dev:web` puis `#/gallery`, ou `bun run shots`) ; les mesures de référence dans
 `openspec/changes/migrate-to-electron/parity/ui.md` (§2).
 
+Esprit : celui des réglages de Codex (app de bureau ChatGPT), repris de l'app Swift de la 0.8.0. Neutre et aéré, un
+seul accent bleu (`--color-accent` : liens, interrupteurs, focus), le noir (`--color-primary`) pour l'action
+principale. Tout nouvel écran réutilise les jetons et les composants plutôt que de recréer un style local.
+
+## Fenêtre
+
+Un cadre gris uni (`--color-rail`) porte la barre du haut (boutons de fenêtre, bascule de la barre latérale, logo de
+Cairn) et le rail d'icônes. La barre latérale (`--color-sidebar`) et le contenu (`--color-content`) partagent un corps
+qui flotte dans ce cadre (`--radius-window`, bordure fine, `--shadow-window` ; `screens/shell/Shell.module.css`) :
+c'est la seule ombre d'un élément non flottant.
+
 ## Jetons
 
 Toutes les valeurs visuelles viennent de [`src/renderer/styles/tokens.css`](src/renderer/styles/tokens.css), défini pour
@@ -50,6 +61,12 @@ fichier `.module.css` par composant d'écran, avec des jetons seulement.
 | Chiffre clé | `Stat` ; graphiques `BreakdownChart`, `SegmentBar`, `FillBar`, `RingGauge` | |
 | Infobulle | `Tooltip` | Une seule infobulle pour l'app ; jamais `title=` |
 | Texte long sur une ligne (chemin) | `MiddleText` | Tronqué au milieu, la fin reste visible |
+
+## Iconographie
+
+Icônes [Lucide](https://lucide.dev) (paquet `lucide-react`, licence ISC), affichées par le composant `Icon` et teintées
+comme le texte. Les icônes de la barre des menus sont des images « template » de macOS dans `resources/tray/`
+(générées depuis les SVG du dossier, logo de Cairn et icônes Lucide, par `resources/tray/render-icons.mjs`).
 
 ## Règles
 

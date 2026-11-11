@@ -2,7 +2,7 @@ name: Release
 
 # Appelé par CI après un build réussi sur main. semantic-release (.releaserc.json) lit les Conventional Commits
 # depuis le dernier tag : breaking change → majeure, feat → mineure, fix/perf → patch, sinon pas de release.
-# S'il y a une release : bump (VERSION, constante, CHANGELOG), build et smoke test de l'archive, commit
+# S'il y a une release : bump (desktop/package.json, CHANGELOG), build et smoke test de l'archive, commit
 # « chore(release): X.Y.Z » poussé sur main, tag vX.Y.Z, release GitHub avec le zip et son .sha256.
 on:
   workflow_call:
@@ -23,14 +23,13 @@ jobs:
         with:
           fetch-depth: 0   # historique et tags pour le calcul de version ; numéro de build = nombre de commits
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4   # semantic-release (npx)
         with:
           node-version: 22
 
-      - name: Swift toolchain
-        run: |
-          sudo xcode-select -s "$(ls -d /Applications/Xcode_16*.app | sort -V | tail -1)"
-          swift --version
+      - uses: oven-sh/setup-bun@v2      # build, tests et archive de l'app (release-prepare.sh)
+        with:
+          bun-version: 1.4.4
 
       - name: semantic-release
         env:
@@ -49,10 +48,10 @@ jobs:
           semantic-release
 
       - name: Keep the archive with the run
-        if: hashFiles('Cairn/build/Cairn-*.zip') != ''
+        if: hashFiles('desktop/release/Cairn-*.zip') != ''
         uses: actions/upload-artifact@v4
         with:
           name: Cairn-release
           path: |
-            Cairn/build/Cairn-*.zip
-            Cairn/build/Cairn-*.zip.sha256
+            desktop/release/Cairn-*.zip
+            desktop/release/Cairn-*.zip.sha256

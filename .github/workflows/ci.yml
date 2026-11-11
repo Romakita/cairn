@@ -12,41 +12,9 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # App Electron (desktop/) : lint, types, tests, build, bout en bout, archive et test de fumée.
   test:
     name: Build and tests
-    runs-on: macos-15
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0   # numéro de build = nombre de commits
-
-      - name: Swift toolchain
-        run: |
-          sudo xcode-select -s "$(ls -d /Applications/Xcode_16*.app | sort -V | tail -1)"
-          swift --version
-
-      - name: Cache SwiftPM
-        uses: actions/cache@v4
-        with:
-          path: Cairn/.build
-          key: spm-${{ runner.os }}-${{ hashFiles('Cairn/Package.swift', 'Cairn/Package.resolved') }}
-
-      - name: Build
-        run: swift build --package-path Cairn
-
-      - name: Tests
-        run: swift test --package-path Cairn
-
-      - name: App bundle
-        run: Cairn/build-app.sh --no-install
-
-      - name: App runs outside the build folder
-        run: Cairn/scripts/smoke-test-app.sh Cairn/build/Cairn.app
-
-  # App Electron (desktop/, changement migrate-to-electron) : à côté du job Swift jusqu'à la bascule (tâche 15).
-  desktop:
-    name: Desktop (Electron)
     runs-on: macos-15
     timeout-minutes: 40
     defaults:

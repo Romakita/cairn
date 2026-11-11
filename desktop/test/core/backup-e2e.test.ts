@@ -5,7 +5,6 @@
 import { describe, expect, test } from "bun:test";
 import { execFile } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { defaultBackupDependencies } from "../../src/core/backup/defaults.ts";
@@ -25,7 +24,8 @@ import { nativeAvailable } from "../helpers/native.ts";
 
 const exec = promisify(execFile);
 const native = nativeAvailable();
-const SWIFT_APP = path.join(os.homedir(), "Applications/Cairn.app/Contents/MacOS/Cairn");
+// Binaire de la 0.8.0 (Swift, tag `v0.8.0`) : `CAIRN_SWIFT_CLI` ; sans lui, les tests de compatibilité sont sautés.
+const SWIFT_APP = process.env.CAIRN_SWIFT_CLI ?? "";
 
 /** Home simulé : quelques fichiers de configuration, un projet avec des dépendances régénérables. */
 function simulatedHome(home: string): void {
