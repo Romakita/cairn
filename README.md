@@ -16,7 +16,7 @@
   <a href="https://github.com/Romakita/cairn/actions/workflows/ci.yml"><img src="https://github.com/Romakita/cairn/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/Romakita/cairn/releases"><img src="https://img.shields.io/github/v/release/Romakita/cairn?include_prereleases&label=release" alt="Release"></a>
   <img src="https://img.shields.io/badge/macOS-14%2B-black?logo=apple" alt="macOS 14+">
-  <img src="https://img.shields.io/badge/Swift-5.10-F05138?logo=swift&logoColor=white" alt="Swift 5.10">
+  <img src="https://img.shields.io/badge/Electron-TypeScript-47848F?logo=electron&logoColor=white" alt="Electron and TypeScript">
   <img src="https://img.shields.io/badge/languages-en%20%7C%20fr-blue" alt="English and French">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license"></a>
 </p>
@@ -45,7 +45,7 @@ Like a cairn on a trail, it marks the way back to your environment, intact.
   default, after confirmation. Git cleanup and restore run as a dry run until you pass `--apply`.
 - **Your secrets stay yours.** Backups are encrypted (AES-256) by default, passwords live in the macOS Keychain, never
   in a file.
-- **One binary.** The SwiftUI app and the `cairn` command share the same engine: everything the UI does is scriptable.
+- **One binary.** The app and the `cairn` command share the same engine: everything the UI does is scriptable.
 - **Readable configuration.** A commented TOML file (`~/.cairn/config.toml`), editable by hand or from the app.
 
 ## Features
@@ -130,15 +130,19 @@ appears at the bottom of the icon bar (or use **Cairn → Check for Updates…**
 
 ### From source
 
-You need the [Command Line Tools](https://developer.apple.com/xcode/resources/) (Xcode is only needed to run the tests) and
-[just](https://github.com/casey/just).
+You need the [Command Line Tools](https://developer.apple.com/xcode/resources/) (`xcode-select --install`, for the
+native module; Xcode is not needed), [Bun](https://bun.sh) 1.4.4 and [just](https://github.com/casey/just).
 
 ```bash
 git clone https://github.com/Romakita/cairn.git
 cd cairn
-just storage-install   # builds Cairn.app, installs it in ~/Applications and links ~/.local/bin/cairn
+just storage-install   # bun install + bun run dist, installs Cairn.app in ~/Applications and links ~/.local/bin/cairn
 just storage           # opens the app
 ```
+
+To work on the app without installing it: `just dev` (Electron app), `just dev-web` (UI in the browser with sample
+data) and `cd desktop && bun run cli <command>` (the `cairn` command). See [desktop/README.md](desktop/README.md)
+(in French).
 
 On first launch, a six-step assistant sets up tracked folders, home items, AI tools, the destination, the schedule and
 notifications. You can also pick **"Restore a backup instead"**.
@@ -175,14 +179,16 @@ cairn restore --destination nas --apply    # actual restore
 cairn config validate                      # check ~/.cairn/config.toml
 ```
 
-Exit codes: `0` success, `1` failure, `2` usage or configuration error. Use `--lang en-US|fr-FR` to force the language.
+Exit codes: `0` success, `1` failure, `2` usage or configuration error. Use `--lang en-US|fr-FR` to force the language
+and `--config <file>` to use another configuration file. Full command reference: [docs/reference.md](docs/reference.md)
+(in French).
 
 ## Configuration
 
 Configuration lives in `~/.cairn/config.toml`. The assistant creates it and it stays editable by hand: the app reloads
 it and keeps comments and unknown keys. Full commented example:
-[`Cairn/config.example.toml`](Cairn/config.example.toml). Reference for every key: [Cairn/README.md](Cairn/README.md)
-(in French).
+[`desktop/resources/config.example.toml`](desktop/resources/config.example.toml). Reference for every key:
+[docs/reference.md](docs/reference.md#configuration--cairnconfigtoml) (in French).
 
 ```toml
 [[folders]]
@@ -203,12 +209,15 @@ time = "12:30"
 
 ## Tests
 
-Tests use [Swift Testing](https://developer.apple.com/xcode/swift-testing/) and need Xcode (building the app
-does not): `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`.
+Unit tests use `bun test`, end-to-end tests drive the real Electron app with [Playwright](https://playwright.dev).
+Xcode is not needed; build the native module once with `cd desktop && bun run build:native` (otherwise the tests that
+need it are skipped).
 
 ```bash
-just test              # build + the whole suite
-just test Inventory    # only the suites or tests whose name matches "Inventory"
+just test              # core and CLI (bun test)
+just test Inventory    # only the tests whose name matches "Inventory"
+just e2e               # end-to-end tests on the real app (Playwright)
+just lint              # Biome, design system rules and type checking
 ```
 
 To check a change end to end, the dry-run modes write nothing:
@@ -220,27 +229,39 @@ just restore
 just storage-report    # totals to compare with `du -sk <folder>`
 ```
 
-The **CI** workflow builds, runs the tests and bundles the app on every push to `main` and every pull request.
+The **CI** workflow lints, runs the unit and end-to-end tests, and bundles and smoke-tests the app on every push to
+`main` and every pull request.
 
 ## Architecture
 
+Cairn is an [Electron](https://www.electronjs.org) app written in TypeScript; [Bun](https://bun.sh) installs, builds
+and tests it, and the app runs on Electron's Node.
+
 ```text
-Cairn/
-├── Package.swift
-├── Sources/
-│   ├── CairnCore/        # UI-free logic: analysis, backup, restore, git, config, inventory
-│   │   └── Resources/    # translations (en, fr), AI tool profiles, inventory rules
-│   └── Cairn/            # SwiftUI interface + command-line dispatch (a single binary)
-├── Tests/CairnTests/     # Swift Testing, one suite per file
-├── Tests/CairnTestHelper/ # helper process launched by some tests
-├── scripts/              # icon, version bump
-└── build-app.sh          # builds and installs Cairn.app
-openspec/                 # behavior specs and proposed changes
+desktop/
+├── src/
+│   ├── core/       # UI-free logic: analysis, backup, restore, git, config, inventory (node:* APIs only)
+│   ├── cli/        # `cairn` commands, on top of the core (same executable as the app)
+│   ├── main/       # Electron main process: windows, menu bar, IPC, scheduler, notifications, updates
+│   ├── preload/    # typed API exposed to the UI
+│   ├── renderer/   # React UI: components (ui/), screens, component gallery, design tokens
+│   └── shared/     # contract between the main process and the UI
+├── native/         # N-API module (Objective-C): Keychain, SMB mount, flock, APFS free space
+├── resources/      # AI tool profiles, inventory rules, menu bar icons, example config
+├── locales/        # translations (en, fr)
+├── test/           # bun test (core, regressions) and Playwright (e2e)
+└── scripts/        # build, packaging, install, screenshots, release
+docs/               # reference (in French) and images
+openspec/           # behavior specs and proposed changes
 ```
 
-- `CairnCore` does not depend on SwiftUI: all the logic is testable from the command line.
-- Heavy git analyses run in a pool of subprocesses of the same binary, never loading a whole history into memory.
+- The core depends neither on Electron nor on React: all the logic is testable from the command line.
+- Heavy git analyses run in a pool of workers, never loading a whole history into memory.
 - "Regenerable" rules are shared by analysis and backup.
+- Development guide and code rules: [desktop/README.md](desktop/README.md); design system:
+  [desktop/DESIGN.md](desktop/DESIGN.md) (both in French).
+
+Cairn was a Swift (SwiftUI) app up to version 0.8.0; its sources are in the git history (tag `v0.8.0`).
 
 ## Contributing
 
@@ -249,17 +270,18 @@ Contributions are welcome: bug reports, new AI tool profiles, inventory rules, t
 1. Open an issue to discuss a behavior change before writing code.
 2. New features go through [OpenSpec](https://github.com/Fission-AI/OpenSpec): proposal, design, specs and tasks in
    `openspec/changes/` (see [AGENTS.md](AGENTS.md)). Project docs and specs are written in French.
-3. Every visible string goes through `T("key")` with an entry in both `en.lproj` **and** `fr.lproj`; a test enforces it.
+3. Every visible string goes through `t("key")` with an entry in English **and** French (`desktop/locales/`); a test
+   enforces it.
 4. Any destructive operation must stay explicit, confirmed, and have a dry-run mode.
-5. `just test` must pass. Don't edit [CHANGELOG.md](CHANGELOG.md): it is generated from the `feat` / `fix` commit
-   subjects, so write them as release-note lines.
+5. `just test`, `just lint` and `just e2e` must pass. Don't edit [CHANGELOG.md](CHANGELOG.md): it is generated from the
+   `feat` / `fix` commit subjects, so write them as release-note lines.
 
-Adding an AI tool = adding a JSON profile in `Sources/CairnCore/Resources/ai-tools/`. Adding an inventory rule =
-editing `Sources/CairnCore/Resources/rules/rules.json`. Details in [Cairn/README.md](Cairn/README.md).
+Adding an AI tool = adding a JSON profile in `desktop/resources/ai-tools/`. Adding an inventory rule = editing
+`desktop/resources/rules/rules.json`. Details in [docs/reference.md](docs/reference.md).
 
 ## Versions and releases
 
-Versioning follows [SemVer](https://semver.org/) and the number lives in `Cairn/VERSION` (`just version`,
+Versioning follows [SemVer](https://semver.org/) and the number lives in `desktop/package.json` (`just version`,
 `cairn --version`).
 
 Releases are published by CI with [semantic-release](https://semantic-release.gitbook.io/): branch → PR → review →
@@ -273,9 +295,10 @@ merged since the last tag:
 | only `fix` / `perf` | patch (`0.2.3` → `0.2.4`) |
 | only `docs`, `ci`, `chore`, `refactor`, `test`… | no release |
 
-After the `main` build passes, CI bumps `Cairn/VERSION`, the code constant and `CHANGELOG.md` (a new dated version
-section), builds and smoke-tests the archive, pushes a `chore(release): X.Y.Z` commit to `main`, tags it `vX.Y.Z`
-and publishes a GitHub release with `Cairn-<version>-arm64.zip` and its SHA-256 checksum. The release notes, in the
+After the `main` build passes, CI bumps the version in `desktop/package.json` and `CHANGELOG.md` (a new dated
+version section), runs the tests, builds and smoke-tests the archive, pushes a `chore(release): X.Y.Z` commit to
+`main`, tags it `vX.Y.Z` and publishes a GitHub release with `Cairn-<version>-arm64.zip` and its SHA-256 checksum
+(`just release-build` builds the same archive locally, in `desktop/release/`). The release notes, in the
 CHANGELOG and on GitHub, are generated from the commit subjects (`feat` → Added, `fix` / `perf` → Fixed, breaking →
 Changed).
 Config: [.releaserc.json](.releaserc.json).

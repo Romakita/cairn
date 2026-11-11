@@ -1,7 +1,7 @@
-# Cairn depuis la racine du projet : `just` liste les commandes.
+# Cairn depuis la racine du projet : `just` liste les commandes. L'app est dans desktop/ (Electron + Bun).
 set positional-arguments
 
-cairn := "Cairn/cairn.sh"
+cairn := "desktop/scripts/cairn.sh"
 
 # Liste les commandes
 default:
@@ -39,80 +39,62 @@ git-clean-apply *args:
 tools *args:
     {{cairn}} tools "$@"
 
-# Lance les tests de Cairn (Swift Testing, Xcode requis ; FILTRE optionnel sur le nom des suites ou des tests)
+# Tests du core et de la CLI (bun test ; FILTRE optionnel sur le nom des tests)
 test *filter:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if [[ -z "${DEVELOPER_DIR:-}" && "$(xcode-select -p)" == *CommandLineTools* ]]; then
-        echo "Les tests demandent Xcode : sudo xcode-select -s /Applications/Xcode.app/Contents/Developer" >&2
-        exit 1
-    fi
-    swift test --package-path Cairn ${1:+--filter "$1"}
+    cd desktop && bun test ./test/core ./test/regressions ./test/tooling ${1:+--test-name-pattern "$1"}
+
+# Tests de bout en bout sur la vraie app Electron (Playwright)
+e2e:
+    cd desktop && bun run test:e2e
+
+# Lint (Biome + règles du design system) et vérification des types
+lint:
+    cd desktop && bun run lint && bun run typecheck
 
 # Construit l'app Cairn, l'installe dans ~/Applications et relie ~/.local/bin/cairn
 storage-install:
-    Cairn/build-app.sh
+    desktop/scripts/install-app.sh
 
 # Ouvre l'app Cairn (l'installe si besoin)
 storage:
     #!/usr/bin/env bash
     set -euo pipefail
     app="$HOME/Applications/Cairn.app"
-    [[ -d "$app" ]] || Cairn/build-app.sh
+    [[ -d "$app" ]] || desktop/scripts/install-app.sh
     open "$app"
+
+# App en développement (build puis Electron)
+dev:
+    cd desktop && bun run start
+
+# Interface seule dans le navigateur, avec les données d'exemple (galerie : /#/gallery)
+dev-web:
+    cd desktop && bun run dev:web
 
 # Résumé de l'occupation disque dans le terminal (par défaut : dossiers suivis de config.toml)
 storage-report *args:
     {{cairn}} analyze "$@"
 
-# Catalogue des composants de l'interface (CairnUI), compilé depuis les sources du dépôt
+# Catalogue des composants de l'interface, depuis les sources du dépôt
 gallery:
-    swift build --package-path Cairn --product Cairn
-    Cairn/.build/debug/Cairn --gallery
+    cd desktop && bun run build && node_modules/.bin/electron . --gallery
 
 # Exporte le catalogue en images PNG + index.html (dossier par défaut : build/gallery)
 gallery-export dir="build/gallery":
-    swift build --package-path Cairn --product Cairn
-    Cairn/.build/debug/Cairn --gallery-export "{{dir}}"
+    cd desktop && bun run build && node_modules/.bin/electron . --gallery-export "{{absolute_path(dir)}}"
 
-# Version courante de Cairn (Cairn/VERSION)
+# Captures de chaque écran en clair et en sombre (dossier desktop/shots)
+shots:
+    cd desktop && bun run shots
+
+# Version courante de Cairn (desktop/package.json)
 version:
-    @cat Cairn/VERSION
+    @/usr/bin/plutil -extract version raw -o - desktop/package.json
 
 # Notes de la prochaine release (sujets des commits depuis le dernier tag)
 release-notes:
-    Cairn/scripts/release-notes.sh "$(git rev-list -n1 "$(git describe --tags --abbrev=0 --match 'v[0-9]*')")"
+    desktop/scripts/semantic-release/release-notes.sh "$(git rev-list -n1 "$(git describe --tags --abbrev=0 --match 'v[0-9]*')")"
 
-# Construit l'archive de release en local (build/Cairn-<version>-<arch>.zip), sans installer
+# Construit l'archive de release en local (desktop/release/Cairn-<version>-arm64.zip), sans installer
 release-build:
-    Cairn/build-app.sh --no-install --zip
-
-# --- App Electron (desktop/), en cours de migration ---
-
-# Lance l'app Electron en développement
-desktop-start:
-    cd desktop && bun run start
-
-# Tests du core et de la CLI (bun test ; FILTRE optionnel)
-desktop-test *filter:
-    cd desktop && bun test ./test/core ./test/regressions ./test/tooling ${1:+--test-name-pattern "$1"}
-
-# Tests de bout en bout sur la vraie app Electron (Playwright)
-desktop-e2e:
-    cd desktop && bun run test:e2e
-
-# Lint (Biome + règles du design system) et vérification des types
-desktop-lint:
-    cd desktop && bun run lint && bun run typecheck
-
-# Interface seule dans le navigateur, avec les données d'exemple
-desktop-dev-web:
-    cd desktop && bun run dev:web
-
-# Captures de chaque écran en clair et en sombre (dossier desktop/shots)
-desktop-shots:
-    cd desktop && bun run shots
-
-# Construit dist/ (main, preload, interface)
-desktop-build:
-    cd desktop && bun run build
+    cd desktop && bun run dist

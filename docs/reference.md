@@ -1,50 +1,36 @@
-# Cairn
+# Référence de Cairn
 
-App macOS (SwiftUI, SwiftPM ; Command Line Tools suffisantes pour construire, Xcode pour les tests) et commande `cairn` : analyse du stockage,
-sauvegardes, outils IA, inventaire des CLI, maintenance git et restauration.
-Le plan complet est dans `openspec/changes/cairn-integration-scripts/`.
-
-## Construire et tester
-
-```bash
-just test              # tests (Swift Testing, Xcode requis)
-just storage-install   # construit Cairn.app et l'installe dans ~/Applications
-```
-
-Structure : `Sources/CairnCore` (logique, sans SwiftUI), `Sources/CairnUI` (design system : jetons de thème,
-composants, catalogue), `Sources/Cairn` (écrans + aiguillage ligne de commande), `Tests/CairnTests` (tests Swift
-Testing), `Tests/CairnTestHelper` (processus auxiliaire des tests).
-Textes : `Sources/CairnCore/Resources/{en,fr}.lproj/Localizable.strings`.
-
-## Catalogue des composants
-
-Équivalent de Storybook sans Xcode : chaque composant de `CairnUI` a ses « stories » (variantes nommées, données
-factices) dans `Sources/CairnUI/Gallery/Stories+*.swift`.
-
-```bash
-just gallery                    # fenêtre : stories, clair/sombre, en/fr, largeur, réglages de la story
-just gallery-export [dossier]   # PNG par story × thème × langue + index.html (défaut : build/gallery)
-```
-
-Nouveau composant public dans `Sources/CairnUI/Components` : lui ajouter une story (titre `gallery.story.<id>` dans
-les deux catalogues), sinon `just test Gallery` échoue. Le catalogue ne lit ni n'écrit rien dans le home ; l'export
-n'écrit que dans le dossier demandé.
+Commande `cairn`, configuration, inventaire des outils CLI, barre des menus, outils IA et restauration. Pour
+installer Cairn, voir le [README](../README.fr.md) ; pour développer, [desktop/README.md](../desktop/README.md).
 
 ## Ligne de commande
 
+L'app et la commande `cairn` sont le même exécutable (`~/Applications/Cairn.app/Contents/MacOS/Cairn`, relié à
+`~/.local/bin/cairn` par `just storage-install`). Depuis les sources, sans installer : `cd desktop && bun run cli
+<commande>` (construit puis lance Electron), ou les recettes `just` de la racine.
+
 ```bash
 cairn --help
-cairn analyze [dossier…] --json   # par défaut : dossiers suivis de config.toml
+cairn analyze [dossier…] [--json]   # par défaut : dossiers suivis de config.toml
+cairn ai                            # outils IA et ce qui est sauvegardé
+cairn backup [--dry-run] [--destination ID] [--only folders|home|tools|ai]
+cairn verify [--full]               # contrôle d'intégrité des sauvegardes
+cairn restore [--apply]             # simulation par défaut
+cairn git [--apply]                 # branches « gone » et worktrees obsolètes
+cairn tools [--export DOSSIER]      # outils CLI à réinstaller
 cairn config path | show | validate
+cairn version
 ```
 
-Options globales : `--config <fichier>` (autre fichier de configuration), `--lang en-US|fr-FR`.
+Options globales : `--config <fichier>` (autre fichier de configuration ; l'état, les journaux et le verrou vivent à
+côté de lui), `--lang en-US|fr-FR` (langue de cette exécution).
 Codes de sortie : 0 succès, 1 échec, 2 erreur d'usage ou de configuration.
 
 ## Configuration : `~/.cairn/config.toml`
 
-Créée par l'assistant au premier lancement, modifiable à la main (l'app la recharge) ou depuis les réglages,
-qui conservent les commentaires et les clés inconnues. Exemple complet et commenté : [`config.example.toml`](config.example.toml).
+Créée par l'assistant au premier lancement, modifiable à la main (l'app la recharge) ou depuis les réglages, qui
+conservent les commentaires et les clés inconnues. Exemple complet et commenté :
+[`desktop/resources/config.example.toml`](../desktop/resources/config.example.toml).
 
 | Table | Clés | Défaut |
 |---|---|---|
@@ -90,29 +76,15 @@ Python) et un `Brewfile` compatible `brew bundle` (taps et formules, jamais de `
 
 ### Ajouter une règle
 
-Les règles sont dans `Sources/CairnCore/Resources/rules/rules.json` :
+Les règles sont dans [`desktop/resources/rules/rules.json`](../desktop/resources/rules/rules.json) :
 
 - `home` : chemin relatif à `~` → commandes (ex. `".kube": ["kubectl"]`) ;
 - `projects` : nom de fichier dans un dossier suivi → commandes (ex. `"go.mod": ["go"]`) ;
 - `aliases` : nom de paquet → commandes fournies (ex. `"ripgrep": ["rg"]`) ;
-- `history_min_uses` : nombre d'utilisations dans l'historique pour compter comme « utilisé ».
+- `history_min_uses` : nombre d'utilisations dans l'historique pour compter comme « utilisé » (3 par défaut).
 
-Aucune recompilation de la logique n'est nécessaire ; `just test Inventory` vérifie que le fichier se charge.
-
-## Sauvegarde : écarts voulus avec scripts/backup.sh
-
-Comparaison des exclusions sur `/Volumes/workspaces` (8 nov. 2026) : 587 dossiers générés exclus en commun.
-
-- Le script liste en plus 38 dossiers situés dans `bower_components/` ou `.next/`, déjà exclus en entier des deux côtés.
-- Cairn exclut en plus les types régénérables de l'analyse : `.build` de SwiftPM, `Carthage`, `.expo`, `storybook-static`,
-  `venv`, `.tox`, `.sass-cache`, `.eslintcache`.
-- `.gradle` n'est exclu qu'à côté d'un projet Gradle (le script l'excluait partout).
-- Le home n'est plus « tout sauf une liste » : seuls les éléments choisis (`[home].include`) sont copiés.
-- Les applications (casks) ne sont plus inventoriées.
-
-Maintenance git : sur 381 branches « gone », 374 ont le même statut que `git-cleanup.sh`. Les 7 autres sont des squash
-merges que le script classait « non fusionnée » à cause de `set -o pipefail` combiné à `grep -q` (interruption du
-pipeline dès la première correspondance) ; vérifié à la main sur `clubmed/digital-api`.
+Le fichier est importé dans le bundle : il faut reconstruire l'app (`just storage-install`) pour en profiter.
+`just test rules_resource_loads` vérifie qu'il se charge.
 
 ## Barre des menus et alertes de disque plein
 
@@ -137,12 +109,13 @@ les alertes restent visibles dans le panneau et sur l'accueil.
 ## Outils IA
 
 `cairn ai` (et la section « Outils IA ») liste Claude Code, Claude Desktop et Codex avec leur taille par catégorie.
-Chaque outil est décrit par un profil JSON dans `Sources/CairnCore/Resources/ai-tools/<id>.json` :
+Chaque outil est décrit par un profil JSON dans [`desktop/resources/ai-tools/<id>.json`](../desktop/resources/ai-tools) :
 
 | Clé | Rôle |
 |---|---|
 | `root` | racine des données (`~`, `~/.codex`…) ; les chemins des catégories sont relatifs à elle |
 | `detect` | chemins relatifs au home qui signalent l'outil |
+| `processes` | noms de processus de l'outil : s'il est ouvert pendant une sauvegarde, le journal le signale |
 | `categories` | `conversations`, `config`, `memories`, `credentials` → dossiers (`x/`), fichiers ou motifs (`thread_*.sqlite`) |
 | `sqlite` | bases copiées par snapshot cohérent (API de sauvegarde SQLite, jamais de `-wal`/`-shm`) |
 | `exclude` | jamais copiés (caches, journaux, temporaires) |
@@ -150,9 +123,10 @@ Chaque outil est décrit par un profil JSON dans `Sources/CairnCore/Resources/ai
 | `credentials_in_keychain` | jeton dans le Trousseau : reconnexion nécessaire après restauration |
 | `conversations_glob` | motif pour compter les conversations |
 
-Ajouter un outil = ajouter un profil (aucun changement du moteur). Dans une version : `ai/<outil>/<catégorie>/…` et
-`ai/<outil>/meta/` (profil, liste à réinstaller, snapshots SQLite). Les dossiers des outils IA sont toujours exclus de la
-sélection du home. Les identifiants ne sont cochés par défaut que si toutes les destinations sont chiffrées.
+Ajouter un outil = ajouter un profil et son import dans `desktop/src/core/ai/profiles.ts` (aucun changement du
+moteur). Dans une version : `ai/<outil>/<catégorie>/…` et `ai/<outil>/meta/` (profil, liste à réinstaller, snapshots
+SQLite). Les dossiers des outils IA sont toujours exclus de la sélection du home. Les identifiants ne sont cochés par
+défaut que si toutes les destinations sont chiffrées.
 
 À la restauration, les conversations sont fusionnées fichier par fichier : la version la plus récente gagne, l'autre est
 gardée avec le suffixe `.pre-restore`. Les bases SQLite ne sont remplacées qu'avec confirmation. Si un dossier suivi
@@ -162,7 +136,8 @@ chemins internes aux bases de Codex ne sont pas réécrits.
 ## Restauration
 
 `cairn restore` (et la section « Restauration ») reconnaît une version Cairn (`manifest.json`) ou une sauvegarde faite par
-`scripts/backup.sh` (`manifest/system.txt`, `home/`, `workspaces/`, `ai/`). Simulation par défaut ; `--apply` écrit.
+l'ancien script `scripts/backup.sh` (`manifest/system.txt`, `home/`, `workspaces/`, `ai/`). Simulation par défaut ;
+`--apply` écrit.
 
 ```bash
 cairn restore --check                                   # outils de l'inventaire présents / manquants, rien n'est modifié

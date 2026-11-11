@@ -5,7 +5,7 @@
 # Usage : release-notes.sh [--footer] [<commit du dernier tag>]
 #   --footer : ajoute la notice d'installation (corps de la release GitHub, affiché aussi par la mise à jour de l'app).
 set -euo pipefail
-cd "${0:A:h:h:h}"
+cd "${0:A:h:h:h:h}"   # racine du dépôt
 
 FOOTER=0
 [[ "${1:-}" == "--footer" ]] && { FOOTER=1; shift; }

@@ -15,12 +15,12 @@ export function nativeAvailable(): boolean {
   }
 }
 
-/** Binaire de test Swift (CairnCore 0.8.0) : `swift build --package-path Cairn --product CairnTestHelper`. */
+/**
+ * Binaire de test Swift de la 0.8.0 (`CairnTestHelper`), pour les tests d'interopérabilité (verrou, journal) :
+ * chemin dans `CAIRN_SWIFT_HELPER`, construit depuis le tag `v0.8.0` (`git worktree add /tmp/cairn-080 v0.8.0`, puis
+ * `swift build --package-path /tmp/cairn-080/Cairn --product CairnTestHelper`). Sans lui, ces tests sont sautés.
+ */
 export function swiftTestHelper(): string | null {
-  const root = path.resolve(import.meta.dir, "../../../Cairn/.build");
-  for (const candidate of ["debug/CairnTestHelper", "release/CairnTestHelper", "out/Products/Debug/CairnTestHelper"]) {
-    const file = path.join(root, candidate);
-    if (existsSync(file)) return file;
-  }
-  return null;
+  const file = process.env.CAIRN_SWIFT_HELPER;
+  return file && existsSync(file) ? file : null;
 }

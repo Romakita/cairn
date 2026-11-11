@@ -20,7 +20,7 @@ interface SwiftRepo {
 const args = process.argv.slice(2);
 const roots: string[] = [];
 let swiftJSON: string | null = null;
-let swiftBinary = path.join(os.homedir(), "Applications/Cairn.app/Contents/MacOS/Cairn");
+let swiftBinary = process.env.CAIRN_SWIFT_CLI ?? path.join(os.homedir(), "Applications/Cairn.app/Contents/MacOS/Cairn");
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--root") roots.push(args[++i]!);
   else if (args[i] === "--swift-json") swiftJSON = args[++i]!;

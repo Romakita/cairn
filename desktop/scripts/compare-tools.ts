@@ -18,7 +18,7 @@ const appIndex = args.indexOf("--app");
 const app =
   appIndex >= 0 && args[appIndex + 1]
     ? (args[appIndex + 1] as string)
-    : path.join(os.homedir(), "Applications/Cairn.app/Contents/MacOS/Cairn");
+    : (process.env.CAIRN_SWIFT_CLI ?? path.join(os.homedir(), "Applications/Cairn.app/Contents/MacOS/Cairn"));
 const printJSON = args.includes("--json");
 
 // L'inventaire réel, jamais celui des tests.

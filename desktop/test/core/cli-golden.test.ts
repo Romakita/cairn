@@ -1,9 +1,10 @@
 // Test d'or de la CLI : chaque commande de la 1ʳᵉ passe (aide, version, analyze, config, tools, ai, git) est lancée
-// sur un même CAIRN_HOME d'exemple, par la 0.8.0 installée (`~/Applications/Cairn.app`) et par `runCli`, et les
-// sorties (`--json` et quelques sorties texte) et codes de retour doivent être identiques.
+// sur un même CAIRN_HOME d'exemple, par la 0.8.0 (binaire Swift dont le chemin est dans `CAIRN_SWIFT_CLI`, construit
+// depuis le tag `v0.8.0` : `swift build -c release --product Cairn --package-path <worktree v0.8.0>/Cairn`) et par
+// `runCli`, et les sorties (`--json` et quelques sorties texte) et codes de retour doivent être identiques.
 //
 // Tout se passe dans un dossier temporaire (config, dépôt git, état) : jamais le vrai `~/.cairn`, aucun `--apply`.
-// Le test est sauté, avec un message, si la 0.8.0 n'est pas installée.
+// Le test est sauté, avec un message, sans `CAIRN_SWIFT_CLI`.
 //
 // Normalisations (seulement ce qui varie légitimement d'une exécution à l'autre) :
 // - `analyze` : `duration_seconds` (durée de l'analyse) → 0 ;
@@ -24,16 +25,15 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { execFile } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { runCli } from "../../src/cli/index.ts";
 import { setLanguage } from "../../src/core/l10n.ts";
 import { git, makeFixture, removeDir, tempDir } from "../helpers/git-fixture.ts";
 
-const APP = path.join(os.homedir(), "Applications/Cairn.app/Contents/MacOS/Cairn");
-const installed = existsSync(APP);
-if (!installed) console.warn(`cli-golden : Cairn 0.8.0 introuvable (${APP}) : test d'or sauté`);
+const APP = process.env.CAIRN_SWIFT_CLI ?? "";
+const installed = APP !== "" && existsSync(APP);
+if (!installed) console.warn("cli-golden : CAIRN_SWIFT_CLI absent (binaire de la 0.8.0) : test d'or sauté");
 
 const WORKER = path.resolve(import.meta.dir, "../../src/core/git/worker.ts");
 

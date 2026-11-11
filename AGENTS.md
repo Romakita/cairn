@@ -4,17 +4,19 @@ Instructions pour les agents IA (Claude Code, Codex, etc.) qui travaillent dans 
 
 ## Projet
 
-**Cairn** (`Cairn/`) : app macOS et commande `cairn` (même binaire) pour analyser l'occupation disque, sauvegarder
-(dossiers, home, outils IA, inventaire des CLI), restaurer et nettoyer les dépôts git. Lancée via `just` depuis la racine.
-Les anciens scripts bash ont été retirés (historique git). Voir [README.md](README.md) et [Cairn/README.md](Cairn/README.md).
+**Cairn** (`desktop/`) : app macOS (Electron + TypeScript, outillage Bun) et commande `cairn` (même exécutable) pour
+analyser l'occupation disque, sauvegarder (dossiers, home, outils IA, inventaire des CLI), restaurer et nettoyer les
+dépôts git. Lancée via `just` depuis la racine. L'app Swift (jusqu'à la 0.8.0) et les anciens scripts bash ont été
+retirés (historique git, tag `v0.8.0`). Voir [README.md](README.md), [desktop/README.md](desktop/README.md),
+[desktop/DESIGN.md](desktop/DESIGN.md) et [docs/reference.md](docs/reference.md).
 
 - Langue du projet : français (docs, commentaires, artefacts OpenSpec) ; l'app est bilingue en-US / fr-FR.
 - Commits : [Conventional Commits](https://www.conventionalcommits.org/) en anglais (`feat(scope): …`, `fix: …`,
   `docs: …`). Le type fixe la prochaine version (semantic-release, au merge sur `main`) : breaking change (`feat!:` ou
   `BREAKING CHANGE:`) → majeure, `feat` → mineure, `fix`/`perf` → patch, les autres types → pas de release. Ne pas
-  toucher `Cairn/VERSION` ni `CHANGELOG.md` à la main : la CI les génère. La note de release (CHANGELOG, release
-  GitHub et fenêtre de mise à jour de l'app) est faite des sujets des commits `feat`/`fix`/`perf` et breaking : les
-  écrire comme une ligne de note lisible par un utilisateur (« verify a destination before saving it », pas
+  toucher la version de `desktop/package.json` ni `CHANGELOG.md` à la main : la CI les génère. La note de release
+  (CHANGELOG, release GitHub et fenêtre de mise à jour de l'app) est faite des sujets des commits `feat`/`fix`/`perf`
+  et breaking : les écrire comme une ligne de note lisible par un utilisateur (« verify a destination before saving it », pas
   « address review »). Les retouches de revue vont dans un commit `refactor`/`test`/`chore`, ou sont fusionnées dans
   le commit `feat`/`fix` d'origine.
 - Nom de branche : `<type>/<description-courte>`, en anglais et en kebab-case, avec le même `type` que les
@@ -77,11 +79,12 @@ Après une mise à jour d'OpenSpec : `openspec update` pour régénérer les ski
 - Comparer le comportement entre `main` et les changements quand c'est pertinent.
 - Se demander : « Est-ce qu'un Staff engineer validerait ça ? »
 - Lancer les vérifications, lire les logs, démontrer que c'est correct. Dans ce repo :
-  - `just test` (Swift Testing, à faire passer à chaque lot) ;
+  - `just test` (`bun test`, à faire passer à chaque lot) et `just lint` (Biome, règles du design system, types) ;
+  - `just e2e` (Playwright sur la vraie app) pour un changement de l'interface ou du process principal ;
   - les modes simulation : `just backup-dry`, `just git-clean`, `just restore`, `just check` ;
   - pour un changement OpenSpec : `openspec validate <change>` puis `/opsx:verify`.
-  - pour `Cairn/` : `just test`, `just storage-report` (totaux à comparer à
-    `du -sk <dossier>`), puis `just storage-install` pour reconstruire l'app.
+  - `just storage-report` (totaux à comparer à `du -sk <dossier>`), puis `just storage-install` pour reconstruire
+    l'app.
 
 ### 5. Exiger l'élégance (avec mesure)
 - Pour un changement non trivial : se demander « y a-t-il une façon plus élégante ? ».
@@ -108,29 +111,41 @@ Pour le travail qui ne passe pas par un changement OpenSpec :
 
 ## App Cairn
 
-- L'app doit rester constructible avec les seuls Command Line Tools (sans Xcode) : leur plugin de macro `@State`
-  est absent, utiliser `@ViewState` (alias défini dans `CairnUI/Theme/Support.swift`) ; éviter `@Observable` et
-  `#Preview` (le catalogue `just gallery` les remplace).
-- Les tests (`Tests/CairnTests`) utilisent Swift Testing et demandent Xcode (`xcode-select` pointé sur Xcode) :
-  une suite par fichier, déclarée dans `extension CairnTests { @Suite struct … }` (suite racine dans
-  `TestSupport.swift` : `CAIRN_HOME` temporaire, inventaire des outils vide). Les tests tournent en parallèle :
-  un test qui passe par `CLI.run`, change `L10n.current` ou compare un texte traduit porte `@Test(.globalState)`.
-  Un test qui doit lancer un autre processus passe par `Tests/CairnTestHelper` (`builtExecutable("CairnTestHelper")`).
-- `CairnCore` (bibliothèque, sans SwiftUI) contient la logique ; `CairnUI` (bibliothèque) le design system :
-  jetons de thème, composants réutilisables et catalogue ; `Cairn` (exécutable) les écrans et l'aiguillage vers la
-  ligne de commande (`main.swift`).
-- Un composant réutilisable va dans `Sources/CairnUI/Components` (`public`, init explicite) avec au moins une story
-  dans `Sources/CairnUI/Gallery` ; le test `GalleryTests.every_component_has_a_story` échoue sinon. Une vue qui lit
-  `AppModel` reste dans l'app.
-- Tout texte visible passe par `T("clé")` / `L10n.tr` avec une entrée dans `en.lproj` ET `fr.lproj`
-  (`Sources/CairnCore/Resources`) ; le test `L10n.no_untranslated_ui_strings` échoue sinon.
-- L'analyse (`Scanner.swift`) ne doit jamais rien modifier sur le disque ; les suppressions passent
-  uniquement par l'interface, après confirmation, et la corbeille est proposée par défaut.
-- Les règles de « régénérable » sont communes à l'analyse et à la sauvegarde (`Scanner.alwaysRegenerable`,
-  `BackupExclusions`) : toute nouvelle règle va dans les deux.
-- Les notifications passent par `Notifier` (UNUserNotificationCenter plante hors d'un bundle .app).
-- Les analyses git lourdes passent par le pool de workers (`GitWorkerPool`) : ne jamais charger un diff ou un
-  historique entier en mémoire (`Git.pipe`).
+Détail dans [desktop/README.md](desktop/README.md) (« Règles du core ») et [desktop/DESIGN.md](desktop/DESIGN.md).
+
+- Outillage : Bun 1.4.4 pour installer, construire et tester ; l'app tourne sur le Node d'Electron. Les Command Line
+  Tools suffisent (module natif `desktop/native`, `bun run build:native`) : ni Xcode ni Swift.
+- Organisation de `desktop/src` : `core/` la logique (sans Electron ni React, le lint l'interdit), `cli/` les
+  commandes `cairn` au-dessus du core, `main/` le process principal Electron, `preload/` l'API typée,
+  `renderer/` l'interface React, `shared/` le contrat main ↔ interface.
+- Core et CLI : API `node:*` seulement, jamais `Bun.*` ni `bun:*` (lint Biome). `fs` passe par `src/core/fs.ts` /
+  `src/core/fs-promises.ts`, jamais `node:fs` directement (lint dans `src/core`, `src/cli`, `src/main`) : sous
+  Electron, `node:fs` voit un fichier `*.asar` comme un dossier.
+- Pas de `__dirname` ni de `import.meta.dir` dans le code de l'app (le bundler les fige) : ressources en imports JSON
+  statiques, chemins d'exécution par `CairnPaths` ou en paramètre.
+- Aucun appel synchrone bloquant (`execSync`, `spawnSync`, gros `readFileSync`) dans du code appelé par le main :
+  `child_process.spawn` en flux et `fs/promises`.
+- Processus externes : chemin absolu (`/usr/bin/git`…), tableau d'arguments, jamais de shell ; mots de passe sur
+  stdin, jamais en argument.
+- Formats compatibles avec la 0.8.0 : dates ISO 8601 sans millisecondes (`isoDate()`), JSON de CLI trié et indenté à
+  2 espaces (`stableJSON()`), mêmes noms et chemins de sauvegarde, mêmes clés de configuration.
+- L'analyse (`src/core/scanner.ts`) ne modifie jamais rien sur le disque ; les suppressions passent uniquement par
+  l'interface, après confirmation (une seule : jeton de `confirmedCall`), la corbeille par défaut.
+- Les règles de « régénérable » sont dans `src/core/regenerable.ts`, commun à l'analyse et à la sauvegarde.
+- Les analyses git lourdes passent par le pool de workers (`src/core/git/pool.ts`) : ne jamais charger un diff ou un
+  historique entier en mémoire (`pipe` de `src/core/process.ts`).
+- Tout texte visible passe par `t("clé")` avec une entrée en anglais ET en français : `locales/en.json` / `fr.json`
+  (catalogues de la 0.8.0) ou `locales/areas/<zone>.json` (textes des écrans). `test/core/ui-texts.test.ts` échoue
+  sur un texte JSX en dur ou une clé absente d'une langue ; `test/core/l10n-areas.test.ts` sur des clés ou jetons
+  `{N}` différents entre les langues.
+- Interface : jetons de `src/renderer/styles/tokens.css` seulement ; aucun élément HTML natif hors de
+  `src/renderer/ui/` ni d'attribut `title=` (`scripts/check-style.ts`, lancé par `just lint`). Un composant
+  réutilisable va dans `src/renderer/ui/` avec au moins une story dans `src/renderer/gallery/stories/` (sinon
+  `test/core/gallery.test.ts` échoue ; à voir dans `just dev-web`, `#/gallery`). Chaque écran se vérifie en clair et en sombre
+  (`just shots`, `bun scripts/screen-shots.ts`).
+- Tests : `bun:test`, une suite par domaine dans `test/core/<domaine>.test.ts` (`test/setup.ts` : `CAIRN_HOME`
+  temporaire, inventaire des outils vide). Tout bug corrigé ajoute un test dans `test/regressions/<domaine>.test.ts`,
+  nommé par le commit du correctif (`"01538a8: …"`). Le parcours de l'app : `test/e2e/*.e2e.ts` (Playwright).
 
 ## Principes
 

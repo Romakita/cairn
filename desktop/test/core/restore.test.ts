@@ -5,7 +5,6 @@ import { describe, expect, test } from "bun:test";
 import { execFile } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { writeFile as writeText } from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { aiParts } from "../../src/core/ai/backup.ts";
@@ -44,7 +43,8 @@ import { legacyBackup, put, recordingRunner } from "../helpers/restore-fixtures.
 
 const native = nativeAvailable();
 const exec = promisify(execFile);
-const SWIFT_APP = path.join(os.homedir(), "Applications/Cairn.app/Contents/MacOS/Cairn");
+// Binaire de la 0.8.0 (Swift, tag `v0.8.0`) : `CAIRN_SWIFT_CLI` ; sans lui, les tests de compatibilité sont sautés.
+const SWIFT_APP = process.env.CAIRN_SWIFT_CLI ?? "";
 const engine = () => new BackupEngine({ retentionKeep: keepVersions, macos: async () => "Version 15.0" });
 
 async function open(dir: string): Promise<RestoreSource> {
