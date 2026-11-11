@@ -119,9 +119,11 @@ export function classifyWith(
   parentPath: string,
 ): Category {
   if (Object.hasOwn(rules.always, name)) return rules.always[name] as Category;
-  for (const suffix of Object.keys(rules.nested)) {
-    if (suffix.slice(suffix.lastIndexOf("/") + 1) !== name) continue;
-    const parent = suffix.slice(0, suffix.lastIndexOf("/"));
+  for (const suffix in rules.nested) {
+    // Comparaison sans allocation tant que le dernier segment ne correspond pas (chemin chaud du worker).
+    const cut = suffix.lastIndexOf("/");
+    if (suffix.length - cut - 1 !== name.length || !suffix.endsWith(name)) continue;
+    const parent = suffix.slice(0, cut);
     if (parentPath === parent || parentPath.endsWith(`/${parent}`)) return rules.nested[suffix] as Category;
   }
   if (Object.hasOwn(rules.conditional, name)) {
@@ -140,10 +142,13 @@ async function fileExists(file: string): Promise<boolean> {
   }
 }
 
+const never = () => false;
+
 /** `Scanner.classify`, asynchrone (les marqueurs des noms génériques sont cherchés avec `fs/promises`). */
 export async function classify(name: string, parentPath: string): Promise<Category> {
   // Noms et chemins : même code que les workers ; seuls les marqueurs des noms génériques sont cherchés ici.
-  const known = classifyWith({ ...CLASSIFICATION_RULES, conditional: {} }, () => false, name, parentPath);
+  // Sans marqueur trouvé (`never`), la règle conditionnelle retombe sur "source" : elle est traitée juste après.
+  const known = classifyWith(CLASSIFICATION_RULES, never, name, parentPath);
   if (known !== "source") return known;
   if (Object.hasOwn(CONDITIONAL_REGENERABLE, name)) {
     const [category, markers] = CONDITIONAL_REGENERABLE[name] as readonly [Category, readonly string[]];
@@ -201,6 +206,7 @@ export const GENERIC_NAMES: ReadonlySet<string> = new Set([
 
 /** Dossiers où la détection ne descend pas. */
 const WALK_SKIP: ReadonlySet<string> = new Set([...Object.keys(ALWAYS_REGENERABLE), ".git"]);
+const NESTED_SUFFIXES: readonly string[] = Object.keys(NESTED_REGENERABLE).map((n) => `/${n}`);
 
 /**
  * Un dossier générique est-il généré ? Dans un dépôt git : seulement s'il est ignoré (`git check-ignore`).
@@ -275,7 +281,7 @@ export async function detectGenerated(root: string, options: DetectOptions = {})
       const st = await lstat(p).catch(() => null);
       if (!st?.isDirectory()) continue;
       if (WALK_SKIP.has(item) || VOLUME_METADATA.includes(`/${item}/`)) continue;
-      if (Object.keys(NESTED_REGENERABLE).some((n) => p.endsWith(`/${n}`))) continue;
+      if (NESTED_SUFFIXES.some((n) => p.endsWith(n))) continue;
       if (GENERIC_NAMES.has(item) && (await isGenerated(item, dir, repoHere))) {
         found.push(`/${p.slice(root.length + 1)}/`);
         continue;

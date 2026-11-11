@@ -60,4 +60,4 @@ await bundle({
 });
 
 await cp(path.join(root, "src/renderer/index.html"), path.join(dist, "renderer/index.html"));
-console.log(`dist/ construit (${production ? "production" : "développement"})`);
+console.error(`dist/ construit (${production ? "production" : "développement"})`);

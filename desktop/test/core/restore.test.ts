@@ -38,13 +38,12 @@ import {
 } from "../../src/core/restore/index.ts";
 import { keepVersions } from "../../src/core/retention.ts";
 import { withTempDir, writeFile } from "../helpers/backup-env.ts";
-import { nativeAvailable } from "../helpers/native.ts";
+import { nativeAvailable, swiftCli } from "../helpers/native.ts";
 import { legacyBackup, put, recordingRunner } from "../helpers/restore-fixtures.ts";
 
 const native = nativeAvailable();
 const exec = promisify(execFile);
-// Binaire de la 0.8.0 (Swift, tag `v0.8.0`) : `CAIRN_SWIFT_CLI` ; sans lui, les tests de compatibilité sont sautés.
-const SWIFT_APP = process.env.CAIRN_SWIFT_CLI ?? "";
+const SWIFT_APP = swiftCli() ?? "";
 const engine = () => new BackupEngine({ retentionKeep: keepVersions, macos: async () => "Version 15.0" });
 
 async function open(dir: string): Promise<RestoreSource> {
@@ -412,7 +411,7 @@ describe("restore", () => {
 
   // Compatibilité : une version écrite par la 0.8.0 (`backup --only folders`, destination et configuration
   // temporaires), restaurée en simulation puis pour de vrai dans une cible temporaire.
-  test.skipIf(!native || !existsSync(SWIFT_APP))(
+  test.skipIf(!native || !SWIFT_APP)(
     "restores_a_version_written_by_cairn_0_8_0",
     async () => {
       await withTempDir(async (dir) => {

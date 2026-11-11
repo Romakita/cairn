@@ -19,7 +19,13 @@ import { useEffect, useRef, useState } from "react";
 import { Fmt } from "../../../core/format.ts";
 import { t } from "../../../core/l10n.ts";
 import type { RestoreStep } from "../../../core/restore/service.ts";
-import type { RestorePart, RestorePlanArgs, RestorePlanView, RestoreSource } from "../../../shared/contract.ts";
+import type {
+  NavigationRequest,
+  RestorePart,
+  RestorePlanArgs,
+  RestorePlanView,
+  RestoreSource,
+} from "../../../shared/contract.ts";
 import { confirmedCall } from "../../api/confirm.ts";
 import { useApi, useSnapshot } from "../../api/hooks.ts";
 import { Banner } from "../../ui/Banner.tsx";
@@ -127,25 +133,6 @@ export function RestoreScreen({ navigate, request }: ScreenProps) {
   const [applied, setApplied] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [volumeSheet, setVolumeSheet] = useState(false);
-  // Arrivée depuis « Restaurer cette sauvegarde » : destination et image présélectionnées, ouvertes une seule fois.
-  const chooseRef = useRef<(src: RestoreSource) => Promise<void>>(async () => {});
-  const requested = useRef<string | null>(null);
-  const ready = snapshot !== null;
-  useEffect(() => {
-    if (!ready || request?.route !== "restore" || !request.ref) return;
-    const key = `${request.ref}:${request.image ?? ""}`;
-    if (requested.current === key) return;
-    requested.current = key;
-    void chooseRef.current({
-      kind: "destination",
-      destination: request.ref,
-      ...(request.image ? { image: request.image } : {}),
-    });
-  }, [ready, request]);
-
-  if (!snapshot) return <div className={styles.root} data-testid="screen-restore" />;
-  const restore = snapshot.restore;
-
   const goTo = (i: number) => {
     setStep(i);
     setReached((r) => Math.max(r, i));
@@ -171,6 +158,32 @@ export function RestoreScreen({ navigate, request }: ScreenProps) {
     }
   };
 
+  const chooseSource = async (src: RestoreSource) => {
+    setSource(src);
+    setVersion(undefined);
+    setPlan(null);
+    const p = await call({ source: src });
+    if (!p || p.needsPassword) return;
+    goTo(p.versions.length > 0 ? 1 : 2);
+  };
+
+  // Arrivée depuis « Restaurer cette sauvegarde » : destination et image présélectionnées, ouvertes une fois par demande.
+  const lastRequest = useRef<NavigationRequest | undefined>(undefined);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: une seule ouverture par demande de navigation.
+  useEffect(() => {
+    if (request === lastRequest.current) return;
+    lastRequest.current = request;
+    if (request?.route !== "restore" || !request.ref) return;
+    void chooseSource({
+      kind: "destination",
+      destination: request.ref,
+      ...(request.image ? { image: request.image } : {}),
+    });
+  }, [request]);
+
+  if (!snapshot) return <div className={styles.root} data-testid="screen-restore" />;
+  const restore = snapshot.restore;
+
   const fullArgs = (src: RestoreSource): RestorePlanArgs => {
     const chosen = [...parts].filter((p) => p !== "folders" || folders.length > 0);
     return {
@@ -183,16 +196,6 @@ export function RestoreScreen({ navigate, request }: ScreenProps) {
       replaceDatabases,
     };
   };
-
-  const chooseSource = async (src: RestoreSource) => {
-    setSource(src);
-    setVersion(undefined);
-    setPlan(null);
-    const p = await call({ source: src });
-    if (!p || p.needsPassword) return;
-    goTo(p.versions.length > 0 ? 1 : 2);
-  };
-  chooseRef.current = chooseSource;
 
   const unlock = async () => {
     if (!source || !plan?.needsPassword) return;

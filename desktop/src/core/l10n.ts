@@ -1,5 +1,5 @@
 // Traductions (en-US, fr-FR), portées depuis L10n.swift. Catalogues `locales/{en,fr}.json`, produits une fois depuis
-// les `.strings`/`.stringsdict` par `scripts/convert-locales.ts` : jetons positionnels `{1}`, `{2}`… à la place des
+// les `.strings`/`.stringsdict` de la 0.8.0 (conversion ponctuelle) : jetons positionnels `{1}`, `{2}`… à la place des
 // spécificateurs printf, pluriels choisis par `Intl.PluralRules` sur l'argument numérique.
 
 import backupArea from "../../locales/areas/backup.json" with { type: "json" };

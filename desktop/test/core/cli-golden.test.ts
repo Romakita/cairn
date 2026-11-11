@@ -30,9 +30,10 @@ import { promisify } from "node:util";
 import { runCli } from "../../src/cli/index.ts";
 import { setLanguage } from "../../src/core/l10n.ts";
 import { git, makeFixture, removeDir, tempDir } from "../helpers/git-fixture.ts";
+import { swiftCli } from "../helpers/native.ts";
 
-const APP = process.env.CAIRN_SWIFT_CLI ?? "";
-const installed = APP !== "" && existsSync(APP);
+const APP = swiftCli() ?? "";
+const installed = APP !== "";
 if (!installed) console.warn("cli-golden : CAIRN_SWIFT_CLI absent (binaire de la 0.8.0) : test d'or sauté");
 
 const WORKER = path.resolve(import.meta.dir, "../../src/core/git/worker.ts");

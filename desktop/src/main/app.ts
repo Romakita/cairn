@@ -18,7 +18,7 @@ import { OperationLock } from "../core/lock.ts";
 import { machineName } from "../core/machine.ts";
 import { detectDraft, homeChoices } from "../core/onboarding.ts";
 import { pathSuggestions } from "../core/path-completion.ts";
-import { CairnPaths } from "../core/paths.ts";
+import { abbreviateTilde, CairnPaths } from "../core/paths.ts";
 import { CAIRN_VERSION } from "../core/version.ts";
 import {
   type ActivityView,
@@ -564,7 +564,7 @@ export class CairnApp implements Host {
       chooseFolder: () => void this.addFolderFromMenu(),
       rescan: () => {
         this.navigate({ route: "storage" });
-        this.analysis.scan().catch((e: unknown) => this.message("error", e instanceof Error ? e.message : String(e)));
+        this.analysis.scan().catch((e: unknown) => this.message("error", errorMessage(e)));
       },
     });
   }
@@ -576,16 +576,14 @@ export class CairnApp implements Host {
     if (!this.configs.firstLaunch) {
       const folders = this.config().folders;
       if (!folders.some((f) => folderExpandedPath(f) === chosen)) {
-        await this.configs.save([{ kind: "folders", folders: [...folders, folder(chosen)] }]).catch((e: unknown) => {
-          this.message("error", e instanceof Error ? e.message : String(e));
-        });
+        await this.configs
+          .save([{ kind: "folders", folders: [...folders, folder(abbreviateTilde(chosen))] }])
+          .catch((e: unknown) => this.message("error", errorMessage(e)));
       }
     }
     this.navigate({ route: "storage" });
     const targets = this.configs.firstLaunch ? [chosen] : undefined;
-    await this.analysis.scan(targets).catch((e: unknown) => {
-      this.message("error", e instanceof Error ? e.message : String(e));
-    });
+    await this.analysis.scan(targets).catch((e: unknown) => this.message("error", errorMessage(e)));
   }
 
   private async chooseFolder(buttonLabel?: string, defaultPath?: string): Promise<string | null> {

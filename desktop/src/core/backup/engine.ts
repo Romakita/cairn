@@ -164,7 +164,7 @@ const PART_ROOTS: readonly string[] = ["folders", "home", "ai", "tools"];
  */
 export async function pruneRemovedParts(work: string, parts: readonly BackupPart[]): Promise<string[]> {
   const root = path.resolve(work);
-  const targets = parts.map((p) => path.posix.normalize(p.target)).filter((t) => !t.startsWith(".."));
+  const targets = parts.map((p) => path.posix.normalize(p.target)).filter((target) => !target.startsWith(".."));
   const kept = (rel: string) => targets.some((t) => t === rel || t.startsWith(`${rel}/`));
   const removed: string[] = [];
   const visit = async (rel: string): Promise<void> => {

@@ -1,10 +1,9 @@
 // Compare l'analyse git TypeScript (pool de worker_threads) à `cairn git --json` de la 0.8.0, en LECTURE SEULE :
 // aucun `--apply`, aucun fetch (forcé à false des deux côtés : `--fetch` n'est jamais passé).
 //   bun scripts/compare-git.ts [--root DOSSIER]… [--swift-json FICHIER] [--swift BINAIRE]
-// Sans `--swift-json`, lance `~/Applications/Cairn.app/Contents/MacOS/Cairn git --root … --json`.
+// Sans `--swift-json`, lance `<binaire de la 0.8.0> git --root … --json` (`--swift` ou `CAIRN_SWIFT_CLI`).
 import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { analyzeAll } from "../src/core/git/pool.ts";
@@ -20,7 +19,7 @@ interface SwiftRepo {
 const args = process.argv.slice(2);
 const roots: string[] = [];
 let swiftJSON: string | null = null;
-let swiftBinary = process.env.CAIRN_SWIFT_CLI ?? path.join(os.homedir(), "Applications/Cairn.app/Contents/MacOS/Cairn");
+let swiftBinary = process.env.CAIRN_SWIFT_CLI ?? "";
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--root") roots.push(args[++i]!);
   else if (args[i] === "--swift-json") swiftJSON = args[++i]!;
@@ -30,6 +29,10 @@ if (roots.length === 0) roots.push("/Volumes/workspaces");
 
 async function swiftRepos(): Promise<{ repos: SwiftRepo[]; seconds: number | null }> {
   if (swiftJSON) return { repos: JSON.parse(await readFile(swiftJSON, "utf8")).repos, seconds: null };
+  if (!swiftBinary)
+    throw new Error(
+      "binaire de la 0.8.0 introuvable : CAIRN_SWIFT_CLI=<chemin> ou --swift-json <fichier>, --swift <chemin>",
+    );
   const started = Date.now();
   const rootArgs = roots.flatMap((r) => ["--root", r]);
   const { stdout } = await promisify(execFile)(swiftBinary, ["git", ...rootArgs, "--json"], {

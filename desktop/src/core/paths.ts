@@ -11,6 +11,13 @@ export function expandTilde(p: string): string {
   return p;
 }
 
+/** Inverse de `expandTilde` : chemin du home écrit `~/…`, comme les dossiers ajoutés depuis les Réglages. */
+export function abbreviateTilde(p: string): string {
+  const home = os.homedir();
+  if (p === home) return "~";
+  return p.startsWith(`${home}/`) ? `~${p.slice(home.length)}` : p;
+}
+
 async function exists(p: string): Promise<boolean> {
   try {
     await stat(p);

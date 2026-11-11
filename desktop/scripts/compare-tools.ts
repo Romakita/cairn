@@ -15,11 +15,12 @@ import { TOMLDocument } from "../src/core/toml.ts";
 
 const args = process.argv.slice(2);
 const appIndex = args.indexOf("--app");
-const app =
-  appIndex >= 0 && args[appIndex + 1]
-    ? (args[appIndex + 1] as string)
-    : (process.env.CAIRN_SWIFT_CLI ?? path.join(os.homedir(), "Applications/Cairn.app/Contents/MacOS/Cairn"));
+const app = appIndex >= 0 && args[appIndex + 1] ? (args[appIndex + 1] as string) : (process.env.CAIRN_SWIFT_CLI ?? "");
 const printJSON = args.includes("--json");
+if (!app) {
+  console.error("binaire de la 0.8.0 introuvable : CAIRN_SWIFT_CLI=<chemin> ou --app <chemin>");
+  process.exit(2);
+}
 
 // L'inventaire réel, jamais celui des tests.
 delete process.env.CAIRN_TOOLS_INVENTORY;

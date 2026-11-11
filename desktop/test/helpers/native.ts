@@ -24,3 +24,13 @@ export function swiftTestHelper(): string | null {
   const file = process.env.CAIRN_SWIFT_HELPER;
   return file && existsSync(file) ? file : null;
 }
+
+/**
+ * Commande `cairn` de la 0.8.0 (binaire Swift `Cairn`), pour les tests de compatibilité : chemin dans
+ * `CAIRN_SWIFT_CLI`, construit depuis le tag `v0.8.0` (`swift build -c release --product Cairn`). `~/Applications`
+ * contient désormais l'app Electron : pas de chemin par défaut. Sans lui, ces tests sont sautés.
+ */
+export function swiftCli(): string | null {
+  const file = process.env.CAIRN_SWIFT_CLI;
+  return file && existsSync(file) ? file : null;
+}
