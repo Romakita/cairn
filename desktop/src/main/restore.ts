@@ -17,7 +17,14 @@ import { systemRunner } from "../core/inventory/collector.ts";
 import { t } from "../core/l10n.ts";
 import { OperationLockError } from "../core/lock.ts";
 import { openForRestore, type PasswordKind } from "../core/restore/destination.ts";
-import { defaultPlan, quitWaiter, type RestorePlan, RestoreService } from "../core/restore/service.ts";
+import {
+  defaultPlan,
+  folderTarget,
+  folderTargets,
+  quitWaiter,
+  type RestorePlan,
+  RestoreService,
+} from "../core/restore/service.ts";
 import {
   archMatches,
   type RestoreSource as CoreSource,
@@ -160,6 +167,7 @@ export class RestoreController {
       needsPassword: null,
       versions: [],
       version: null,
+      versionMachine: null,
       details: null,
       parts: [],
       ai: [],
@@ -181,17 +189,20 @@ export class RestoreController {
     }));
     let dir: string;
     let version: string | null = null;
+    let versionMachine: string | null = null;
     if (opened.direct !== null) {
       dir = opened.direct;
     } else {
-      const choice = chooseVersion(opened.versions, machine, args.version);
+      const choice = chooseVersion(opened.versions, machine, args.version, args.versionMachine);
       if ("error" in choice) {
         if (choice.error === "unknownVersion")
           throw new ApiError("notFound", t("cli.verify.unknown_version", args.version ?? ""));
         return this.remember({ ...empty, versions }, null);
       }
       dir = choice.path;
-      version = opened.versions.find((v) => v.path === dir)?.version ?? null;
+      const chosen = opened.versions.find((v) => v.path === dir);
+      version = chosen?.version ?? null;
+      versionMachine = chosen?.machine ?? null;
     }
     const source = await openRestoreSource(dir);
     if (!source) throw new ApiError("failed", t("cli.restore.unknown_format", dir));
@@ -203,11 +214,12 @@ export class RestoreController {
       home: want("home") && source.home !== null,
       ai: want("ai") ? source.aiTools.filter((id) => args.tools === undefined || args.tools.includes(id)) : [],
       replaceDatabases: args.replaceDatabases ?? false,
-      folders: {},
+      folders: folderTargets(),
     };
     const folders = [];
     for (const f of source.folders) {
-      const target = args.targets?.[f.name] ?? f.originalPath;
+      const target =
+        (args.targets && Object.hasOwn(args.targets, f.name) ? args.targets[f.name] : undefined) ?? f.originalPath;
       const chosen = want("folders") && (args.folders === undefined || args.folders.includes(f.name));
       if (chosen) plan.folders[f.name] = target;
       folders.push({
@@ -227,7 +239,7 @@ export class RestoreController {
     const warnings: string[] = [];
     if (!archMatches(source)) warnings.push(t("cli.restore.arch_warning", source.arch, currentArch()));
     for (const f of folders) {
-      if (f.targetMissing && plan.folders[f.name] !== undefined)
+      if (f.targetMissing && folderTarget(plan, f.name) !== undefined)
         warnings.push(t("cli.restore.missing_target", f.name, f.target));
     }
     const details: RestoreSourceView = {
@@ -250,6 +262,7 @@ export class RestoreController {
       ...empty,
       versions,
       version,
+      versionMachine,
       details,
       parts,
       ai: plan.ai,

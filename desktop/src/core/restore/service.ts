@@ -43,7 +43,20 @@ export interface RestorePlan {
 
 /** Plan par défaut de la 0.8.0 : outils et home, aucun outil IA, aucun dossier. */
 export function defaultPlan(): RestorePlan {
-  return { tools: true, home: true, ai: [], replaceDatabases: false, folders: {} };
+  return { tools: true, home: true, ai: [], replaceDatabases: false, folders: folderTargets() };
+}
+
+/**
+ * Table vide des dossiers à restaurer, sans prototype : un dossier sauvegardé peut s'appeler `constructor` ou
+ * `__proto__`, ce qui ne doit ni le sélectionner ni toucher au prototype.
+ */
+export function folderTargets(): Record<string, string> {
+  return Object.create(null) as Record<string, string>;
+}
+
+/** Emplacement choisi pour un dossier de la sauvegarde, `undefined` s'il n'est pas sélectionné. */
+export function folderTarget(plan: Pick<RestorePlan, "folders">, name: string): string | undefined {
+  return Object.hasOwn(plan.folders, name) ? plan.folders[name] : undefined;
 }
 
 export interface RestoreStep {
@@ -218,7 +231,7 @@ export class RestoreService {
       out.home = Math.max(0, total);
     }
     for (const f of this.source.folders) {
-      if (plan.folders[f.name] !== undefined) out[`folders/${f.name}`] = await size(f.dir);
+      if (folderTarget(plan, f.name) !== undefined) out[`folders/${f.name}`] = await size(f.dir);
     }
     for (const tool of plan.ai) {
       let total = 0;
@@ -273,7 +286,7 @@ export class RestoreService {
   private plannedTotal(plan: RestorePlan, apply: boolean): number {
     const s = this.source;
     let n = plan.home && s.home !== null ? 1 : 0;
-    n += s.folders.filter((f) => plan.folders[f.name] !== undefined).length;
+    n += s.folders.filter((f) => folderTarget(plan, f.name) !== undefined).length;
     if (plan.ai.length > 0) n += 1;
     if (plan.tools && s.toolsDir !== null) n += 1;
     if (apply && s.toolsDir !== null) n += 1;
@@ -322,7 +335,7 @@ export class RestoreService {
     const prefixes: PathPrefix[] = [];
     if (s.originalHome !== null && s.originalHome !== home) prefixes.push([s.originalHome, home]);
     for (const f of s.folders) {
-      const target = plan.folders[f.name];
+      const target = folderTarget(plan, f.name);
       if (target === undefined) continue;
       begin("folders", `folders/${f.name}`);
       const r = await this.copy(f.dir, target, !apply);

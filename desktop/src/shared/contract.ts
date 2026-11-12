@@ -563,6 +563,8 @@ export interface RestorePlanArgs {
   source: RestoreSource;
   /** Nom de la version (`--version`) ; absent : la plus récente complète de ce Mac. */
   version?: string;
+  /** Machine de la version choisie : deux machines peuvent avoir une version du même nom. */
+  versionMachine?: string;
   /** Parties à restaurer ; absent : outils CLI et home (plan par défaut de la 0.8.0). */
   parts?: RestorePart[];
   /** Dossiers de la sauvegarde à restaurer (noms) ; absent : tous, si `folders` est dans `parts`. */
@@ -627,6 +629,8 @@ export interface RestorePlanView {
   versions: RestoreVersionView[];
   /** Version retenue (nom), `null` pour un dossier ou sans version. */
   version: string | null;
+  /** Machine de la version retenue, `null` pour un dossier ou sans version. */
+  versionMachine: string | null;
   details: RestoreSourceView | null;
   /** Parties retenues (celles absentes de la version sont retirées). */
   parts: RestorePart[];

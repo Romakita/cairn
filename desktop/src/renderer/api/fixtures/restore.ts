@@ -114,6 +114,7 @@ export function fixturePlan(
     needsPassword: null,
     versions: [],
     version: null,
+    versionMachine: null,
     details: null,
     parts: [],
     ai: [],
@@ -127,7 +128,7 @@ export function fixturePlan(
   const versions = args.source.kind === "destination" ? fixtureVersions(state, args.source.destination, newMac) : [];
   const chosen =
     args.version !== undefined
-      ? versions.find((v) => v.name === args.version)
+      ? versions.find((v) => v.name === args.version && (!args.versionMachine || v.machine === args.versionMachine))
       : (versions.find((v) => !v.partial && v.thisMac) ?? versions.find((v) => !v.partial) ?? versions[0]);
   if (args.source.kind === "destination" && !chosen) return { ...empty, versions };
   const info = details(newMac, args.targets ?? {});
@@ -145,6 +146,7 @@ export function fixturePlan(
     ...empty,
     versions,
     version: chosen?.name ?? null,
+    versionMachine: chosen?.machine ?? null,
     details: info,
     parts,
     ai,
