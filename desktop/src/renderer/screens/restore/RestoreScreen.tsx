@@ -122,7 +122,9 @@ export function RestoreScreen({ navigate, request }: ScreenProps) {
   const [passwords, setPasswords] = useState<{ share?: string; image?: string }>({});
   const [typed, setTyped] = useState("");
   const [plan, setPlan] = useState<RestorePlanView | null>(null);
-  const [version, setVersion] = useState<string | undefined>(undefined);
+  // Nom et machine : deux machines peuvent avoir une version du même nom.
+  const [version, setVersion] = useState<{ name: string; machine: string } | undefined>(undefined);
+  const versionArgs = version ? { version: version.name, versionMachine: version.machine } : {};
   const [parts, setParts] = useState<Set<RestorePart>>(() => new Set<RestorePart>(["tools", "home", "ai"]));
   const [folders, setFolders] = useState<string[]>([]);
   const [targets, setTargets] = useState<Record<string, string>>({});
@@ -188,7 +190,7 @@ export function RestoreScreen({ navigate, request }: ScreenProps) {
     const chosen = [...parts].filter((p) => p !== "folders" || folders.length > 0);
     return {
       source: src,
-      ...(version ? { version } : {}),
+      ...versionArgs,
       parts: chosen.length > 0 ? chosen : ["tools"],
       folders,
       targets,
@@ -220,10 +222,10 @@ export function RestoreScreen({ navigate, request }: ScreenProps) {
     }
   };
 
-  const chooseVersion = async (name: string) => {
+  const chooseVersion = async (name: string, machine: string) => {
     if (!source) return;
-    setVersion(name);
-    const p = await call({ source, version: name });
+    setVersion({ name, machine });
+    const p = await call({ source, version: name, versionMachine: machine });
     if (p) goTo(2);
   };
 
@@ -257,10 +259,7 @@ export function RestoreScreen({ navigate, request }: ScreenProps) {
       const r = await confirmedCall(api, "createWorkspacesVolume", {});
       setVolumeSheet(false);
       if (!r.cancelled && source)
-        await call(
-          plan?.simulated ? fullArgs(source) : { source, ...(version ? { version } : {}) },
-          plan?.simulated === true,
-        );
+        await call(plan?.simulated ? fullArgs(source) : { source, ...versionArgs }, plan?.simulated === true);
     } catch (e) {
       setVolumeSheet(false);
       setError(errorText(e));
@@ -443,8 +442,11 @@ export function RestoreScreen({ navigate, request }: ScreenProps) {
                   .filter(Boolean)
                   .join(" · ");
                 return (
-                  <li key={`${v.machine}/${v.name}`} data-chosen={v.name === plan.version || undefined}>
-                    <FolderRow name={label} icon={History} onOpen={() => void chooseVersion(v.name)} />
+                  <li
+                    key={`${v.machine}/${v.name}`}
+                    data-chosen={(v.name === plan.version && v.machine === plan.versionMachine) || undefined}
+                  >
+                    <FolderRow name={label} icon={History} onOpen={() => void chooseVersion(v.name, v.machine)} />
                   </li>
                 );
               })}

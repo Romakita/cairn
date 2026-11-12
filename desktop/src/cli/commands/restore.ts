@@ -17,7 +17,13 @@ import { OperationLockError } from "../../core/lock.ts";
 import { machineName } from "../../core/machine.ts";
 import { expandTilde } from "../../core/paths.ts";
 import { openForRestore } from "../../core/restore/destination.ts";
-import { defaultPlan, quitWaiter, type RestorePlan, RestoreService } from "../../core/restore/service.ts";
+import {
+  defaultPlan,
+  folderTargets,
+  quitWaiter,
+  type RestorePlan,
+  RestoreService,
+} from "../../core/restore/service.ts";
 import {
   archMatches,
   chooseVersion,
@@ -251,9 +257,11 @@ async function restoreFrom(source: RestoreSource, o: Options, env: CommandEnv): 
         : source.aiTools.filter((x) => o.tools.includes(x))
       : [],
     replaceDatabases: o.replaceDatabases,
-    folders: {},
+    folders: folderTargets(),
   };
-  if (want("folders")) for (const f of source.folders) plan.folders[f.name] = o.targets[f.name] ?? f.originalPath;
+  if (want("folders"))
+    for (const f of source.folders)
+      plan.folders[f.name] = (Object.hasOwn(o.targets, f.name) ? o.targets[f.name] : undefined) ?? f.originalPath;
   for (const [name, target] of Object.entries(plan.folders)) {
     if (await targetIsMissing(target)) io.err(t("cli.restore.missing_target", name, target));
   }

@@ -204,8 +204,17 @@ export function defaultVersion(all: readonly RestoreVersion[], machine: string):
   return (newest(complete.filter((v) => v.machine === machine)) ?? newest(complete) ?? newest(all))?.path ?? null;
 }
 
-/** Version demandée par son nom : celle de ce Mac d'abord (deux machines peuvent avoir le même nom de version). */
-export function versionNamed(name: string, all: readonly RestoreVersion[], machine: string): string | null {
+/**
+ * Version demandée par son nom : celle de ce Mac d'abord (deux machines peuvent avoir le même nom de version), ou
+ * seulement celle de `of` quand la machine est donnée (ligne choisie dans l'interface).
+ */
+export function versionNamed(
+  name: string,
+  all: readonly RestoreVersion[],
+  machine: string,
+  of?: string | null,
+): string | null {
+  if (of !== undefined && of !== null) return all.find((v) => v.version === name && v.machine === of)?.path ?? null;
   return (
     (all.find((v) => v.version === name && v.machine === machine) ?? all.find((v) => v.version === name))?.path ?? null
   );
@@ -221,9 +230,10 @@ export function chooseVersion(
   all: readonly RestoreVersion[],
   machine: string,
   requested?: string | null,
+  requestedMachine?: string | null,
 ): VersionChoice {
   if (requested !== undefined && requested !== null) {
-    const p = versionNamed(requested, all, machine);
+    const p = versionNamed(requested, all, machine, requestedMachine);
     return p === null ? { error: "unknownVersion" } : { path: p };
   }
   const p = defaultVersion(all, machine);

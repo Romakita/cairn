@@ -269,6 +269,7 @@ export const ARG_SCHEMAS = {
   planRestore: z.strictObject({
     source: restoreSource,
     version: text(64).optional(),
+    versionMachine: text(255).optional(),
     parts: z.array(restorePart).min(1).max(4).optional(),
     folders: z.array(text(255).min(1)).max(1000).optional(),
     targets: z.record(text(255), absolutePath).optional(),

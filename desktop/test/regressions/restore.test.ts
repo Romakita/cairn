@@ -15,6 +15,7 @@ import {
   defaultPlan,
   defaultVersion,
   emptyReport,
+  folderTarget,
   HOMEBREW_INSTALL,
   openForRestore,
   openRestoreSource,
@@ -78,6 +79,32 @@ describe("restore regressions", () => {
   test("3692993_partial_version_is_not_the_default", () => {
     const all = [v("m", "2026-11-01T120000"), v("m", "2026-11-05T120000", true)];
     expect(defaultVersion(all, "m")).toBe("/d/m/2026-11-01T120000");
+  });
+
+  test("a version chosen in the list is restored from its own machine, even with the same name elsewhere", () => {
+    const all = [v("m", "2026-11-01T120000"), v("old", "2026-11-01T120000")];
+    expect(chooseVersion(all, "m", "2026-11-01T120000", "old")).toEqual({ path: "/d/old/2026-11-01T120000" });
+    expect(chooseVersion(all, "m", "2026-11-01T120000", "m")).toEqual({ path: "/d/m/2026-11-01T120000" });
+    // Sans machine (`cairn restore --version`) : celle de ce Mac d'abord, comme avant.
+    expect(chooseVersion(all, "m", "2026-11-01T120000")).toEqual({ path: "/d/m/2026-11-01T120000" });
+    expect(chooseVersion(all, "m", "2026-11-01T120000", "ailleurs")).toEqual({ error: "unknownVersion" });
+  });
+
+  test("a backed-up folder named constructor or __proto__ is never selected by default", async () => {
+    const plan = defaultPlan();
+    for (const name of ["constructor", "toString", "__proto__"]) expect(folderTarget(plan, name)).toBeUndefined();
+    const proto = "__proto__"; // nom de dossier possible : une propriété propre, jamais le prototype
+    plan.folders[proto] = "/tmp/x";
+    expect(folderTarget(plan, proto)).toBe("/tmp/x");
+    expect(folderTarget(defaultPlan(), "__proto__")).toBeUndefined();
+    await withTempDir(async (dir) => {
+      const source = await open(legacyBackup(dir));
+      source.folders.push({ name: "constructor", originalPath: "/x/constructor", dir: path.join(dir, "constructor") });
+      const service = new RestoreService(source, { home: path.join(dir, "home"), runner: recordingRunner().run });
+      const res = await service.run(defaultPlan());
+      expect(res.filter((s) => !s.ok)).toEqual([]);
+      expect(res.some((s) => s.step === "folders/constructor")).toBe(false);
+    });
   });
 
   test("e229e52_simulation_creates_no_target", async () => {
