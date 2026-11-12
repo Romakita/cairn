@@ -139,3 +139,14 @@ export function aiManagedPaths(profiles: readonly AIProfile[] = BUNDLED_PROFILES
   for (const p of profiles) for (const h of homePaths(p)) if (!out.includes(h)) out.push(h);
   return out;
 }
+
+/** Ordre d'affichage des catégories IA. */
+const CATEGORY_ORDER = ["conversations", "config", "memories", "credentials"];
+
+/** Catégories proposées : celles du profil qui désignent des fichiers (les identifiants au Trousseau n'en ont pas). */
+export function offeredCategories(profile: AIProfile): string[] {
+  return Object.entries(profile.categories)
+    .filter(([, paths]) => paths.length > 0)
+    .map(([c]) => c)
+    .sort((a, b) => (CATEGORY_ORDER.indexOf(a) + 1 || 99) - (CATEGORY_ORDER.indexOf(b) + 1 || 99));
+}

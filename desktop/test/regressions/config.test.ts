@@ -7,6 +7,7 @@ import { decodeConfig, defaultConfig, destination, folder } from "../../src/core
 import { ConfigSaveError, ConfigStore } from "../../src/core/config-store.ts";
 import { CairnPaths } from "../../src/core/paths.ts";
 import { asString, TOML, TOMLDocument } from "../../src/core/toml.ts";
+import { ConfigService } from "../../src/main/config-service.ts";
 
 async function withTempDir(body: (dir: string) => Promise<void>): Promise<void> {
   const dir = await mkdtemp(path.join(os.tmpdir(), "cairn-test-"));
@@ -38,6 +39,31 @@ describe("régressions : configuration", () => {
       expect(error).toBeInstanceOf(ConfigSaveError);
       expect((error as ConfigSaveError).issues.map((i) => [i.key, i.line])).toEqual([["schedule.weekday", 4]]);
       expect(await readFile(store.file, "utf8")).toBe(broken);
+    });
+  });
+
+  test("deux réglages changés coup sur coup sont gardés tous les deux (écritures l'une après l'autre)", async () => {
+    await withTempDir(async (dir) => {
+      const store = new ConfigStore(new CairnPaths(dir));
+      await store.save(defaultConfig());
+      const service = new ConfigService(store, () => {});
+      await service.load();
+      await Promise.all([
+        service.save([{ kind: "language", language: "fr-FR" }]),
+        service.save([{ kind: "updates", check: false }]),
+      ]);
+      const saved = (await store.load()).config;
+      expect(saved.language).toBe("fr-FR");
+      expect(saved.checkUpdates).toBe(false);
+      // Une écriture refusée ne bloque pas les suivantes.
+      await writeFile(store.file, 'version = 1\n[schedule]\nweekday = "lundi"\n');
+      await service.load();
+      expect(await rejection(service.save([{ kind: "language", language: "en-US" }]))).toBeInstanceOf(Error);
+      await rm(store.file);
+      await store.save(defaultConfig());
+      await service.load();
+      await service.save([{ kind: "language", language: "en-US" }]);
+      expect((await store.load()).config.language).toBe("en-US");
     });
   });
 
