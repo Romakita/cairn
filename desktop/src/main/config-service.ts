@@ -1,14 +1,13 @@
 // `config.toml` dans l'app : chargement, rechargement à chaud (dernière configuration valide gardée, planification
 // bloquée tant que le fichier est invalide), enregistrement par patchs typés (refusé si le fichier sur disque est
 // invalide : ConfigWarningTests), et assistant du premier lancement.
-import { BUNDLED_PROFILES, profileName } from "../core/ai/profiles.ts";
+import { BUNDLED_PROFILES, offeredCategories, profileName } from "../core/ai/profiles.ts";
 import { type CairnConfig, type ConfigIssue, defaultConfig } from "../core/config.ts";
 import { type ConfigStore, type FileWatcher, ConfigStore as Store } from "../core/config-store.ts";
 import { makeConfig, type OnboardingDraft } from "../core/onboarding.ts";
 import { applyPatches } from "../shared/config-patch.ts";
 import type { ConfigPatch, ConfigView, IssueView, OnboardingDraftWire } from "../shared/contract.ts";
 import { ApiError } from "./errors.ts";
-import { offeredCategories } from "./tools.ts";
 
 function issueView(i: ConfigIssue): IssueView {
   return { severity: i.severity, key: i.key, line: i.line, message: i.message, description: i.description };
@@ -49,6 +48,7 @@ export class ConfigService {
   private hasErrors = false;
   private hasValid = false;
   private watcher: FileWatcher | null = null;
+  private writes: Promise<unknown> = Promise.resolve();
 
   constructor(
     readonly store: ConfigStore,
@@ -113,26 +113,42 @@ export class ConfigService {
     this.watcher = null;
   }
 
+  /**
+   * Écritures l'une après l'autre (lecture, patch, écriture, relecture) : deux réglages changés coup sur coup
+   * partiraient sinon de la même configuration, et la seconde écriture annulerait la première.
+   */
+  private serial<T>(write: () => Promise<T>): Promise<T> {
+    const run = this.writes.then(write, write);
+    this.writes = run.catch(() => {});
+    return run;
+  }
+
   /** Enregistre des patchs sur la dernière configuration valide ; refusé si le fichier sur disque est invalide. */
-  async save(patches: readonly ConfigPatch[]): Promise<void> {
-    if (!this.exists) throw new ApiError("invalidConfig", "config.toml does not exist yet");
-    await this.store.save(applyPatches(this.current, patches));
-    await this.load();
+  save(patches: readonly ConfigPatch[]): Promise<void> {
+    return this.serial(async () => {
+      if (!this.exists) throw new ApiError("invalidConfig", "config.toml does not exist yet");
+      await this.store.save(applyPatches(this.current, patches));
+      await this.load();
+    });
   }
 
   /** Remplace toute la configuration (destinations ajoutées par le core, assistant). */
-  async saveConfig(config: CairnConfig): Promise<void> {
-    await this.store.save(config);
-    await this.load();
+  saveConfig(config: CairnConfig): Promise<void> {
+    return this.serial(async () => {
+      await this.store.save(config);
+      await this.load();
+    });
   }
 
   /** « Terminer » de l'assistant : rien n'est écrit avant (ni le Trousseau). */
-  async finishOnboarding(draft: OnboardingDraftWire): Promise<CairnConfig> {
-    if (this.exists) throw new ApiError("busy", "config.toml already exists");
-    const config = makeConfig(draftFromWire(draft));
-    await this.store.save(config);
-    await this.load();
-    await this.watch();
-    return config;
+  finishOnboarding(draft: OnboardingDraftWire): Promise<CairnConfig> {
+    return this.serial(async () => {
+      if (this.exists) throw new ApiError("busy", "config.toml already exists");
+      const config = makeConfig(draftFromWire(draft));
+      await this.store.save(config);
+      await this.load();
+      await this.watch();
+      return config;
+    });
   }
 }

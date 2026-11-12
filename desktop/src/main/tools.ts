@@ -10,7 +10,7 @@ import {
   lastBackup,
   type ToolStats,
 } from "../core/ai/index.ts";
-import type { AIProfile } from "../core/ai/profiles.ts";
+import { offeredCategories } from "../core/ai/profiles.ts";
 import { stat, writeFile } from "../core/fs-promises.ts";
 import { collect, writeInventory } from "../core/inventory/index.ts";
 import type { Inventory } from "../core/inventory/types.ts";
@@ -18,17 +18,6 @@ import { expandTilde } from "../core/paths.ts";
 import type { AIToolView, AIView, InventoryView } from "../shared/contract.ts";
 import { ApiError, errorMessage } from "./errors.ts";
 import type { Host } from "./host.ts";
-
-/** Ordre d'affichage des catégories IA. */
-const CATEGORY_ORDER = ["conversations", "config", "memories", "credentials"];
-
-/** Catégories proposées : celles du profil qui désignent des fichiers (les identifiants au Trousseau n'en ont pas). */
-export function offeredCategories(profile: AIProfile): string[] {
-  return Object.entries(profile.categories)
-    .filter(([, paths]) => paths.length > 0)
-    .map(([c]) => c)
-    .sort((a, b) => (CATEGORY_ORDER.indexOf(a) + 1 || 99) - (CATEGORY_ORDER.indexOf(b) + 1 || 99));
-}
 
 export class ToolsService {
   private inventory: InventoryView = { status: "idle", inventory: null, error: null };
