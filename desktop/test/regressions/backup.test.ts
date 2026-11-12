@@ -11,12 +11,14 @@ import {
   truncateSync,
   writeFileSync,
 } from "node:fs";
+import { createServer } from "node:net";
 import path from "node:path";
 import { promisify } from "node:util";
 import { BackupEngine } from "../../src/core/backup/engine.ts";
 import { attachFailure, SparseImage } from "../../src/core/backup/image.ts";
 import { readChecksums, writeChecksums } from "../../src/core/backup/integrity.ts";
 import type { DestinationProgress } from "../../src/core/backup/progress.ts";
+import { detectRsync, rsyncArgs } from "../../src/core/backup/rsync.ts";
 import { BackupService } from "../../src/core/backup/run.ts";
 import { destinationState, loadRunState, updateRunState } from "../../src/core/backup/run-state.ts";
 import { MemorySecrets } from "../../src/core/backup/secrets.ts";
@@ -549,6 +551,30 @@ describe.skipIf(!native)("regressions: backup", () => {
       expect(check.ok).toBe(false);
       expect(check.output).toContain("Ressources temporairement indisponibles");
       expect(tries).toBe(5);
+    });
+
+    test("rsync 23 on sockets: a socket in a backed-up folder is skipped without warning", async () => {
+      await withTempDir(async (dir) => {
+        const source = path.join(dir, "s");
+        writeFile(path.join(source, "data.txt"), 1);
+        const sock = path.join(source, "dev.sock");
+        const server = createServer();
+        await new Promise<void>((resolve) => server.listen(sock, resolve));
+        try {
+          const binary = await detectRsync();
+          const dest = path.join(dir, "d");
+          const args = rsyncArgs(binary, { source, dest, linkDest: null, dryRun: false }, {});
+          const r = await promisify(execFile)(binary.path, args).then(
+            () => 0,
+            (e: { code?: number }) => e.code ?? -1,
+          );
+          expect(r).toBe(0);
+          expect(existsSync(path.join(dest, "data.txt"))).toBe(true);
+          expect(existsSync(path.join(dest, "dev.sock"))).toBe(false);
+        } finally {
+          await new Promise<void>((resolve) => server.close(() => resolve()));
+        }
+      });
     });
   });
 });

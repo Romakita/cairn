@@ -19,6 +19,14 @@ export const GNU_RSYNC = "/opt/homebrew/bin/rsync";
 export const SYSTEM_RSYNC = "/usr/bin/rsync";
 export const PARTIAL_DIR = ".cairn-partial";
 
+/**
+ * `-a` sans `-D` : ni fichiers spéciaux (sockets, FIFO) ni périphériques. Les sockets laissés par les serveurs de dev
+ * et les agents ne contiennent aucune donnée et ne peuvent pas être recréés sur la destination (`mkstempsock: Invalid
+ * argument`, code rsync 23) : les copier ne faisait qu'afficher un avertissement à chaque sauvegarde. Accepté par rsync
+ * GNU et par openrsync, contrairement à `--no-specials`.
+ */
+export const ARCHIVE = "-rlptgo";
+
 /** Binaire rsync : GNU (Homebrew, liens physiques gardés avec `-H`) sinon openrsync de macOS. */
 export interface RsyncBinary {
   path: string;
@@ -117,7 +125,7 @@ export function rsyncArgs(
   },
   files: RsyncFiles,
 ): string[] {
-  const args = ["-a", "--out-format=%i|%n", `--partial-dir=${PARTIAL_DIR}`, "--delete"];
+  const args = [ARCHIVE, "--out-format=%i|%n", `--partial-dir=${PARTIAL_DIR}`, "--delete"];
   if (r.deleteExcluded ?? true) args.push("--delete-excluded");
   if (binary.gnu) args.splice(1, 0, "-H");
   if (r.dryRun) args.push("-n");
@@ -249,7 +257,7 @@ export async function runRsync(request: RsyncRequest, run: RsyncRun): Promise<Rs
       await writeFile(list, `${recopy.map((p) => `/${p}`).join("\n")}\n`, "utf8");
       if (!dryRun) {
         await mkdir(dest, { recursive: true });
-        await start(run.binary.path, ["-a", `--files-from=${list}`, `${part.source}/`, `${dest}/`], {
+        await start(run.binary.path, [ARCHIVE, `--files-from=${list}`, `${part.source}/`, `${dest}/`], {
           group: run.group,
           stderr: "ignore",
           captureStdout: false,

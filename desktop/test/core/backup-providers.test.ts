@@ -65,7 +65,7 @@ describe("backup-providers", () => {
           { excludeFrom: "/tmp/c/exclude.txt" },
         ),
       ).toEqual([
-        "-a",
+        "-rlptgo",
         "--out-format=%i|%n",
         "--partial-dir=.cairn-partial",
         "--delete",
@@ -91,7 +91,7 @@ describe("backup-providers", () => {
           { excludeFrom: "/t/exclude.txt", filesFrom: "/t/files.txt" },
         ),
       ).toEqual([
-        "-a",
+        "-rlptgo",
         "-H",
         "--out-format=%i|%n",
         "--partial-dir=.cairn-partial",
