@@ -57,11 +57,16 @@ export async function mountPointsFromPlist(plist: string): Promise<string[]> {
   }
 }
 
+/** Réponse EAGAIN de hdiutil, en anglais ou en français (il répond parfois dans la langue du Mac malgré LC_ALL). */
+function isBusy(output: string): boolean {
+  return ["Resource temporarily unavailable", "Ressources temporairement indisponibles"].some((b) =>
+    output.includes(b),
+  );
+}
+
 /** Erreur d'un `hdiutil attach` raté. EAGAIN : le verrou de l'image est tenu par un autre processus. */
 export function attachFailure(output: string, imagePath: string): ProviderError {
-  // hdiutil répond parfois dans la langue du Mac malgré LC_ALL : message anglais et français.
-  const busy = ["Resource temporarily unavailable", "Ressources temporairement indisponibles"];
-  if (busy.some((b) => output.includes(b))) return ProviderError.imageBusy(imagePath);
+  if (isBusy(output)) return ProviderError.imageBusy(imagePath);
   return ProviderError.image(output.trim());
 }
 
@@ -97,7 +102,13 @@ export interface ImageCheck {
 export interface SparseImageOptions {
   secrets: BackupSecrets;
   hdiutil?: HdiutilRunner;
+  /** Attente entre deux essais de `verify` (tests : sans attente). */
+  wait?: (ms: number) => Promise<void>;
 }
+
+/** Essais de `verify` tant que l'image est encore verrouillée, et attente avant le n-ième nouvel essai (n × 2 s). */
+const VERIFY_ATTEMPTS = 5;
+const VERIFY_RETRY_MS = 2000;
 
 export class SparseImage {
   readonly path: string;
@@ -107,6 +118,7 @@ export class SparseImage {
   private mountPoint: string | null = null;
   private readonly hdiutil: HdiutilRunner;
   private readonly secrets: BackupSecrets;
+  private readonly wait: (ms: number) => Promise<void>;
 
   private constructor(
     imagePath: string,
@@ -120,6 +132,7 @@ export class SparseImage {
     this.machine = machine;
     this.hdiutil = options.hdiutil ?? runHdiutil;
     this.secrets = options.secrets;
+    this.wait = options.wait ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
   }
 
   /** Image de cette machine sur la destination : `<racine>/cairn-<machine>.sparsebundle`. */
@@ -211,6 +224,8 @@ export class SparseImage {
   /**
    * Contrôle de l'image avec `hdiutil verify` (image détachée). Un sparsebundle n'a pas de somme de contrôle globale :
    * « has no checksum » veut dire que l'image s'ouvre et compte comme réussi ; toute autre erreur est un échec.
+   * Juste après `detach`, le verrou de l'image peut encore être tenu quelques secondes (EAGAIN, surtout sur un
+   * partage SMB) : le contrôle est alors relancé, jusqu'à `VERIFY_ATTEMPTS` fois.
    */
   async verify(provided?: string | null): Promise<ImageCheck> {
     const args = ["verify", this.path];
@@ -220,9 +235,15 @@ export class SparseImage {
       if (pw === null) return { ok: false, output: ProviderError.missingImagePassword(this.path).message };
       args.splice(1, 0, "-stdinpass");
     }
-    const r = await this.hdiutil(args, pw ?? undefined);
-    const text = r.output.trim();
-    return { ok: r.code === 0 || text.includes("has no checksum"), output: text };
+    for (let attempt = 1; ; attempt++) {
+      const r = await this.hdiutil(args, pw ?? undefined);
+      const text = r.output.trim();
+      if (r.code !== 0 && isBusy(text) && attempt < VERIFY_ATTEMPTS) {
+        await this.wait(VERIFY_RETRY_MS * attempt);
+        continue;
+      }
+      return { ok: r.code === 0 || text.includes("has no checksum"), output: text };
+    }
   }
 
   /** Récupère l'espace libéré par la rétention. */

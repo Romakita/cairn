@@ -14,11 +14,12 @@ import {
 import path from "node:path";
 import { promisify } from "node:util";
 import { BackupEngine } from "../../src/core/backup/engine.ts";
-import { attachFailure } from "../../src/core/backup/image.ts";
+import { attachFailure, SparseImage } from "../../src/core/backup/image.ts";
 import { readChecksums, writeChecksums } from "../../src/core/backup/integrity.ts";
 import type { DestinationProgress } from "../../src/core/backup/progress.ts";
 import { BackupService } from "../../src/core/backup/run.ts";
 import { destinationState, loadRunState, updateRunState } from "../../src/core/backup/run-state.ts";
+import { MemorySecrets } from "../../src/core/backup/secrets.ts";
 import { backupPart } from "../../src/core/backup/types.ts";
 import { INCOMPLETE_PREFIX, listVersions, versionName, versionsDir } from "../../src/core/backup/versions.ts";
 import { RECOMMENDED_RETENTION } from "../../src/core/config.ts";
@@ -507,6 +508,47 @@ describe.skipIf(!native)("regressions: backup", () => {
         const text = readFileSync(path.resolve(import.meta.dir, "../../src/core/backup", f), "utf8");
         expect(text).not.toMatch(/from "electron"|Notification\(/);
       }
+    });
+  });
+
+  describe("contrôle de l'image et fichiers spéciaux", () => {
+    const BUSY =
+      'hdiutil: verify: unable to recognize "/n/cairn-m.sparsebundle" as a disk image. (Ressources temporairement indisponibles)';
+
+    test("image check failed right after detach: verify is retried while the image is still locked", async () => {
+      const replies = [BUSY, BUSY, 'hdiutil: verify: checksum of "x" failed: image has no checksum'];
+      const calls: string[][] = [];
+      const waits: number[] = [];
+      const img = SparseImage.forMachine("/n", "main", false, "m", {
+        secrets: new MemorySecrets(),
+        hdiutil: async (args) => {
+          calls.push([...args]);
+          return { code: 1, output: replies[calls.length - 1] ?? BUSY };
+        },
+        wait: async (ms) => {
+          waits.push(ms);
+        },
+      });
+      const check = await img.verify();
+      expect(check.ok).toBe(true);
+      expect(calls).toHaveLength(3);
+      expect(waits).toEqual([2000, 4000]);
+    });
+
+    test("image check failed right after detach: a lock that never clears still fails, after 5 tries", async () => {
+      let tries = 0;
+      const img = SparseImage.forMachine("/n", "main", false, "m", {
+        secrets: new MemorySecrets(),
+        hdiutil: async () => {
+          tries++;
+          return { code: 1, output: BUSY };
+        },
+        wait: async () => {},
+      });
+      const check = await img.verify();
+      expect(check.ok).toBe(false);
+      expect(check.output).toContain("Ressources temporairement indisponibles");
+      expect(tries).toBe(5);
     });
   });
 });
