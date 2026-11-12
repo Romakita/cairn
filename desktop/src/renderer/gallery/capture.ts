@@ -52,8 +52,15 @@ export async function showAndMeasure(hash: string, selector: string): Promise<Ca
     await wait(10);
   }
   await document.fonts.ready;
-  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-  await wait(450);
+  const frames = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  await frames();
+  // Fin des animations et transitions qui en ont une (un indicateur d'activité tourne sans fin), au plus 1 s : une
+  // pause fixe par image rendait l'export de la galerie trop lent.
+  const finite = document
+    .getAnimations()
+    .filter((a) => Number.isFinite(Number(a.effect?.getComputedTiming().endTime ?? Number.POSITIVE_INFINITY)));
+  await Promise.race([Promise.all(finite.map((a) => a.finished.catch(() => undefined))), wait(1000)]);
+  await frames();
   const el = document.querySelector(selector);
   if (!el) throw new Error(`introuvable : ${selector}`);
   const r = el.getBoundingClientRect();
