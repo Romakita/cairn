@@ -47,8 +47,10 @@ export function wrappedRsync(dir: string): {
   writeFileSync(
     script,
     `#!/bin/sh
-printf '%s\\t' "$@" >> '${log}'
-printf '\\n' >> '${log}'
+# Une seule écriture par appel : les rsync -n du comptage tournent en même temps que la copie, deux printf
+# séparés s'entrelaceraient sur une même ligne.
+line=$(printf '%s\\t' "$@")
+printf '%s\\n' "$line" >> '${log}'
 if [ -f '${fail}' ]; then
   i=1
   while [ $i -le 25 ]; do echo "rsync: error line $i" >&2; i=$((i+1)); done
