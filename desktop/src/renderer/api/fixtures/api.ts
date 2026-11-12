@@ -489,6 +489,9 @@ export function createFixtureApi(options: FixtureOptions): FixtureApi {
           removedWorktrees,
           failures: [],
           cleanedRepos: args.selections.map((x) => x.repo),
+          deletedBranchesByRepo: Object.fromEntries(
+            args.selections.filter((x) => x.branches.length > 0).map((x) => [x.repo, x.branches]),
+          ),
         },
       };
     },

@@ -87,6 +87,8 @@ export async function applyRepo(
 export interface CleanupResult extends ApplyResult {
   /** Dépôts où quelque chose a été supprimé (donc compactés). */
   cleanedRepos: string[];
+  /** Branches supprimées par dépôt : deux dépôts peuvent avoir une branche du même nom. */
+  deletedBranchesByRepo: Record<string, string[]>;
 }
 
 /**
@@ -100,7 +102,13 @@ export function applyCleanup(
   options: GitOptions,
 ): Promise<CleanupResult> {
   return withOperationLock(paths, "git-clean", async () => {
-    const total: CleanupResult = { deletedBranches: [], removedWorktrees: [], failures: [], cleanedRepos: [] };
+    const total: CleanupResult = {
+      deletedBranches: [],
+      removedWorktrees: [],
+      failures: [],
+      cleanedRepos: [],
+      deletedBranchesByRepo: {},
+    };
     for (const p of plans) {
       if (p.branches.length === 0 && p.worktrees.length === 0) continue;
       const expected: Record<string, string> = {};
@@ -113,6 +121,7 @@ export function applyCleanup(
         expected,
       );
       total.deletedBranches.push(...r.deletedBranches);
+      if (r.deletedBranches.length > 0) total.deletedBranchesByRepo[p.report.path] = r.deletedBranches;
       total.removedWorktrees.push(...r.removedWorktrees);
       total.failures.push(...r.failures);
       if (r.deletedBranches.length + r.removedWorktrees.length > 0) total.cleanedRepos.push(p.report.path);
