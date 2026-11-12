@@ -17,7 +17,7 @@ export const keychainSecrets: BackupSecrets = {
     return genericPassword(imagePasswordService(destinationId), machine);
   },
   async setImagePassword(destinationId, machine, password) {
-    setGenericPassword(password, imagePasswordService(destinationId), machine);
+    await setGenericPassword(password, imagePasswordService(destinationId), machine);
   },
   async internetPassword(server, account) {
     return internetPassword(server, account);

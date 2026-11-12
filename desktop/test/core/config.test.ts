@@ -53,13 +53,13 @@ function fakeKeychain() {
   const generic = new Map<string, { password: string; label: string }>();
   const internet = new Map<string, string>();
   const fake: Partial<NativeBinding> = {
-    keychainGetGeneric: (q) => generic.get(`${q.service}\0${q.account}`)?.password ?? null,
-    keychainSetGeneric: (q, password, label) => {
+    keychainGetGeneric: async (q) => generic.get(`${q.service}\0${q.account}`)?.password ?? null,
+    keychainSetGeneric: async (q, password, label) => {
       const id = `${q.service}\0${q.account}`;
       generic.set(id, { password, label: generic.get(id)?.label ?? label });
     },
-    keychainGetInternet: (q) => internet.get(`${q.server}\0${q.account}\0${q.protocol}`) ?? null,
-    keychainSetInternet: (q, password) => {
+    keychainGetInternet: async (q) => internet.get(`${q.server}\0${q.account}\0${q.protocol}`) ?? null,
+    keychainSetInternet: async (q, password) => {
       internet.set(`${q.server}\0${q.account}\0${q.protocol}`, password);
     },
   };
@@ -225,10 +225,10 @@ describe("Config", () => {
     const { generic } = fakeKeychain();
     try {
       const service = `${KEYCHAIN_SERVICE_PREFIX}selftest-${crypto.randomUUID()}`;
-      setGenericPassword("s3cr3t-✓", service, "test");
-      expect(genericPassword(service, "test")).toBe("s3cr3t-✓");
-      setGenericPassword("autre", service, "test");
-      expect(genericPassword(service, "test")).toBe("autre");
+      await setGenericPassword("s3cr3t-✓", service, "test");
+      expect(await genericPassword(service, "test")).toBe("s3cr3t-✓");
+      await setGenericPassword("autre", service, "test");
+      expect(await genericPassword(service, "test")).toBe("autre");
       expect(generic.get(`${service}\0test`)?.label).toBe(`Cairn — ${service}`);
       const c = defaultConfig();
       c.destinations = [destination("nas", "smb", { url: "smb://nas/b", keychain: "nas" })];
@@ -254,14 +254,14 @@ describe("Config", () => {
       expect(await imagePassword("main", "Autre-Mac")).toBeNull();
 
       const nas = destination("nas", "smb", { url: "smb://nas.local/backups", username: "romain", keychain: "old" });
-      expect(smbPassword(nas)).toBeNull();
-      expect(setSmbPassword(nas, "secret")).toBe(true);
+      expect(await smbPassword(nas)).toBeNull();
+      expect(await setSmbPassword(nas, "secret")).toBe(true);
       expect(internet.get("nas.local\0romain\0smb")).toBe("secret");
-      expect(smbPassword(nas)).toBe("secret");
+      expect(await smbPassword(nas)).toBe("secret");
       // Sans `username` : l'utilisateur courant.
       internet.set(`nas.local\0${os.userInfo().username}\0smb`, "finder");
-      expect(smbPassword(destination("n2", "smb", { url: "smb://nas.local/x" }))).toBe("finder");
-      expect(setSmbPassword(destination("n3", "smb", { url: "pas une url" }), "x")).toBe(false);
+      expect(await smbPassword(destination("n2", "smb", { url: "smb://nas.local/x" }))).toBe("finder");
+      expect(await setSmbPassword(destination("n3", "smb", { url: "pas une url" }), "x")).toBe(false);
     } finally {
       setMachineName(null);
       setNative(null);
