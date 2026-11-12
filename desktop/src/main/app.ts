@@ -663,7 +663,7 @@ export class CairnApp implements Host {
         const smb = config.destinations.find((d) => d.provider === "smb");
         if (smb && args.password) {
           try {
-            setSmbPassword(smb, args.password);
+            await setSmbPassword(smb, args.password);
           } catch (error) {
             this.message("warning", errorMessage(error));
           }

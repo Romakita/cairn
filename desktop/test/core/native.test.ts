@@ -21,34 +21,35 @@ function security(...args: string[]) {
 
 describe.skipIf(!available)("native", () => {
   afterAll(() => {
-    security("delete-generic-password", "-s", service);
+    security("delete-generic-password", "-s", service, "-a", "tester");
+    security("delete-generic-password", "-s", service, "-a", "async");
     security("delete-generic-password", "-s", cliService);
     security("delete-internet-password", "-s", server, "-a", "u1");
     security("delete-internet-password", "-s", server, "-a", "u2");
   });
 
-  test("generic password: absent, added, updated", () => {
+  test("generic password: absent, added, updated", async () => {
     const q = { service, account: "tester" };
-    expect(native().keychainGetGeneric(q)).toBeNull();
-    native().keychainSetGeneric(q, "first", `Cairn — ${service}`);
-    expect(native().keychainGetGeneric(q)).toBe("first");
-    native().keychainSetGeneric(q, "sécond ✓", `Cairn — ${service}`);
-    expect(native().keychainGetGeneric(q)).toBe("sécond ✓");
+    expect(await native().keychainGetGeneric(q)).toBeNull();
+    await native().keychainSetGeneric(q, "first", `Cairn — ${service}`);
+    expect(await native().keychainGetGeneric(q)).toBe("first");
+    await native().keychainSetGeneric(q, "sécond ✓", `Cairn — ${service}`);
+    expect(await native().keychainGetGeneric(q)).toBe("sécond ✓");
     // Une seule entrée, avec le libellé de l'ajout, lisible par les autres outils.
     const found = security("find-generic-password", "-s", service, "-a", "tester");
     expect(found.status).toBe(0);
     expect(found.stdout).toContain(`"svce"<blob>="${service}"`);
-    expect(native().keychainGetGeneric({ service, account: "other" })).toBeNull();
+    expect(await native().keychainGetGeneric({ service, account: "other" })).toBeNull();
   });
 
-  test("internet SMB password: absent, added, updated, with the SMB protocol", () => {
+  test("internet SMB password: absent, added, updated, with the SMB protocol", async () => {
     const q1 = { server, account: "u1", protocol: "smb" as const };
-    expect(native().keychainGetInternet(q1)).toBeNull();
-    native().keychainSetInternet(q1, "first");
-    expect(native().keychainGetInternet(q1)).toBe("first");
-    native().keychainSetInternet(q1, "updated");
-    expect(native().keychainGetInternet(q1)).toBe("updated");
-    expect(native().keychainGetInternet({ server, account: "u2", protocol: "smb" })).toBeNull();
+    expect(await native().keychainGetInternet(q1)).toBeNull();
+    await native().keychainSetInternet(q1, "first");
+    expect(await native().keychainGetInternet(q1)).toBe("first");
+    await native().keychainSetInternet(q1, "updated");
+    expect(await native().keychainGetInternet(q1)).toBe("updated");
+    expect(await native().keychainGetInternet({ server, account: "u2", protocol: "smb" })).toBeNull();
     // Attributs seulement (sans -w) : aucune demande d'autorisation.
     const found = security("find-internet-password", "-s", server, "-a", "u1");
     expect(found.stdout).toContain('"ptcl"<uint32>="smb "');
@@ -59,7 +60,7 @@ describe.skipIf(!available)("native", () => {
   // CAIRN_TEST_KEYCHAIN_INTEROP=1 bun test test/core/native.test.ts (puis « Autoriser »).
   test.skipIf(!process.env.CAIRN_TEST_KEYCHAIN_INTEROP)(
     "entries written by another program (0.8.0, Finder) are read and updated",
-    () => {
+    async () => {
       const add = security(
         "add-generic-password",
         "-s",
@@ -72,16 +73,27 @@ describe.skipIf(!available)("native", () => {
         "from-cli",
       );
       expect(add.status).toBe(0);
-      expect(native().keychainGetGeneric({ service: cliService, account: "machine" })).toBe("from-cli");
+      expect(await native().keychainGetGeneric({ service: cliService, account: "machine" })).toBe("from-cli");
       const inet = security("add-internet-password", "-s", server, "-a", "u2", "-r", "smb ", "-w", "finder");
       expect(inet.status).toBe(0);
       const q2 = { server, account: "u2", protocol: "smb" as const };
-      expect(native().keychainGetInternet(q2)).toBe("finder");
-      native().keychainSetInternet(q2, "updated");
-      expect(native().keychainGetInternet(q2)).toBe("updated");
+      expect(await native().keychainGetInternet(q2)).toBe("finder");
+      await native().keychainSetInternet(q2, "updated");
+      expect(await native().keychainGetInternet(q2)).toBe("updated");
     },
     300_000,
   );
+
+  test("keychain calls answer with a Promise: the main thread never waits for an unlock prompt", async () => {
+    const q = { service, account: "async" };
+    const pending = native().keychainGetGeneric(q);
+    expect(pending).toBeInstanceOf(Promise);
+    expect(await pending).toBeNull();
+    const write = native().keychainSetGeneric(q, "x", `Cairn — ${service}`);
+    expect(write).toBeInstanceOf(Promise);
+    await write;
+    expect(await native().keychainGetGeneric(q)).toBe("x");
+  });
 
   test("keychain arguments are validated", () => {
     expect(() => native().keychainGetGeneric({ service: 1 } as never)).toThrow(TypeError);

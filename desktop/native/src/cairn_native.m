@@ -1,7 +1,8 @@
 // Module natif de Cairn (N-API pur, ABI stable) : ce que Node ne sait pas faire sur macOS.
 // Contrat côté TypeScript : desktop/src/core/native.ts. Un seul binaire sert Bun (tests) et Electron.
 //
-// - Trousseau : mots de passe génériques et Internet (SMB), lecture, ajout, mise à jour. Jamais de suppression.
+// - Trousseau : mots de passe génériques et Internet (SMB), lecture, ajout, mise à jour (fil de fond, Promise).
+//   Jamais de suppression.
 // - NetFS : montage SMB souple et sans interface (`NetFSMountURLSync` sur un fil de fond, Promise).
 // - flock : exclusif non bloquant, exclusif bloquant (fil de fond, Promise), libération.
 // - Espace libre « pour usage important » d'un volume (inclut le purgeable APFS).
@@ -124,37 +125,102 @@ static napi_value js_undefined(napi_env env) {
 }
 
 // MARK: - Trousseau
+//
+// Lecture et écriture sur un fil de fond (Promise) : `SecItemCopyMatching` peut attendre le déverrouillage du
+// Trousseau ou une autorisation de l'utilisateur, et ne doit jamais bloquer la boucle d'événements d'Electron.
 
-/** Mot de passe de l'entrée `query`, `null` si elle n'existe pas ; erreur (`code` = OSStatus) sinon. */
-static napi_value keychain_get(napi_env env, NSMutableDictionary *query) {
-  query[(__bridge id)kSecReturnData] = @YES;
-  query[(__bridge id)kSecMatchLimit] = (__bridge id)kSecMatchLimitOne;
-  CFTypeRef out = NULL;
-  OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, &out);
-  if (status == errSecItemNotFound) return js_null(env);
-  if (status != errSecSuccess) return throw_code(env, "Keychain read failed", status);
-  NSData *data = CFBridgingRelease(out);
-  if (![data isKindOfClass:[NSData class]]) return js_null(env);
-  napi_value result;
-  CHECK(napi_create_string_utf8(env, data.bytes, data.length, &result));
-  return result;
+typedef enum { KEYCHAIN_GET, KEYCHAIN_SET } KeychainOp;
+
+typedef struct {
+  napi_async_work work;
+  napi_deferred deferred;
+  KeychainOp op;
+  CFDictionaryRef query;  // retenu (CFBridgingRetain)
+  CFDataRef password;     // KEYCHAIN_SET
+  CFDictionaryRef extra;  // KEYCHAIN_SET : attributs ajoutés à la création
+  OSStatus status;
+  const char *failure;    // message d'erreur (chaîne statique)
+  CFDataRef out;          // KEYCHAIN_GET : mot de passe lu
+} KeychainJob;
+
+static void keychain_execute(napi_env env, void *data) {
+  (void)env;
+  KeychainJob *job = data;
+  @autoreleasepool {
+    NSDictionary *query = (__bridge NSDictionary *)job->query;
+    if (job->op == KEYCHAIN_GET) {
+      NSMutableDictionary *q = [query mutableCopy];
+      q[(__bridge id)kSecReturnData] = @YES;
+      q[(__bridge id)kSecMatchLimit] = (__bridge id)kSecMatchLimitOne;
+      CFTypeRef out = NULL;
+      job->status = SecItemCopyMatching((__bridge CFDictionaryRef)q, &out);
+      job->failure = "Keychain read failed";
+      if (job->status == errSecSuccess && out && CFGetTypeID(out) == CFDataGetTypeID()) {
+        job->out = (CFDataRef)out;
+      } else if (out) {
+        CFRelease(out);
+      }
+      return;
+    }
+    // Met à jour l'entrée, ou l'ajoute (avec `extra`) si elle n'existe pas. Ne supprime jamais rien.
+    NSData *password = (__bridge NSData *)job->password;
+    NSDictionary *update = @{(__bridge id)kSecValueData : password};
+    job->status = SecItemUpdate((__bridge CFDictionaryRef)query, (__bridge CFDictionaryRef)update);
+    job->failure = "Keychain update failed";
+    if (job->status == errSecItemNotFound) {
+      NSMutableDictionary *add = [query mutableCopy];
+      [add addEntriesFromDictionary:(__bridge NSDictionary *)job->extra];
+      add[(__bridge id)kSecValueData] = password;
+      job->status = SecItemAdd((__bridge CFDictionaryRef)add, NULL);
+      job->failure = "Keychain add failed";
+    }
+  }
 }
 
-/** Met à jour l'entrée `query`, ou l'ajoute (avec `extra`) si elle n'existe pas. Ne supprime jamais rien. */
-static napi_value keychain_set(napi_env env, NSDictionary *query, NSString *password, NSDictionary *extra) {
-  NSData *data = [password dataUsingEncoding:NSUTF8StringEncoding];
-  NSDictionary *update = @{(__bridge id)kSecValueData : data};
-  OSStatus status = SecItemUpdate((__bridge CFDictionaryRef)query, (__bridge CFDictionaryRef)update);
-  if (status == errSecItemNotFound) {
-    NSMutableDictionary *add = [query mutableCopy];
-    [add addEntriesFromDictionary:extra];
-    add[(__bridge id)kSecValueData] = data;
-    status = SecItemAdd((__bridge CFDictionaryRef)add, NULL);
-    if (status != errSecSuccess) return throw_code(env, "Keychain add failed", status);
-  } else if (status != errSecSuccess) {
-    return throw_code(env, "Keychain update failed", status);
+static void keychain_complete(napi_env env, napi_status napi_st, void *data) {
+  KeychainJob *job = data;
+  napi_value result;
+  if (napi_st != napi_ok) {
+    napi_reject_deferred(env, job->deferred, make_error(env, "Keychain operation cancelled", EINTR));
+  } else if (job->op == KEYCHAIN_GET && job->status == errSecItemNotFound) {
+    napi_resolve_deferred(env, job->deferred, js_null(env));
+  } else if (job->status != errSecSuccess) {
+    napi_reject_deferred(env, job->deferred, make_error(env, job->failure, job->status));
+  } else if (job->op == KEYCHAIN_GET) {
+    if (job->out) {
+      napi_create_string_utf8(env, (const char *)CFDataGetBytePtr(job->out), (size_t)CFDataGetLength(job->out),
+                              &result);
+      napi_resolve_deferred(env, job->deferred, result);
+    } else {
+      napi_resolve_deferred(env, job->deferred, js_null(env));
+    }
+  } else {
+    napi_resolve_deferred(env, job->deferred, js_undefined(env));
   }
-  return js_undefined(env);
+  napi_delete_async_work(env, job->work);
+  if (job->query) CFRelease(job->query);
+  if (job->password) CFRelease(job->password);
+  if (job->extra) CFRelease(job->extra);
+  if (job->out) CFRelease(job->out);
+  free(job);
+}
+
+/** Lance l'opération sur un fil de fond ; rend la Promise (mot de passe ou `null` pour une lecture). */
+static napi_value keychain_queue(napi_env env, KeychainOp op, NSDictionary *query, NSString *password,
+                                 NSDictionary *extra) {
+  KeychainJob *job = calloc(1, sizeof *job);
+  if (!job) return throw_code(env, "out of memory", ENOMEM);
+  job->op = op;
+  job->query = (CFDictionaryRef)CFBridgingRetain([query copy]);
+  if (password) job->password = (CFDataRef)CFBridgingRetain([password dataUsingEncoding:NSUTF8StringEncoding]);
+  if (extra) job->extra = (CFDictionaryRef)CFBridgingRetain([extra copy]);
+  napi_value promise, name;
+  napi_create_promise(env, &job->deferred, &promise);
+  napi_create_string_utf8(env, op == KEYCHAIN_GET ? "cairn.keychainGet" : "cairn.keychainSet", NAPI_AUTO_LENGTH,
+                          &name);
+  napi_create_async_work(env, NULL, name, keychain_execute, keychain_complete, job, &job->work);
+  napi_queue_async_work(env, job->work);
+  return promise;
 }
 
 static NSMutableDictionary *generic_query(napi_env env, napi_value obj) {
@@ -196,7 +262,7 @@ static napi_value KeychainGetGeneric(napi_env env, napi_callback_info info) {
     if (argc < 1) return throw_code(env, "missing query", EINVAL);
     NSMutableDictionary *query = generic_query(env, argv[0]);
     if (!query) return NULL;
-    return keychain_get(env, query);
+    return keychain_queue(env, KEYCHAIN_GET, query, nil, nil);
   }
 }
 
@@ -212,7 +278,7 @@ static napi_value KeychainSetGeneric(napi_env env, napi_callback_info info) {
     if (!password) return NULL;
     NSString *label = string_arg(env, argv[2], "label");
     if (!label) return NULL;
-    return keychain_set(env, query, password, @{(__bridge id)kSecAttrLabel : label});
+    return keychain_queue(env, KEYCHAIN_SET, query, password, @{(__bridge id)kSecAttrLabel : label});
   }
 }
 
@@ -224,7 +290,7 @@ static napi_value KeychainGetInternet(napi_env env, napi_callback_info info) {
     if (argc < 1) return throw_code(env, "missing query", EINVAL);
     NSMutableDictionary *query = internet_query(env, argv[0]);
     if (!query) return NULL;
-    return keychain_get(env, query);
+    return keychain_queue(env, KEYCHAIN_GET, query, nil, nil);
   }
 }
 
@@ -238,7 +304,7 @@ static napi_value KeychainSetInternet(napi_env env, napi_callback_info info) {
     if (!query) return NULL;
     NSString *password = string_arg(env, argv[1], "password");
     if (!password) return NULL;
-    return keychain_set(env, query, password, @{});
+    return keychain_queue(env, KEYCHAIN_SET, query, password, @{});
   }
 }
 

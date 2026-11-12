@@ -31,10 +31,10 @@ export function updatingConnection(original: DestinationConfig, edited: Destinat
 }
 
 /** Range le mot de passe d'un NAS (injectable : jamais le vrai Trousseau en test). */
-export type SMBPasswordWriter = (d: DestinationConfig, password: string) => void;
+export type SMBPasswordWriter = (d: DestinationConfig, password: string) => void | Promise<void>;
 
-const writeKeychain: SMBPasswordWriter = (d, password) => {
-  setSmbPassword(d, password);
+const writeKeychain: SMBPasswordWriter = async (d, password) => {
+  await setSmbPassword(d, password);
 };
 
 export interface SavedDestination {
@@ -47,10 +47,10 @@ async function currentConfig(store: ConfigStore): Promise<CairnConfig> {
   return (await store.exists()) ? (await store.load()).config : defaultConfig();
 }
 
-function storePassword(d: DestinationConfig, password: string, write: SMBPasswordWriter): string | null {
+async function storePassword(d: DestinationConfig, password: string, write: SMBPasswordWriter): Promise<string | null> {
   if (d.provider !== "smb" || password === "") return null;
   try {
-    write(d, password);
+    await write(d, password);
     return null;
   } catch (error) {
     return error instanceof Error ? error.message : String(error);
@@ -75,7 +75,7 @@ export async function saveNewDestination(
   const d: DestinationConfig = { ...verified, id };
   config.destinations.push(d);
   await store.save(config);
-  return { destination: d, keychainError: storePassword(d, password, writePassword) };
+  return { destination: d, keychainError: await storePassword(d, password, writePassword) };
 }
 
 /**
@@ -95,5 +95,5 @@ export async function saveEditedDestination(
   const d = updatingConnection(config.destinations[index]!, edited);
   config.destinations[index] = d;
   await store.save(config);
-  return { destination: d, keychainError: storePassword(d, password, writePassword) };
+  return { destination: d, keychainError: await storePassword(d, password, writePassword) };
 }

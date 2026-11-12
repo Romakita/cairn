@@ -23,11 +23,11 @@ export interface MountResult {
 
 export interface NativeBinding {
   /** Mot de passe générique, ou `null` s'il n'existe pas. */
-  keychainGetGeneric(query: GenericPasswordQuery): string | null;
+  keychainGetGeneric(query: GenericPasswordQuery): Promise<string | null>;
   /** Ajoute ou met à jour un mot de passe générique ; `label` est le libellé affiché par Trousseaux. */
-  keychainSetGeneric(query: GenericPasswordQuery, password: string, label: string): void;
-  keychainGetInternet(query: InternetPasswordQuery): string | null;
-  keychainSetInternet(query: InternetPasswordQuery, password: string): void;
+  keychainSetGeneric(query: GenericPasswordQuery, password: string, label: string): Promise<void>;
+  keychainGetInternet(query: InternetPasswordQuery): Promise<string | null>;
+  keychainSetInternet(query: InternetPasswordQuery, password: string): Promise<void>;
 
   /**
    * Monte `smb://host/share` sans interface (montage souple). Rejette une erreur dont `code` est le code NetFS
