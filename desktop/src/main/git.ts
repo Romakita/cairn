@@ -142,9 +142,12 @@ export class GitService {
     this.host.changed();
     try {
       const result = await applyCleanup({ stateDir: this.host.paths.state }, plans, appDeletionOptions(this.options));
-      const names = new Set(result.deletedBranches);
+      // Branches retirées du seul dépôt où elles ont été supprimées (un même nom peut exister dans un autre dépôt).
       const paths = new Set(result.removedWorktrees);
-      this.reports = this.reports.map((r) => removing(r, names, paths));
+      const byRepo = result.deletedBranchesByRepo;
+      this.reports = this.reports.map((r) =>
+        removing(r, new Set(Object.hasOwn(byRepo, r.path) ? byRepo[r.path] : []), paths),
+      );
       // Remesure des seuls dépôts nettoyés (worktrees retirés : taille et dossier .git changent).
       const cleaned = new Set(result.cleanedRepos);
       this.reports = await Promise.all(

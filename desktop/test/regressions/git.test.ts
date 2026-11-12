@@ -164,6 +164,34 @@ describe("regressions: git", () => {
     30_000,
   );
 
+  test.skipIf(!lockable)(
+    "deleted branches are reported per repository: a same-named branch elsewhere stays listed",
+    async () => {
+      const dir = temp();
+      const a = repoWithLooseBranch(path.join(dir, "a"));
+      const b = repoWithLooseBranch(path.join(dir, "b"));
+      const report = await analyze(a.repo, defaultGitOptions(), defaultScannerDeps);
+      const branch = {
+        repo: a.repo,
+        name: "tmp",
+        status: "unmerged" as const,
+        sha: a.sha,
+        date: "",
+        subject: "",
+        checkedOutInWorktree: null,
+      };
+      const result = await applyCleanup(
+        { stateDir: path.join(dir, "state") },
+        [{ report, branches: [branch], worktrees: [] }],
+        appDeletionOptions(defaultGitOptions()),
+      );
+      expect(result.deletedBranchesByRepo).toEqual({ [a.repo]: ["tmp"] });
+      expect(Object.hasOwn(result.deletedBranchesByRepo, b.repo)).toBe(false);
+      expect(git(b.repo, "branch", "--list", "tmp").trim()).not.toBe("");
+    },
+    30_000,
+  );
+
   test("85501aa: the full check never fetches and ignores the only filter", () => {
     const c = defaultConfig();
     c.git.fetchBefore = true;
